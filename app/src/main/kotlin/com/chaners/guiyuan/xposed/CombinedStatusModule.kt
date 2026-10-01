@@ -3204,8 +3204,14 @@ class CombinedStatusModule : XposedModule() {
                 event = "runtimePreferences.bind",
                 component = "visualSettings",
                 state = "ready",
+                "layout" to settings.contentLayout.persistedValue,
                 "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
-                "centerFollowsBattery" to settings.centerFollowsBatteryColor,
+                "networkFollowsBattery" to settings.centerFollowsBatteryColor,
+                "batteryNumber" to settings.batteryTopReadoutEnabled,
+                "chargingIcon" to settings.batteryTopChargingIconEnabled,
+                "batteryNumberFollowsBattery" to settings.batteryTopTextFollowsBatteryColor,
+                "chargingIconFollowsBattery" to
+                    settings.batteryTopChargingIconFollowsBatteryColor,
                 "transport" to "remote-preferences",
             )
         }.onFailure { error ->
@@ -3232,8 +3238,14 @@ class CombinedStatusModule : XposedModule() {
                 event = "visualSettings.changed",
                 component = "renderer",
                 state = "ready",
+                "layout" to settings.contentLayout.persistedValue,
                 "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
-                "centerFollowsBattery" to settings.centerFollowsBatteryColor,
+                "networkFollowsBattery" to settings.centerFollowsBatteryColor,
+                "batteryNumber" to settings.batteryTopReadoutEnabled,
+                "chargingIcon" to settings.batteryTopChargingIconEnabled,
+                "batteryNumberFollowsBattery" to settings.batteryTopTextFollowsBatteryColor,
+                "chargingIconFollowsBattery" to
+                    settings.batteryTopChargingIconFollowsBatteryColor,
                 "eventDriven" to true,
             )
         }

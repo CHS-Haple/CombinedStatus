@@ -155,7 +155,7 @@ class CombinedStatusHomeRenderSessionTest {
     @Test
     fun topOverflowExpandsOnlyPhysicalSurfaceWithoutMovingLogicalViewport() {
         val resolved =
-            CombinedStatusHomeOverflowPolicy.resolve(
+            CombinedStatusVerticalOverflowPolicy.resolve(
                 logicalTopPx = 0,
                 logicalHeightPx = 108,
                 requestedTopOverflowPx = 18,
@@ -170,7 +170,7 @@ class CombinedStatusHomeRenderSessionTest {
     @Test
     fun noOverflowPreservesOriginalPhysicalBounds() {
         val resolved =
-            CombinedStatusHomeOverflowPolicy.resolve(
+            CombinedStatusVerticalOverflowPolicy.resolve(
                 logicalTopPx = 0,
                 logicalHeightPx = 108,
                 requestedTopOverflowPx = 0,

@@ -11,18 +11,18 @@ Guiyuan keeps four responsibilities separate:
 
 A value from one responsibility must not silently become the control value for another.
 
-## Current 0.0.2 Home contract
+## Current 0.0.3 Home contract
 
 The current work-branch Home path uses the existing native Home host rather than a permanent extra status participant:
 
-`MiuiNotificationStatusContainer / system_icon_area (HostSession) -> MiuiStatusBatteryContainer / system_icons.overlay (visual carrier) -> CombinedStatusHomeLayoutResolver -> Guiyuan renderer`
+`MiuiNotificationStatusContainer / system_icon_area (HostSession) -> MiuiStatusBatteryContainer / system_icons (native carrier) -> module-owned direct child -> logical viewport -> CombinedStatusHomeLayoutResolver -> Guiyuan renderer`
 
-Build 397 is the first device-accepted charging-carrier checkpoint for this route. Build 398 refines the carrier-width authority to the live `battery_icon_container`; Build 399 changes only battery-ring compositing and does not alter this layout contract.
+Build 397 is the first device-accepted charging-carrier checkpoint for this route. Build 398 refines the carrier-width authority to the live `battery_icon_container`. Build 536 device-validates the current render-surface contract: logical Home slot geometry remains unchanged while only the module-owned child may gain transparent top overflow.
 
 ### Ownership
 
 - HyperOS owns native Battery composition, Battery hide state, peer layout behavior, tint/scene facts and island/Folme motion.
-- Guiyuan owns its overlay drawing, resolved replacement-slot intent, temporary represented-slot exclusions, reversible visual masks and one conflict-detected status-icon end reservation.
+- Guiyuan owns its module-child drawing, logical viewport, transparent physical overflow, resolved replacement-slot intent, temporary represented-slot exclusions, reversible visual masks and one conflict-detected status-icon end reservation.
 - Native alpha, visibility, translation and Battery measured/layout width are not Guiyuan write properties.
 
 ## Render modes
@@ -31,13 +31,13 @@ Build 397 is the first device-accepted charging-carrier checkpoint for this rout
 
 Guiyuan renders against verified native host geometry while SystemUI remains authoritative for surrounding layout and motion.
 
-Home currently uses this mode. Build 424 places the visual inside the native `system_icons` carrier while keeping the outer `system_icon_area` as the HostSession/ancestor-motion boundary.
+Home currently uses this mode. Build 536 keeps the visual inside the native `system_icons` carrier as one module-owned direct child while keeping the outer `system_icon_area` as the HostSession/ancestor-motion boundary. The child has no native measurement authority; Guiyuan measures/layouts only that child after native layout.
 
 ### NATIVE_ONLY
 
 Guiyuan does not render on the surface. Native SystemUI content and motion remain authoritative.
 
-Notification Shade, keyguard and AOD currently use this mode. Control Center has a separately verified Build-420 projection path in the active Phase-2B branch; its longer-term transition carrier is under exact-target review and is not promoted here as a new settled layout contract.
+Notification Shade and AOD currently use this mode. Keyguard has a separate opt-in PROJECTED adapter, and Control Center has a separately verified bounded projection/transition path; neither transfers native peer layout or motion ownership to Guiyuan.
 
 ## Shared `ResolvedLayout` contract
 
@@ -123,7 +123,7 @@ Do not replace this with permanent `GONE`, alpha racing or translation writes me
 
 ## Home end-reservation contract
 
-The overlay itself does not consume native layout space. The current target therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary.
+The module-owned render child does not participate in native measurement. The current target therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary.
 
 Inputs:
 - requested replacement-slot width from `ResolvedLayout`;
@@ -153,9 +153,19 @@ Motion ownership is independent from layout size:
 - `SYSTEM_UI` — SystemUI owns positioning/transition motion;
 - `COMBINED_STATUS` — reserved for a future transition proven to be fully module-owned.
 
-Home island motion is `SYSTEM_UI`: the visual overlay lives in native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Guiyuan must not add a battery-translation follower, duplicate animator or custom timing curve.
+Home island motion is `SYSTEM_UI`: the module-owned visual child lives inside native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Guiyuan must not add a battery-translation follower, duplicate animator or custom timing curve.
 
 Phase 2B transition rendering must not reopen Home carrier ownership. Exact-target review establishes a narrower transition-only exception: once HyperOS has updated the role-5 QS_FAKE and role-6 final-QS Views for the current frame, Guiyuan may read their full transforms into a window-root overlay **only for Guiyuan-owned Trinity correspondence**. Native status-icon peers, network speed, fake/final block-list membership, appearance, tint and final-only icon entry remain SystemUI-owned. The transition source geometry must come from the real role-5 native carrier/Battery transform, never from an overlay child's local coordinates.
+
+## Logical viewport / physical overflow
+
+Build 536 separates visual drawing capacity from native slot geometry.
+
+- The logical viewport remains the verified replacement slot and is the only steady/transition source basis.
+- If current top-slot ink crosses logical y=0, Guiyuan may enlarge only its own child upward by the exact required transparent overflow.
+- The child is laid out so `physicalTop + logicalTopInset == logicalTop`; ring, center, mobile and transition source coordinates therefore do not move merely because extra pixels exist.
+- Physical overflow must never be converted into native slot height, status-bar height, peer padding, target geometry or motion.
+- Build 537 candidate applies the same policy to the separate opt-in Keyguard render child because its verified `mSystemIconsContainer` is also a `MiuiStatusBatteryContainer`. Keyguard session/tint/AOD ownership remains separate and requires device validation.
 
 ## Future size / spacing
 

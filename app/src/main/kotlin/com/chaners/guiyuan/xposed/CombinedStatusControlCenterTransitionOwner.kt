@@ -929,6 +929,24 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         currentSnapshot.colors.copy(
                             centerTint = tint,
                             mobileTint = tint,
+                            batteryTextTint =
+                                if (
+                                    currentSnapshot.visualSettings
+                                        .batteryTopTextFollowsBatteryColor
+                                ) {
+                                    currentSnapshot.colors.batteryTextTint
+                                } else {
+                                    tint
+                                },
+                            chargingIconTint =
+                                if (
+                                    currentSnapshot.visualSettings
+                                        .batteryTopChargingIconFollowsBatteryColor
+                                ) {
+                                    currentSnapshot.colors.chargingIconTint
+                                } else {
+                                    tint
+                                },
                         )
                     }
                     ?: currentSnapshot.colors
@@ -1032,6 +1050,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 targetWeight = witness?.textWeight,
                                 targetStyle = witness?.textStyle,
                                 progress = motionProgress,
+                                visualSettings = currentSnapshot.visualSettings,
                             ) ?: spec.sourceBounds
 
                         spec.component ==
@@ -1358,6 +1377,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 painter.transitionAirplaneSourceBounds(
                     width = sourceWidth,
                     height = sourceHeight,
+                    visualSettings = currentSnapshot.visualSettings,
                 ) ?: return null
             val sourceGeometry =
                 Policy.componentGeometry(
@@ -1409,6 +1429,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 height = sourceHeight,
                 tint = colors.centerTint,
                 opacity = 1f,
+                visualSettings = currentSnapshot.visualSettings,
             )
             canvas.restoreToCount(save)
             return "airplane-reveal:" + witness.summary
@@ -1442,6 +1463,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     width = sourceWidth,
                     height = sourceHeight,
                     resource = resource,
+                    visualSettings = currentSnapshot.visualSettings,
                 ) ?: return null
             val sourceGeometry =
                 Policy.componentGeometry(
@@ -1494,6 +1516,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 resource = resource,
                 tint = colors.centerTint,
                 opacity = 1f,
+                visualSettings = currentSnapshot.visualSettings,
             )
             canvas.restoreToCount(save)
             return "no-sim-reveal:" + witness.summary

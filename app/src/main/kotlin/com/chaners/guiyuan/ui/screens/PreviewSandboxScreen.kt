@@ -7,11 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.guiyuan.R
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.ui.components.CombinedStatusPreview
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
 import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
@@ -63,6 +65,14 @@ internal fun PreviewSandboxScreen(
         remember(context.applicationContext) {
             PreviewSystemUiResourceResolver(context.applicationContext)
         }
+    val visualRepository =
+        remember(context.applicationContext) {
+            CombinedStatusVisualSettingsRepository(context.applicationContext)
+        }
+    val visualSettings by
+        visualRepository.settings.collectAsState(
+            initial = visualRepository.current(),
+        )
     val renderModel = state.toRenderModel(resourceResolver)
 
     val networkModeOptions =
@@ -176,12 +186,16 @@ internal fun PreviewSandboxScreen(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
-                                    .height(130.dp),
+                                    .height(160.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CombinedStatusPreview(
                                 model = renderModel,
-                                modifier = Modifier.size(120.dp),
+                                visualSettings = visualSettings,
+                                modifier =
+                                    Modifier
+                                        .width(120.dp)
+                                        .height(152.dp),
                             )
                         }
                         PreviewStatusLine(

@@ -20,6 +20,28 @@ class PreviewSandboxPolicyTest {
         assertFalse(names.contains("stat_sys_wifi_signal_3"))
     }
 
+
+    @Test
+    fun previewChargingUsesNativeHollowBatteryResourceFamilies() {
+        assertEquals(
+            listOf(
+                "hollow_battery_meter_charging",
+                "tiny_battery_charging",
+            ),
+            previewChargingResourceNames(PreviewChargingState.CHARGING),
+        )
+        assertEquals(
+            listOf(
+                "hollow_battery_meter_quick_charging",
+                "tiny_battery_quick_charging",
+            ),
+            previewChargingResourceNames(PreviewChargingState.SUPER_FAST_CHARGING),
+        )
+        assertTrue(
+            previewChargingResourceNames(PreviewChargingState.NOT_CHARGING).isEmpty(),
+        )
+    }
+
     @Test
     fun noSimRemainsValidWithWifiSelected() {
         val state =

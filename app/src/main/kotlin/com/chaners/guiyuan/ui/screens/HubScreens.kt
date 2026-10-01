@@ -34,6 +34,7 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
+import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.settings.batteryTopChargingIconUiScale
@@ -83,13 +84,35 @@ internal fun FeaturesScreen(
         visualRepository.settings.collectAsState(
             initial = visualRepository.current(),
         )
+    val layoutOptions =
+        listOf(
+            stringResource(R.string.content_layout_network_center),
+            stringResource(R.string.content_layout_battery_center),
+        )
 
     HubPage(
         title = stringResource(R.string.features_title),
-        sectionTitle = stringResource(R.string.section_hyperos_display),
+        sectionTitle = stringResource(R.string.section_global),
         bottomContentPadding = bottomContentPadding,
-        secondarySectionTitle = stringResource(R.string.section_battery_top_readout),
+        secondarySectionTitle = stringResource(R.string.section_network),
         secondaryContent = {
+            SwitchPreference(
+                title = stringResource(R.string.mobile_follow_battery_color),
+                summary = stringResource(R.string.mobile_follow_battery_color_summary),
+                checked = visualSettings.mobileFollowsBatteryColor,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setMobileFollowsBatteryColor,
+            )
+            SwitchPreference(
+                title = stringResource(R.string.center_follow_battery_color),
+                summary = stringResource(R.string.center_follow_battery_color_summary),
+                checked = visualSettings.centerFollowsBatteryColor,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setCenterFollowsBatteryColor,
+            )
+        },
+        tertiarySectionTitle = stringResource(R.string.section_battery),
+        tertiaryContent = {
             SwitchPreference(
                 title = stringResource(R.string.battery_top_readout),
                 summary = stringResource(R.string.battery_top_readout_summary),
@@ -140,28 +163,23 @@ internal fun FeaturesScreen(
                     magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
-                val verticalOffsetUi =
-                    batteryTopVerticalOffsetUi(
-                        visualSettings.batteryTopVerticalOffset,
-                    )
-                SliderPreference(
-                    value = verticalOffsetUi,
-                    onValueChange = visualRepository::setBatteryTopVerticalOffset,
-                    title = stringResource(R.string.battery_top_vertical_offset),
-                    valueText =
-                        stringResource(
-                            R.string.battery_top_offset_value,
-                            verticalOffsetUi.roundToInt(),
-                        ),
-                    valueRange =
-                        BATTERY_TOP_VERTICAL_OFFSET_UI_MIN..
-                            BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
-                    steps = 19,
-                    showKeyPoints = true,
-                    keyPoints = listOf(0f),
-                    magnetThreshold = 0.035f,
+                SwitchPreference(
+                    title = stringResource(R.string.battery_text_follow_battery_color),
+                    summary = stringResource(R.string.battery_text_follow_battery_color_summary),
+                    checked = visualSettings.batteryTopTextFollowsBatteryColor,
                     enabled = featureSettings.enabled,
+                    onCheckedChange = visualRepository::setBatteryTopTextFollowsBatteryColor,
                 )
+            }
+
+            SwitchPreference(
+                title = stringResource(R.string.battery_charging_icon),
+                summary = stringResource(R.string.battery_charging_icon_summary),
+                checked = visualSettings.batteryTopChargingIconEnabled,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setBatteryTopChargingIconEnabled,
+            )
+            if (visualSettings.batteryTopChargingIconEnabled) {
                 val chargingIconUiScale =
                     batteryTopChargingIconUiScale(
                         visualSettings.batteryTopChargingIconScale,
@@ -184,24 +202,43 @@ internal fun FeaturesScreen(
                     magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
+                SwitchPreference(
+                    title = stringResource(R.string.charging_icon_follow_battery_color),
+                    summary = stringResource(R.string.charging_icon_follow_battery_color_summary),
+                    checked = visualSettings.batteryTopChargingIconFollowsBatteryColor,
+                    enabled = featureSettings.enabled,
+                    onCheckedChange =
+                        visualRepository::setBatteryTopChargingIconFollowsBatteryColor,
+                )
             }
-        },
-        tertiarySectionTitle = stringResource(R.string.section_color_linkage),
-        tertiaryContent = {
-            SwitchPreference(
-                title = stringResource(R.string.mobile_follow_battery_color),
-                summary = stringResource(R.string.mobile_follow_battery_color_summary),
-                checked = visualSettings.mobileFollowsBatteryColor,
-                enabled = featureSettings.enabled,
-                onCheckedChange = visualRepository::setMobileFollowsBatteryColor,
-            )
-            SwitchPreference(
-                title = stringResource(R.string.center_follow_battery_color),
-                summary = stringResource(R.string.center_follow_battery_color_summary),
-                checked = visualSettings.centerFollowsBatteryColor,
-                enabled = featureSettings.enabled,
-                onCheckedChange = visualRepository::setCenterFollowsBatteryColor,
-            )
+
+            if (
+                visualSettings.batteryTopReadoutEnabled ||
+                visualSettings.batteryTopChargingIconEnabled
+            ) {
+                val verticalOffsetUi =
+                    batteryTopVerticalOffsetUi(
+                        visualSettings.batteryTopVerticalOffset,
+                    )
+                SliderPreference(
+                    value = verticalOffsetUi,
+                    onValueChange = visualRepository::setBatteryTopVerticalOffset,
+                    title = stringResource(R.string.battery_content_vertical_offset),
+                    valueText =
+                        stringResource(
+                            R.string.battery_top_offset_value,
+                            verticalOffsetUi.roundToInt(),
+                        ),
+                    valueRange =
+                        BATTERY_TOP_VERTICAL_OFFSET_UI_MIN..
+                            BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
+                    steps = 19,
+                    showKeyPoints = true,
+                    keyPoints = listOf(0f),
+                    magnetThreshold = 0.035f,
+                    enabled = featureSettings.enabled,
+                )
+            }
         },
     ) {
         SwitchPreference(
@@ -211,8 +248,22 @@ internal fun FeaturesScreen(
             enabled = featureSettings.enabled,
             onCheckedChange = featureRepository::setKeyguardEnabled,
         )
+        OverlayDropdownPreference(
+            items = layoutOptions,
+            selectedIndex = visualSettings.contentLayout.ordinal,
+            title = stringResource(R.string.content_layout_title),
+            summary = stringResource(R.string.content_layout_summary),
+            showValue = true,
+            enabled = featureSettings.enabled,
+            onSelectedIndexChange = { index ->
+                CombinedStatusContentLayout.entries
+                    .getOrNull(index)
+                    ?.let(visualRepository::setContentLayout)
+            },
+        )
     }
 }
+
 @Composable
 internal fun SettingsHubScreen(
     bottomContentPadding: Dp,

@@ -62,6 +62,45 @@ class CombinedStatusVisualSettingsTest {
         assertEquals(13f, high.batteryTopVerticalOffset, 0.0001f)
         assertEquals(-7f, low.batteryTopVerticalOffset, 0.0001f)
     }
+
+
+    @Test
+    fun allNewVisualKeysParticipateInRuntimeSync() {
+        val keys =
+            listOf(
+                CONTENT_LAYOUT_KEY,
+                BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY,
+                BATTERY_TOP_CHARGING_ICON_ENABLED_KEY,
+                BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY,
+            )
+
+        keys.forEach { key ->
+            assertEquals(true, isCombinedStatusVisualPreferenceKey(key))
+        }
+    }
+
+    @Test
+    fun newBatteryVisualControlsKeepRequestedDefaults() {
+        val settings = CombinedStatusVisualSettings()
+
+        assertEquals(CombinedStatusContentLayout.NETWORK_CENTER, settings.contentLayout)
+        assertEquals(true, settings.batteryTopTextFollowsBatteryColor)
+        assertEquals(true, settings.batteryTopChargingIconEnabled)
+        assertEquals(true, settings.batteryTopChargingIconFollowsBatteryColor)
+    }
+
+    @Test
+    fun persistedLayoutFallsBackToNetworkCenter() {
+        assertEquals(
+            CombinedStatusContentLayout.NETWORK_CENTER,
+            CombinedStatusContentLayout.fromPersisted("unknown"),
+        )
+        assertEquals(
+            CombinedStatusContentLayout.BATTERY_CENTER,
+            CombinedStatusContentLayout.fromPersisted("battery_center"),
+        )
+    }
+
     @Test
     fun batteryTopScaleRangesAreFortyToOneHundredSixtyPercent() {
         assertEquals(0.4f, BATTERY_TOP_TEXT_UI_SCALE_MIN, 0.0001f)

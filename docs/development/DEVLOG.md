@@ -14227,3 +14227,100 @@ Automated coverage locks:
 - percentage and charging size UI ranges clamp to 40%-160%.
 
 Runtime CI is required. Exact-head signed Canary is required because Home render carrier ownership changes from overlay to a module-owned direct child. Device validation must cover steady placement, +Y movement, 160% charging/number bounds, island motion, Hot Reload, notification-shade/Home ownership, and Home -> Control Center transition continuity.
+
+
+## 2026-10-01 — Build 537: independent battery controls, semantic layout swap and sandbox parity
+
+**Type:** feature completion + UI/runtime contract review  
+**Display version:** 0.0.3  
+**Build / source:** 537 / `20261001-537` / `feat/battery-top-readout` / PR #181
+
+### Baseline
+
+Build 536 is maintainer device-accepted. The logical Home slot remains unchanged while a module-owned direct child may extend only its transparent physical surface upward; upward offset is visibly continuous and the 40%-160% percentage/lightning size ranges are accepted.
+
+### Problem / goal
+
+The Build-536 feature surface was still incomplete:
+- `batteryTopReadoutEnabled` controlled both percentage and charging glyph presentation;
+- percentage and charging glyph could not choose battery-ring color linkage independently;
+- user-facing text still described the network semantic as a position-dependent "center icon";
+- network status and battery information could not exchange steady positions;
+- Preview Sandbox did not consume the current VisualSettings and did not populate a charging-glyph resource, so recent features were absent from preview;
+- visual settings were decoded independently in the app repository, app-to-SystemUI remote mirror, and SystemUI runtime owner, creating a structural risk that new keys would be saved in UI but omitted from runtime transport.
+
+### Root cause
+
+The settings model mixed **semantic ownership** with **current position**.
+
+Battery percentage + charging glyph were treated as one top-readout feature, while the network semantic was named after its current center position. The painter likewise assumed battery information owns the top slot when calculating the ring gap.
+
+A separate review found persistence transport drift: three manually duplicated SharedPreferences mappings existed. The first implementation draft exposed the exact failure mode — new keys could reach the app/sandbox while SystemUI still read defaults.
+
+Preview had another independent ownership gap: it built the same render model but did not pass the saved `CombinedStatusVisualSettings`, and its charging simulation omitted `chargingIconResId`.
+
+### Change
+
+- Add persisted `CombinedStatusContentLayout`:
+  - `NETWORK_CENTER` — existing layout;
+  - `BATTERY_CENTER` — network semantic uses the top slot and battery information uses the center.
+- Narrow `batteryTopReadoutEnabled` to percentage visibility only.
+- Add independent default-on charging-glyph visibility.
+- Add independent default-on percentage / charging-glyph battery-color linkage.
+- Extend `CombinedStatusColors` with `batteryTextTint` and `chargingIconTint`.
+- When linkage is disabled, use the current native status-icon foreground tint; Control Center transition peer-tint refresh follows the same rule.
+- Keep semantic transition targets unchanged:
+  - Wi-Fi/mobile type/airplane/no-SIM continue to target their native network slots;
+  - battery number/charging glyph continue to target the native Battery Number witness.
+  Only source bounds move.
+- Ring top-gap geometry now consumes the optical bounds of the current top-slot semantic rather than assuming a percentage group.
+- Home continues the Build-536 direct-child logical viewport / physical-overflow model.
+- Keyguard reuses the same `CombinedStatusVerticalOverflowPolicy` and explicit logical transition witness while retaining a separate Keyguard Session, tint authority and AOD gate.
+- Preview Sandbox now observes the persisted VisualSettings and provides SystemUI charging-resource candidates for ordinary and quick/super charging; its visual View receives extra transparent preview headroom without changing its 120x120 logical viewport.
+- Features page is one MIUIX screen with three Cards: Global / Network / Battery. It uses existing `SmallTitle`, `Card`, `SwitchPreference`, `SliderPreference` and `OverlayDropdownPreference`; no second-level settings page or custom look-alike control is introduced.
+- Visual preference IO is centralized:
+  - `SharedPreferences.readCombinedStatusVisualSettings()`;
+  - `SharedPreferences.Editor.putCombinedStatusVisualSettings()`.
+  Repository, app remote mirror and SystemUI runtime owner share that contract.
+- Low-frequency diagnostics now include layout plus battery-number / charging-glyph visibility and color-link state.
+
+### 问题执行流程
+
+1. App UI writes one semantic setting key.
+2. The shared visual-key predicate triggers the existing app listener.
+3. App reads the complete local VisualSettings through the shared decoder.
+4. The shared editor contract mirrors the complete normalized VisualSettings into Modern Xposed remote preferences.
+5. SystemUI's existing remote-preference listener decodes the same contract and dispatches one settings update.
+6. Home, opt-in Keyguard and QS_FAKE/transition renderer owners update their existing RenderControllers; no new listener or state machine is introduced.
+7. Painter chooses top/center semantic source positions from `contentLayout`.
+8. Ring gap and top-overflow calculation read the actual optical bounds of whichever semantic owns the top slot.
+9. Transition specs retain semantic targets and change only source geometry.
+10. Preview Sandbox reads the same local VisualSettings and simulates only environment state.
+
+### 审查 / review
+
+- **root-cause-first:** removes position-dependent semantic coupling rather than stacking extra switches around the old "top readout" model.
+- **settings single source:** one shared read/write contract prevents UI/runtime preference drift.
+- **single pixel writer:** `CombinedStatusRenderView/CombinedStatusPainter` remain the only Guiyuan visual writers.
+- **transition ownership:** layout swap changes source bounds only; native target identity, HyperOS progress, fake/final appearance and peer motion remain SystemUI-owned.
+- **Home ownership:** Build-536 logical viewport/direct-child geometry is preserved.
+- **Keyguard ownership:** only the module-owned render child changes from overlay to the already-proven direct-child overflow pattern; Keyguard host/session, represented-slot policy, tint and AOD ownership remain separate from Home.
+- **cleanup:** Home/Keyguard remove only their module-owned child; no native View is reparented or hidden by this feature.
+- **MIUIX:** no extra project padding/spacer is added around Preference internals; Build-533 double-spacing failure is not repeated.
+- **performance:** settings/overflow recomputation stays event-driven on existing settings/model/layout boundaries; no polling, delay, frame hook or extra Animator.
+- **compatibility / Fail native:** unknown native charging drawable still omits that glyph rather than inventing one; unsupported scenes remain native.
+
+### Automated coverage
+
+- 40%-160% percentage / charging size bounds remain locked.
+- New layout and color/visibility defaults are locked.
+- New visual keys are required to participate in runtime-sync key filtering.
+- Independent text/glyph tint fallback is covered.
+- Preview charging resource families are covered.
+- Shared vertical-overflow geometry retains the Build-536 invariant:
+  `physicalTop + logicalTopInset == logicalTop`.
+
+### Validation gate
+
+Runtime CI is required. Because this checkpoint changes Keyguard render-child ownership, steady source geometry, and Control Center source bounds under the layout swap, an exact-head signed Canary and focused device validation are required before integration.
+

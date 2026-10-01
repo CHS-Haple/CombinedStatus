@@ -12,10 +12,11 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Active objective
 
-PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
+PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
-- Build 536 / `20261001-536`;
+- Build 537 / `20261001-537` candidate;
+- Build 536 / `20261001-536` is maintainer device-accepted: upward offset is visibly continuous, the logical-viewport / physical-overflow split works, and the 40%-160% size ranges are accepted;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -152,9 +153,23 @@ Build 536 logical-viewport / physical-overflow split:
 - Battery-number size and charging-lightning size user ranges are narrowed from 0%-200% to 40%-160%, with 100% unchanged and the existing 5% slider granularity preserved.
 
 
+Build 537 visual-control / layout integration:
+- the old battery-top master switch is narrowed to **battery number only**; charging glyph visibility is independent and defaults on;
+- battery number and charging glyph each own an independent “follow battery-ring color” preference, default on; when disabled they use the current native status-icon foreground tint;
+- user-facing “center icon” wording is replaced by **network status**;
+- content layout is a persisted two-state semantic policy: **Network centered** (existing layout) or **Battery centered** (network moves to the top slot while battery number + charging glyph move to the center);
+- transition targets do not swap: network components still target native network slots and battery information still targets native Battery Number; only source bounds change;
+- top-ring avoidance is derived from whichever semantic currently occupies the top slot;
+- Home keeps the Build-536 device-accepted direct-child logical viewport / physical-overflow split;
+- the opt-in Keyguard renderer reuses the same module-owned vertical-overflow policy so top content is not clipped, while keeping separate Keyguard session/tint/AOD ownership;
+- Preview Sandbox now consumes the real persisted VisualSettings and native SystemUI charging-resource families instead of silently rendering defaults;
+- visual-settings persistence / remote mirroring / SystemUI runtime decoding now share one read/write contract, removing the three-copy key list that caused new settings to be omitted from runtime transport;
+- Features uses one MIUIX page with three Cards: Global / Network / Battery; no custom nested page or hand-built pseudo-MIUIX control is introduced.
+
 ## Validation state
 
 Confirmed:
+- Build 536 exact-head Runtime CI #2022 and signed Work Branch Canary #599 are green; maintainer device validation accepted the visible upward movement, overflow surface, and 40%-160% sizing.
 - Build 523 focused device evidence reproduced the battery-top vertical ceiling and charging bolt/number Y mismatch.
 - Build 523 device evidence isolates the native-peer endpoint regression to the island + charging combination; island-only behavior is normal.
 - The affected diagnostic showed `addBatteryIsland=false / batteryWidthDiff=0` while the old policy had already switched to `native-peer-motion`.
@@ -171,18 +186,18 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 536 Runtime CI.
-- if green, one exact-head signed Build-536 Canary.
+- Build 537 Runtime CI.
+- if green, one exact-head signed Build-537 Canary.
 - focused device validation:
-  - island-only pull remains unchanged and reaches the expected final native icon endpoints;
-  - charging without an active generic island remains unchanged;
-  - island + charging now moves surrounding native icons to the same native endpoint rule indicated by `addBatteryIsland=false / batteryWidthDiff=0` when HyperOS does not activate Battery Island;
-  - if HyperOS actually reports `isAddBatteryIsland=true`, native Battery-Island peer motion remains authoritative and Guiyuan does not double-apply semantic reservation;
-  - battery-top offset produces visible motion throughout -10..+10; upward overflow is drawable rather than flattened by a top clamp;
-  - 40%-160% percentage and charging-lightning size ranges clamp consistently in UI, persistence and runtime;
-  - charging lightning visible-ink vertical center matches the percentage visible-text center;
-  - Home -> Control Center percentage morph still reaches the native Battery-number target;
-  - accepted Build-510/511 Battery-body transition remains unchanged.
+  - Features page follows MIUIX Global / Network / Battery card hierarchy and every visible control changes the real runtime state without a restart;
+  - battery number off does not hide the charging glyph; charging glyph off does not hide the battery number;
+  - number / charging-glyph color-follow switches are independent in normal, charging, power-save and performance tint states;
+  - Network centered preserves Build-536 steady geometry;
+  - Battery centered places battery information at the former network center and network status in the top slot without ring overlap;
+  - Home and enabled Keyguard top content remain unclipped at the largest supported relevant visual size/offset;
+  - Home / Keyguard -> Control Center trajectories still terminate at the matching native semantic targets after the source positions are swapped;
+  - Preview Sandbox reflects saved layout, visibility, size, weight, offset and color-link settings immediately, including ordinary and quick/super charging glyphs;
+  - Hot Reload does not duplicate or strand the direct-child renderer.
 
 ## Runtime / rendering contract
 
@@ -194,7 +209,7 @@ Pending:
 - `statusIcons.paddingEnd` remains the sole Guiyuan native peer-layout writer.
 - Native drawable visual geometry is obtained from one bounded cached probe; envelope geometry and alpha-weighted ink center are read-only measurements from the same probe.
 - No polling, delayed state inference, new frame hook, duplicate charge-speed observer, or second gesture animator is introduced.
-- Feature default-off preserves the accepted Build-511 visual path until the user enables the readout.
+- Battery number remains default-off; the charging glyph is an independent default-on visual setting. Existing feature/scene gates still fail native outside supported surfaces.
 
 ## Non-negotiable boundaries
 
@@ -208,11 +223,11 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-536 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 536 and request one signed work-branch Canary;
-3. device-validate: UI 0 remains at the accepted position; -10..+10 moves continuously with no hidden ceiling; top overflow remains visible; 40%-160% percentage/lightning sizing works at both ends; Home -> Control Center source geometry and island motion remain unchanged;
+1. run Build-537 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 537 and produce one signed work-branch Canary;
+3. device-validate the independent battery controls, Network/Battery layout swap, Keyguard overflow, Preview Sandbox parity, Hot Reload cleanup, and Home/Keyguard -> Control Center semantic trajectories;
 4. change runtime again only if focused device evidence identifies a concrete mismatch;
-5. merge to `dev` only after the combined checkpoint is device-accepted.
+5. merge to `dev` only after this combined checkpoint is device-accepted.
 
 ## Reference priority
 

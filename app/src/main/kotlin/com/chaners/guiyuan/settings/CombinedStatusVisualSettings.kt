@@ -8,10 +8,26 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.abs
 
+internal enum class CombinedStatusContentLayout(
+    val persistedValue: String,
+) {
+    NETWORK_CENTER("network_center"),
+    BATTERY_CENTER("battery_center");
+
+    companion object {
+        fun fromPersisted(value: String?): CombinedStatusContentLayout =
+            entries.firstOrNull { it.persistedValue == value } ?: NETWORK_CENTER
+    }
+}
+
 internal data class CombinedStatusVisualSettings(
+    val contentLayout: CombinedStatusContentLayout = CombinedStatusContentLayout.NETWORK_CENTER,
     val mobileFollowsBatteryColor: Boolean = false,
     val centerFollowsBatteryColor: Boolean = false,
     val batteryTopReadoutEnabled: Boolean = false,
+    val batteryTopTextFollowsBatteryColor: Boolean = true,
+    val batteryTopChargingIconEnabled: Boolean = true,
+    val batteryTopChargingIconFollowsBatteryColor: Boolean = true,
     val batteryTopTextScale: Float = BATTERY_TOP_TEXT_SCALE_DEFAULT,
     val batteryTopTextWeight: Int = BATTERY_TOP_TEXT_WEIGHT_DEFAULT,
     val batteryTopVerticalOffset: Float = BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
@@ -44,9 +60,13 @@ internal fun CombinedStatusVisualSettings.normalized(): CombinedStatusVisualSett
 
 internal fun isCombinedStatusVisualPreferenceKey(key: String?): Boolean =
     when (key) {
+        CONTENT_LAYOUT_KEY,
         MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
         CENTER_FOLLOWS_BATTERY_COLOR_KEY,
         BATTERY_TOP_READOUT_ENABLED_KEY,
+        BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY,
+        BATTERY_TOP_CHARGING_ICON_ENABLED_KEY,
+        BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY,
         BATTERY_TOP_TEXT_SCALE_KEY,
         BATTERY_TOP_TEXT_WEIGHT_KEY,
         BATTERY_TOP_VERTICAL_OFFSET_KEY,
@@ -87,43 +107,14 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
         }.distinctUntilChanged()
 
     fun current(): CombinedStatusVisualSettings =
-        CombinedStatusVisualSettings(
-            mobileFollowsBatteryColor =
-                preferences.getBoolean(
-                    MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
-                    false,
-                ),
-            centerFollowsBatteryColor =
-                preferences.getBoolean(
-                    CENTER_FOLLOWS_BATTERY_COLOR_KEY,
-                    false,
-                ),
-            batteryTopReadoutEnabled =
-                preferences.getBoolean(
-                    BATTERY_TOP_READOUT_ENABLED_KEY,
-                    false,
-                ),
-            batteryTopTextScale =
-                preferences.getFloat(
-                    BATTERY_TOP_TEXT_SCALE_KEY,
-                    BATTERY_TOP_TEXT_SCALE_DEFAULT,
-                ),
-            batteryTopTextWeight =
-                preferences.getInt(
-                    BATTERY_TOP_TEXT_WEIGHT_KEY,
-                    BATTERY_TOP_TEXT_WEIGHT_DEFAULT,
-                ),
-            batteryTopVerticalOffset =
-                preferences.getFloat(
-                    BATTERY_TOP_VERTICAL_OFFSET_KEY,
-                    BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
-                ),
-            batteryTopChargingIconScale =
-                preferences.getFloat(
-                    BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
-                    BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT,
-                ),
-        ).normalized()
+        preferences.readCombinedStatusVisualSettings()
+
+    fun setContentLayout(layout: CombinedStatusContentLayout) {
+        preferences
+            .edit()
+            .putString(CONTENT_LAYOUT_KEY, layout.persistedValue)
+            .apply()
+    }
 
     fun setMobileFollowsBatteryColor(enabled: Boolean) {
         preferences
@@ -143,6 +134,27 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
         preferences
             .edit()
             .putBoolean(BATTERY_TOP_READOUT_ENABLED_KEY, enabled)
+            .apply()
+    }
+
+    fun setBatteryTopTextFollowsBatteryColor(enabled: Boolean) {
+        preferences
+            .edit()
+            .putBoolean(BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY, enabled)
+            .apply()
+    }
+
+    fun setBatteryTopChargingIconEnabled(enabled: Boolean) {
+        preferences
+            .edit()
+            .putBoolean(BATTERY_TOP_CHARGING_ICON_ENABLED_KEY, enabled)
+            .apply()
+    }
+
+    fun setBatteryTopChargingIconFollowsBatteryColor(enabled: Boolean) {
+        preferences
+            .edit()
+            .putBoolean(BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY, enabled)
             .apply()
     }
 
@@ -207,10 +219,118 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
     }
 }
 
+internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatusVisualSettings =
+    CombinedStatusVisualSettings(
+        contentLayout =
+            CombinedStatusContentLayout.fromPersisted(
+                getString(
+                    CONTENT_LAYOUT_KEY,
+                    CombinedStatusContentLayout.NETWORK_CENTER.persistedValue,
+                ),
+            ),
+        mobileFollowsBatteryColor =
+            getBoolean(
+                MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
+                false,
+            ),
+        centerFollowsBatteryColor =
+            getBoolean(
+                CENTER_FOLLOWS_BATTERY_COLOR_KEY,
+                false,
+            ),
+        batteryTopReadoutEnabled =
+            getBoolean(
+                BATTERY_TOP_READOUT_ENABLED_KEY,
+                false,
+            ),
+        batteryTopTextFollowsBatteryColor =
+            getBoolean(
+                BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY,
+                true,
+            ),
+        batteryTopChargingIconEnabled =
+            getBoolean(
+                BATTERY_TOP_CHARGING_ICON_ENABLED_KEY,
+                true,
+            ),
+        batteryTopChargingIconFollowsBatteryColor =
+            getBoolean(
+                BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY,
+                true,
+            ),
+        batteryTopTextScale =
+            getFloat(
+                BATTERY_TOP_TEXT_SCALE_KEY,
+                BATTERY_TOP_TEXT_SCALE_DEFAULT,
+            ),
+        batteryTopTextWeight =
+            getInt(
+                BATTERY_TOP_TEXT_WEIGHT_KEY,
+                BATTERY_TOP_TEXT_WEIGHT_DEFAULT,
+            ),
+        batteryTopVerticalOffset =
+            getFloat(
+                BATTERY_TOP_VERTICAL_OFFSET_KEY,
+                BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
+            ),
+        batteryTopChargingIconScale =
+            getFloat(
+                BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT,
+            ),
+    ).normalized()
+
+internal fun SharedPreferences.Editor.putCombinedStatusVisualSettings(
+    settings: CombinedStatusVisualSettings,
+): SharedPreferences.Editor {
+    val normalized = settings.normalized()
+    return putString(
+        CONTENT_LAYOUT_KEY,
+        normalized.contentLayout.persistedValue,
+    ).putBoolean(
+        MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
+        normalized.mobileFollowsBatteryColor,
+    ).putBoolean(
+        CENTER_FOLLOWS_BATTERY_COLOR_KEY,
+        normalized.centerFollowsBatteryColor,
+    ).putBoolean(
+        BATTERY_TOP_READOUT_ENABLED_KEY,
+        normalized.batteryTopReadoutEnabled,
+    ).putBoolean(
+        BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY,
+        normalized.batteryTopTextFollowsBatteryColor,
+    ).putBoolean(
+        BATTERY_TOP_CHARGING_ICON_ENABLED_KEY,
+        normalized.batteryTopChargingIconEnabled,
+    ).putBoolean(
+        BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY,
+        normalized.batteryTopChargingIconFollowsBatteryColor,
+    ).putFloat(
+        BATTERY_TOP_TEXT_SCALE_KEY,
+        normalized.batteryTopTextScale,
+    ).putInt(
+        BATTERY_TOP_TEXT_WEIGHT_KEY,
+        normalized.batteryTopTextWeight,
+    ).putFloat(
+        BATTERY_TOP_VERTICAL_OFFSET_KEY,
+        normalized.batteryTopVerticalOffset,
+    ).putFloat(
+        BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+        normalized.batteryTopChargingIconScale,
+    )
+}
+
 internal const val COMBINED_STATUS_VISUAL_PREFS_NAME = "combined_status_visual"
+internal const val CONTENT_LAYOUT_KEY = "content_layout"
 internal const val MOBILE_FOLLOWS_BATTERY_COLOR_KEY = "mobile_follows_battery_color"
 internal const val CENTER_FOLLOWS_BATTERY_COLOR_KEY = "center_follows_battery_color"
 internal const val BATTERY_TOP_READOUT_ENABLED_KEY = "battery_top_readout_enabled"
+internal const val BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY =
+    "battery_top_text_follows_battery_color"
+internal const val BATTERY_TOP_CHARGING_ICON_ENABLED_KEY =
+    "battery_top_charging_icon_enabled"
+internal const val BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY =
+    "battery_top_charging_icon_follows_battery_color"
 internal const val BATTERY_TOP_TEXT_SCALE_KEY = "battery_top_text_scale"
 internal const val BATTERY_TOP_TEXT_WEIGHT_KEY = "battery_top_text_weight"
 internal const val BATTERY_TOP_VERTICAL_OFFSET_KEY = "battery_top_vertical_offset"

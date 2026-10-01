@@ -698,7 +698,7 @@ internal object CombinedStatusHomeRenderSession {
             topOverflowPx: Int,
         ) {
             val physical =
-                CombinedStatusHomeOverflowPolicy.resolve(
+                CombinedStatusVerticalOverflowPolicy.resolve(
                     logicalTopPx = bounds.top,
                     logicalHeightPx = bounds.height(),
                     requestedTopOverflowPx = topOverflowPx,
@@ -743,7 +743,7 @@ internal object CombinedStatusHomeRenderSession {
 }
 
 
-internal object CombinedStatusHomeOverflowPolicy {
+internal object CombinedStatusVerticalOverflowPolicy {
     internal data class Resolved(
         val physicalTopPx: Int,
         val physicalHeightPx: Int,
