@@ -173,4 +173,30 @@
     <string name="diagnostic_report_export_failed">Could not export the diagnostic report</string>
     <string name="diagnostic_report_share_failed">Could not share the diagnostic report</string>
     <string name="back">Back</string>
+
+    <string name="battery_colors">Battery colors</string>
+    <string name="battery_color_scheme_summary">Scheme: %1$s</string>
+    <string name="battery_color_scheme">Color scheme</string>
+    <string name="battery_color_preset_recommended">Recommended</string>
+    <string name="battery_color_preset_hyperos">HyperOS</string>
+    <string name="battery_color_preset_ios">iOS</string>
+    <string name="battery_color_preset_recommended_summary">Tuned for the compact status indicator</string>
+    <string name="battery_color_preset_hyperos_summary">Use HyperOS semantic battery colors</string>
+    <string name="battery_color_preset_ios_summary">Use iOS system colors</string>
+    <string name="battery_mode_colors">Mode colors</string>
+    <string name="battery_color_source">Color source</string>
+    <string name="battery_color_source_preset">Scheme color</string>
+    <string name="battery_color_source_preset_summary">Use the %1$s scheme color</string>
+    <string name="battery_color_source_preset_short">%1$s scheme</string>
+    <string name="battery_color_source_system">Follow system</string>
+    <string name="battery_color_source_system_summary">Use the current status-bar foreground tint</string>
+    <string name="battery_color_source_custom">Custom</string>
+    <string name="battery_color_custom_unset">No custom color set</string>
+    <string name="battery_mode_normal">Normal</string>
+    <string name="battery_mode_power_save">Power save</string>
+    <string name="battery_mode_performance">Performance</string>
+    <string name="battery_mode_super_power_save">Super power save</string>
+    <string name="battery_mode_charging">Charging</string>
+    <string name="battery_mode_low">Low battery</string>
+
 </resources>

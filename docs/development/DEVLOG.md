@@ -590,3 +590,77 @@ Exact-head Runtime CI #2081 (run `36881730709`) completed successfully on `c8577
 - pinned HyperOS target verification and modern Xposed metadata checks passed.
 
 Build 560 is closed. The next change is isolated to battery-color BottomSheet UI and will use a separate, descriptive commit.
+
+
+## 2026-10-01 — Build 561 MIUIX battery-color BottomSheet
+
+**Type:** settings UI / battery color overview  
+**Display version:** 0.0.3  
+**Build:** 561 / `20261001-561`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Scope
+
+Expose the Build-559 color-source model through a native MIUIX BottomSheet without introducing a second battery-state authority.
+
+The Battery card gains one concise entry:
+- title: Battery colors / 电量颜色;
+- summary: current palette;
+- end area: five semantic preview dots for power save, performance, super power save, charging, and low battery.
+
+### Preview semantics
+
+The App process does not own HyperOS battery semantic state; the authoritative source remains SystemUI `MiuiBatteryMeterIconView.getProgressStatus()`.
+
+Therefore:
+- Recommended/iOS fixed palette colors render as filled preview dots;
+- stored Custom colors render as filled preview dots;
+- HyperOS preset colors render as outlined/dynamic dots because the actual semantic value comes from SystemUI at runtime;
+- Follow System also renders as outlined/dynamic;
+- Custom mode without a stored custom color follows the runtime policy and previews its preset fallback;
+- Normal remains dynamic for Recommended/iOS because it follows status-icon tint.
+
+This deliberately does not add PowerManager/BatteryManager inference or another cross-process writer merely to fake a “current mode” preview.
+
+### BottomSheet interaction
+
+A single MIUIX `OverlayBottomSheet` is used as a state machine:
+- overview: Recommended / HyperOS / iOS palette selection plus all semantic slots;
+- slot detail: Scheme color / Follow system / Custom source selection;
+- backing out of slot detail returns to the overview rather than stacking another sheet.
+
+MIUIX `RadioButtonPreference`, `ArrowPreference`, `Card`, and `SmallTitle` are reused. No custom drawer implementation is introduced.
+
+### Pre-commit 审查 / review
+
+- Only one `OverlayBottomSheet` exists in the new color UI.
+- Palette selection order is Recommended -> HyperOS -> iOS.
+- Slot source writes use the existing `CombinedStatusVisualSettingsRepository.setBatteryColorMode`.
+- Palette writes use the existing `setBatteryColorPreset`.
+- The existing feature reset dialog remains independent from the color sheet.
+- UI copy is bilingual and concise.
+- No SystemUI runtime/hook/transition code changes.
+- No new state observer, listener, or cross-process writer.
+
+### Tests
+
+Pure preview-resolution tests cover:
+- Recommended charging and iOS low-battery fixed colors;
+- HyperOS and Follow System remain dynamic;
+- Custom uses its stored color;
+- Custom without a stored color falls back to the selected preset;
+- Recommended Normal remains dynamic/status-tint based.
+
+### Deferred to next isolated change
+
+Custom color editing UI:
+- common colors;
+- MIUIX ColorPicker / ColorPalette;
+- RGB and HEX input;
+- per-mode reset-to-default.
+
+The source mode is already persisted in Build 561, but no incomplete custom editor is represented as finished.
+
+### Validation
+
+Run exact-head Runtime CI before adding the custom color editor.

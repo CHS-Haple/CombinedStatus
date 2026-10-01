@@ -172,4 +172,30 @@
     <string name="diagnostic_report_export_failed">诊断报告导出失败</string>
     <string name="diagnostic_report_share_failed">诊断报告分享失败</string>
     <string name="back">返回</string>
+
+    <string name="battery_colors">电量颜色</string>
+    <string name="battery_color_scheme_summary">当前方案：%1$s</string>
+    <string name="battery_color_scheme">配色方案</string>
+    <string name="battery_color_preset_recommended">推荐</string>
+    <string name="battery_color_preset_hyperos">HyperOS</string>
+    <string name="battery_color_preset_ios">iOS</string>
+    <string name="battery_color_preset_recommended_summary">针对状态栏小尺寸显示优化</string>
+    <string name="battery_color_preset_hyperos_summary">使用 HyperOS 电量语义色</string>
+    <string name="battery_color_preset_ios_summary">使用 iOS 系统色</string>
+    <string name="battery_mode_colors">模式颜色</string>
+    <string name="battery_color_source">颜色来源</string>
+    <string name="battery_color_source_preset">方案颜色</string>
+    <string name="battery_color_source_preset_summary">使用 %1$s 方案颜色</string>
+    <string name="battery_color_source_preset_short">%1$s 方案</string>
+    <string name="battery_color_source_system">跟随系统</string>
+    <string name="battery_color_source_system_summary">使用状态栏实时前景色</string>
+    <string name="battery_color_source_custom">自定义</string>
+    <string name="battery_color_custom_unset">尚未设置自定义颜色</string>
+    <string name="battery_mode_normal">普通</string>
+    <string name="battery_mode_power_save">省电</string>
+    <string name="battery_mode_performance">性能</string>
+    <string name="battery_mode_super_power_save">超级省电</string>
+    <string name="battery_mode_charging">充电</string>
+    <string name="battery_mode_low">低电量</string>
+
 </resources>

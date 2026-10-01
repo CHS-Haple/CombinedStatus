@@ -49,6 +49,7 @@ import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MIN
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
@@ -107,6 +108,12 @@ internal fun FeaturesScreen(
             stringResource(R.string.content_layout_battery_center),
         )
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
+    var showBatteryColorSheet by rememberSaveable { mutableStateOf(false) }
+    var batteryColorSlotOrdinal by rememberSaveable { mutableStateOf<Int?>(null) }
+    val selectedBatteryColorSlot =
+        batteryColorSlotOrdinal?.let { ordinal ->
+            CombinedStatusBatteryColorSlot.entries.getOrNull(ordinal)
+        }
 
     HubPage(
         title = stringResource(R.string.features_title),
@@ -183,6 +190,14 @@ internal fun FeaturesScreen(
         },
         tertiarySectionTitle = stringResource(R.string.section_battery),
         tertiaryContent = {
+            BatteryColorPreference(
+                settings = visualSettings,
+                enabled = featureSettings.enabled,
+                onClick = {
+                    batteryColorSlotOrdinal = null
+                    showBatteryColorSheet = true
+                },
+            )
             SwitchPreference(
                 title = stringResource(R.string.battery_top_readout),
                 summary = stringResource(R.string.battery_top_readout_summary),
@@ -329,6 +344,23 @@ internal fun FeaturesScreen(
             )
         },
         overlay = {
+            BatteryColorBottomSheet(
+                show = showBatteryColorSheet,
+                selectedSlot = selectedBatteryColorSlot,
+                settings = visualSettings,
+                onDismiss = {
+                    showBatteryColorSheet = false
+                    batteryColorSlotOrdinal = null
+                },
+                onBackToOverview = {
+                    batteryColorSlotOrdinal = null
+                },
+                onPresetChange = visualRepository::setBatteryColorPreset,
+                onSlotSelected = { slot ->
+                    batteryColorSlotOrdinal = slot.ordinal
+                },
+                onModeChange = visualRepository::setBatteryColorMode,
+            )
             OverlayDialog(
                 title = stringResource(R.string.restore_feature_defaults),
                 summary = stringResource(R.string.restore_feature_defaults_dialog_summary),
