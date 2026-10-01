@@ -1,3 +1,34 @@
+## 2026-10-02 — Build 588 secondary gray-Sheet hierarchy and locked two-level height
+
+**Type:** App UI / MIUIX hierarchy / sheet geometry  
+**Display version:** 0.0.3  
+**Build:** 588 / `20261002-588`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+- Keep the overview as a white Sheet with gray scheme Cards.
+- Make the secondary editor Sheet itself gray.
+- Remove the secondary gray outer Card.
+- Put Color source in a white Card; keep Common colors / Full adjustment / Precise input in white Cards.
+- Preserve the original secondary spacing and component sizing.
+- Level 1 and level 2 must always have exactly the same Sheet height.
+
+### Change
+- Secondary `OverlayBottomSheet.backgroundColor` uses `MiuixTheme.colorScheme.surface`; overview uses `background`.
+- Remove the detail page's redundant gray outer Card.
+- Wrap `OverlayDropdownPreference` for Color source in a native default Card.
+- Restore original detail spacing: 24dp bottom scroll padding, 16dp function-card padding, 12dp common-color row gap, native BasicComponent spacing.
+- Introduce one shared `BATTERY_COLOR_SHEET_HEIGHT_FRACTION = 0.84f`; the single shared `OverlayBottomSheet` owns this height for both Pager pages.
+
+### Review
+- Level 1/2 height ownership is singular; page content has no independent sheet-height modifier.
+- Only background/title/start action vary between levels.
+- MIUIX semantic hierarchy: gray `surface` page layer + white `surfaceContainer` functional Cards.
+- No Runtime/SystemUI/hook/persistence changes.
+
+### Validation
+Run exact-head Runtime CI and Canary. Device acceptance should verify identical Sheet top edge/height while switching levels, gray detail Sheet, white source/function Cards, and unchanged internal spacing.
+
 ## 2026-10-02 — Build 587 battery-color sheet geometry and density pass
 
 **Type:** App UI / MIUIX layout / pager geometry  
