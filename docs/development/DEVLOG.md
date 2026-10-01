@@ -14864,3 +14864,19 @@ Expected affected-pull diagnostics:
 - `islandBoundaryProjection=active:delta=<Δ>`.
 
 Reject Build 542 for projection-unavailable, continued premature disappearance, native-hidden icon resurrection, overlap/jump, stale spacing/projection after collapse, or any non-island regression.
+
+
+### Final ordering review — Runtime #2049
+
+Exact JADX review adds two implementation facts that close the last ordering ambiguity:
+
+- `MiuiStatusIconContainer.getIslandTranslationX()` returns `-1` when no usable island monitor exists; otherwise it returns `_islandMonitor.getIslandWidth()` directly.
+- `calculateIconTranslations()` begins native peer placement from `width - paddingEnd`, compares the resulting `layoutTranslationX` values against that getter, and only performs RTL mirroring after the island classification pass.
+
+Therefore the projected boundary is the exact quantity needed by the invariant `(x-Δ) >= (W-Δ)`; it is not a copied animation endpoint.
+
+The runtime was tightened so the projection-map delta is installed before `SystemUiHomePresentationOwner.updateControlCenterTransitionReservation(...)` can change `paddingEnd` and request native layout. If that reservation write fails, the projection is rolled back to its previous delta, or cleared when no previous projection existed. This prevents a one-frame mismatch where native layout could observe the new peer X positions with the old island boundary.
+
+**Review:** HyperOS remains the sole writer of `islandWidth` and all child state. Guiyuan still owns only `statusIcons.paddingEnd` as peer geometry plus the scoped getter-result projection. No new field writer, monitor replacement, child mutation, timer, animator, or traversal was added.
+
+Runtime CI #2049 at `36ba3c2e0a7dba9f8e253c2649523ea0b94a87e4`: **success** (target profile, unit tests/build, Modern Xposed metadata, validation summary).
