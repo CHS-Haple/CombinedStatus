@@ -77,6 +77,34 @@ class BatteryColorSchemeLibraryTest {
     }
 
     @Test
+    fun legacyCustomWithoutStoredValueFallsBackToItsPresetSource() {
+        assertEquals(
+            BatteryColorSchemeSource.IOS,
+            batteryColorSchemeSourceFromLegacy(
+                mode = CombinedStatusBatteryColorMode.CUSTOM,
+                hasStoredCustom = false,
+                presetSource = BatteryColorSchemeSource.IOS,
+            ),
+        )
+        assertEquals(
+            BatteryColorSchemeSource.CUSTOM,
+            batteryColorSchemeSourceFromLegacy(
+                mode = CombinedStatusBatteryColorMode.CUSTOM,
+                hasStoredCustom = true,
+                presetSource = BatteryColorSchemeSource.IOS,
+            ),
+        )
+        assertEquals(
+            BatteryColorSchemeSource.FOLLOW_SYSTEM,
+            batteryColorSchemeSourceFromLegacy(
+                mode = CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
+                hasStoredCustom = true,
+                presetSource = BatteryColorSchemeSource.IOS,
+            ),
+        )
+    }
+
+    @Test
     fun customKeysRoundTripAndRejectBuiltIns() {
         assertEquals("custom:3", customSchemeKey(3))
         assertEquals(3, customSchemeId("custom:3"))

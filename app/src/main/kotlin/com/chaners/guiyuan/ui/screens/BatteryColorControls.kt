@@ -369,7 +369,11 @@ private fun BatterySchemeOverview(
             initialPage = initial,
             pageCount = { pages.size },
         )
-    val flingBehavior = PagerDefaults.flingBehavior(pagerState, PagerNavigationSpringSpec)
+    val flingBehavior =
+        PagerDefaults.flingBehavior(
+            state = pagerState,
+            snapAnimationSpec = PagerNavigationSpringSpec,
+        )
     var lastSchemeKey by remember { mutableStateOf(library.activeSchemeKey) }
 
     LaunchedEffect(pagerState, pages.map { it.key }) {
@@ -535,57 +539,55 @@ private fun BatteryModeRow(
     editable: Boolean,
     onClick: (() -> Unit)?,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 48.dp)
-                .then(
-                    if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
-                )
-                .padding(horizontal = 16.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    BasicComponent(
+        onClick = onClick,
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 9.dp),
     ) {
-        Text(
-            text = stringResource(batteryColorSlotLabel(slot)),
-            modifier = Modifier.weight(1f),
-        )
-        Box(
-            modifier = Modifier.width(28.dp),
-            contentAlignment = Alignment.Center,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (followsSystem || color == null) {
-                BatteryColorMosaic()
-            } else {
-                BatteryColorDot(color)
+            Text(
+                text = stringResource(batteryColorSlotLabel(slot)),
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                modifier = Modifier.width(28.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (followsSystem || color == null) {
+                    BatteryColorMosaic()
+                } else {
+                    BatteryColorDot(color)
+                }
             }
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text =
-                if (followsSystem || color == null) {
-                    stringResource(R.string.battery_color_follow_inversion)
-                } else {
-                    batteryColorHex(color)
-                },
-            modifier = Modifier.width(92.dp),
-            color = MiuixTheme.colorScheme.onSurfaceSecondary,
-            fontFamily =
-                if (followsSystem || color == null) {
-                    FontFamily.Default
-                } else {
-                    FontFamily.Monospace
-                },
-        )
-        Box(
-            modifier = Modifier.width(22.dp),
-            contentAlignment = Alignment.CenterEnd,
-        ) {
-            if (editable) {
-                Text(
-                    text = "›",
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text =
+                    if (followsSystem || color == null) {
+                        stringResource(R.string.battery_color_follow_inversion)
+                    } else {
+                        batteryColorHex(color)
+                    },
+                modifier = Modifier.width(92.dp),
+                color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                fontFamily =
+                    if (followsSystem || color == null) {
+                        FontFamily.Default
+                    } else {
+                        FontFamily.Monospace
+                    },
+            )
+            Box(
+                modifier = Modifier.width(22.dp),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                if (editable) {
+                    Text(
+                        text = "›",
+                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    )
+                }
             }
         }
     }
@@ -604,13 +606,10 @@ private fun BatteryAddSchemePage(
         contentAlignment = Alignment.TopCenter,
     ) {
         Card(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .then(
-                        if (enabled) Modifier.clickable(onClick = onClick) else Modifier,
-                    ),
+            modifier = Modifier.fillMaxWidth(),
             insideMargin = PaddingValues(vertical = 46.dp),
+            showIndication = enabled,
+            onClick = if (enabled) onClick else null,
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),

@@ -546,16 +546,15 @@ internal class BatteryColorSchemeLibraryRepository(context: Context) {
             )
         var entries = BatteryColorSchemeEntries()
         CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+            val storedCustom = visual.batteryColorOverrides.colorFor(slot)
             val source =
-                when (visual.batteryColorModes.modeFor(slot)) {
-                    CombinedStatusBatteryColorMode.PRESET -> preset
-                    CombinedStatusBatteryColorMode.FOLLOW_SYSTEM ->
-                        BatteryColorSchemeSource.FOLLOW_SYSTEM
-                    CombinedStatusBatteryColorMode.CUSTOM ->
-                        BatteryColorSchemeSource.CUSTOM
-                }
+                batteryColorSchemeSourceFromLegacy(
+                    mode = visual.batteryColorModes.modeFor(slot),
+                    hasStoredCustom = storedCustom != null,
+                    presetSource = preset,
+                )
             val color =
-                visual.batteryColorOverrides.colorFor(slot)
+                storedCustom
                     ?: batteryBuiltInColor(
                         BatteryBuiltInColorScheme.fromPreset(visual.batteryColorPreset),
                         slot,
@@ -610,3 +609,21 @@ private fun customColorKey(
     slot: CombinedStatusBatteryColorSlot,
 ): String =
     customPrefix(id) + "color." + slot.name.lowercase()
+
+
+internal fun batteryColorSchemeSourceFromLegacy(
+    mode: CombinedStatusBatteryColorMode,
+    hasStoredCustom: Boolean,
+    presetSource: BatteryColorSchemeSource,
+): BatteryColorSchemeSource =
+    when (mode) {
+        CombinedStatusBatteryColorMode.PRESET -> presetSource
+        CombinedStatusBatteryColorMode.FOLLOW_SYSTEM ->
+            BatteryColorSchemeSource.FOLLOW_SYSTEM
+        CombinedStatusBatteryColorMode.CUSTOM ->
+            if (hasStoredCustom) {
+                BatteryColorSchemeSource.CUSTOM
+            } else {
+                presetSource
+            }
+    }

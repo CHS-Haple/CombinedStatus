@@ -1,3 +1,37 @@
+## 2026-10-01 — Build 565 battery-color post-review correction
+
+**Type:** compile correction + compatibility review  
+**Display version:** 0.0.3  
+**Build:** 565 / `20261001-565`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Build 564 CI finding
+
+Full CI #2094 / run 36903357998 reached Kotlin compilation and failed on one API binding in `BatteryColorControls.kt`: the positional `PagerNavigationSpringSpec` argument was interpreted as `PagerSnapDistance` by the current Compose `PagerDefaults.flingBehavior` signature. MIUIX's current guide/example uses named `state` and `snapAnimationSpec`; Build 565 follows that exact form.
+
+### Review corrections
+
+- Use:
+  `PagerDefaults.flingBehavior(state = pagerState, snapAnimationSpec = PagerNavigationSpringSpec)`.
+- Legacy migration now preserves **effective behavior**, not invalid raw state: an old slot marked CUSTOM with no stored color maps back to the active preset source, matching the previous Runtime fallback. A pure helper/test locks this rule.
+- Dormant stored custom colors remain preserved when the old slot currently uses Preset.
+- Aligned custom mode rows now route click ownership through MIUIX `BasicComponent`; the Add scheme page uses MIUIX interactive `Card` feedback.
+- Destructive Delete remains `MiuixTheme.colorScheme.error` and confirmation-gated.
+- No scheme-library key is added to Runtime visual-key classification; only the flattened active color keys synchronize to SystemUI.
+
+### 审查 / review
+
+- **ownership:** unchanged; no new SystemUI hook/listener/animator/geometry writer/painter.
+- **MIUIX:** Pager spring invocation now matches the current upstream documentation and library API; interaction surfaces use MIUIX components where available.
+- **migration:** active behavior and dormant custom memory are both retained; invalid legacy CUSTOM-without-color cannot create an empty custom source.
+- **scope:** App UI/settings + existing color-policy projection only.
+- **device gate:** still UI-focused after automated validation; no need to repeat the broader transition matrix unless colors/runtime unexpectedly diverge.
+
+### Validation
+
+Run exact-head Full CI. If green, freeze Build 565 and produce one signed exact-head Canary for the battery-color BottomSheet interaction/visual review.
+
+
 ## 2026-10-01 — Build 564 MIUIX battery-color scheme library
 
 **Type:** App UI / settings schema / Runtime projection  
