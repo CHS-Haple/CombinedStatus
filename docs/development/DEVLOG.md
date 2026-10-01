@@ -774,3 +774,22 @@ Correction:
 - production code is unchanged.
 
 The workflow/run-name cleanup is intentionally deferred until after the next Canary is delivered for device testing.
+
+
+## 2026-10-02 — CI run-title clarity
+
+**Type:** CI presentation only
+
+GitHub PR-triggered workflow runs previously inherited the pull-request title because the workflows did not define `run-name`. This made unrelated commits appear under the same Actions title.
+
+Change:
+- Build PR runs now show run number + PR number + work branch + exact PR HEAD SHA.
+- Build push runs show run number + branch + push head commit message.
+- Manual Build runs show run number + branch.
+- Comment-triggered Canary runs show Canary run number + PR number.
+- Manual Canary runs show Canary run number + requested source branch.
+
+Review:
+- workflow names remain `Build` and `Work Branch Canary`;
+- job ids/names remain `build` and `canary`;
+- no permissions, triggers, validation scope, signing, artifact, concurrency, or required-check behavior changed.
