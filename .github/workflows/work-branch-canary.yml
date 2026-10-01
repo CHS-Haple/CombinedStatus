@@ -1,5 +1,8 @@
 name: Work Branch Canary
-run-name: ${{ github.event_name == 'issue_comment' && github.event.issue.title || format('canary: {0}', inputs.source_branch) }}
+run-name: >-
+  ${{ github.event_name == 'issue_comment'
+      && github.event.issue.title
+      || format('canary - {0}', inputs.source_branch) }}
 
 on:
   workflow_dispatch:
