@@ -15,8 +15,6 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import java.lang.ref.WeakReference
-import java.lang.reflect.Field
-import java.lang.reflect.Method
 import java.util.WeakHashMap
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -706,228 +704,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
     }
 
-    private class FakeIslandReservationBridge(
-        private val statusIcons: ViewGroup,
-    ) {
-        private var islandWidthField: Field? = null
-        private var islandWidthChangedField: Field? = null
-        private var islandShowingMethod: Method? = null
-        private var baselineIslandWidthPx: Int? = null
-        private var lastEffectiveIslandWidthPx: Int? = null
-        private var lastPaddingDeltaPx = 0
-        private var active = false
-        private var contractReady = false
-
-        fun acquire(): Boolean {
-            if (active) return contractReady
-
-            val monitor =
-                statusIcons.javaClass.methods
-                    .firstOrNull { method ->
-                        method.name == "getIslandMonitor" &&
-                            method.parameterCount == 0
-                    }
-                    ?.let { method ->
-                        runCatching { method.invoke(statusIcons) }.getOrNull()
-                    }
-                    ?: return fail()
-            if (
-                !monitor.javaClass.name.endsWith(
-                    "IslandMonitor\$FakeContainerIslandMonitor",
-                )
-            ) {
-                return fail()
-            }
-
-            val resolvedShowingMethod =
-                statusIcons.javaClass.methods
-                    .firstOrNull { method ->
-                        method.name == "getIslandShowing" &&
-                            method.parameterCount == 0
-                    }
-                    ?.apply { isAccessible = true }
-                    ?: return fail()
-            val islandShowing =
-                runCatching {
-                    resolvedShowingMethod.invoke(statusIcons) as? Boolean
-                }.getOrNull()
-                    ?: return fail()
-            if (!islandShowing) return fail()
-
-            // Exact-target JADX: FakeContainerIslandMonitor consumes Home
-            // statusContainerSpace, writes MiuiStatusIconContainer.islandWidth,
-            // marks islandWidthChanged, then requests layout.
-            val resolvedIslandWidthField =
-                findField(statusIcons.javaClass, "islandWidth") ?: return fail()
-            val resolvedIslandWidthChangedField =
-                findField(statusIcons.javaClass, "islandWidthChanged") ?: return fail()
-            val nativeIslandWidth =
-                runCatching {
-                    (resolvedIslandWidthField.get(statusIcons) as? Number)?.toInt()
-                }.getOrNull()
-                    ?: return fail()
-
-            islandWidthField = resolvedIslandWidthField
-            islandWidthChangedField = resolvedIslandWidthChangedField
-            islandShowingMethod = resolvedShowingMethod
-            baselineIslandWidthPx = nativeIslandWidth
-            lastEffectiveIslandWidthPx = nativeIslandWidth
-            lastPaddingDeltaPx = 0
-            active = true
-            contractReady = true
-            return true
-        }
-
-        fun applyPaddingDelta(paddingDeltaPx: Int): Boolean {
-            if (!active || !contractReady) return false
-            if (!isIslandShowing()) return failActive()
-
-            val widthField = islandWidthField ?: return failActive()
-            val changedField = islandWidthChangedField ?: return failActive()
-            val currentRaw =
-                runCatching {
-                    (widthField.get(statusIcons) as? Number)?.toInt()
-                }.getOrNull()
-                    ?: return failActive()
-
-            val lastEffective = lastEffectiveIslandWidthPx
-            if (lastEffective != null && currentRaw != lastEffective) {
-                // The native FakeContainerIslandMonitor may receive a newer
-                // Home statusContainerSpace while this transition is active.
-                // A value different from our last compensated value is native
-                // authority and becomes the new unmodified baseline.
-                baselineIslandWidthPx = currentRaw
-            }
-
-            val baseline = baselineIslandWidthPx ?: return failActive()
-            val delta = paddingDeltaPx.coerceAtLeast(0)
-            val effective =
-                Policy.compensateFakeIslandWidth(
-                    nativeIslandWidthPx = baseline,
-                    transitionPaddingDeltaPx = delta,
-                )
-
-            if (currentRaw != effective) {
-                val written =
-                    runCatching {
-                        widthField.set(statusIcons, effective)
-                        changedField.set(statusIcons, true)
-                        true
-                    }.getOrElse {
-                        // Partial reflection failure must not strand a
-                        // compensated width in the native fake container.
-                        runCatching {
-                            widthField.set(statusIcons, currentRaw)
-                            changedField.set(statusIcons, true)
-                            statusIcons.requestLayout()
-                        }
-                        false
-                    }
-                if (!written) return failActive()
-                statusIcons.requestLayout()
-            }
-
-            lastPaddingDeltaPx = delta
-            lastEffectiveIslandWidthPx = effective
-            return true
-        }
-
-        fun release() {
-            if (!active) {
-                clearState()
-                return
-            }
-
-            val widthField = islandWidthField
-            val changedField = islandWidthChangedField
-            val baseline = baselineIslandWidthPx
-            val lastEffective = lastEffectiveIslandWidthPx
-            val islandStillShowing = isIslandShowing()
-
-            var restored = false
-            if (
-                islandStillShowing &&
-                widthField != null &&
-                changedField != null &&
-                baseline != null &&
-                lastEffective != null
-            ) {
-                runCatching {
-                    val current =
-                        (widthField.get(statusIcons) as? Number)?.toInt()
-                    // Restore only while the field still contains our last
-                    // compensated value. If native authority changed it, do
-                    // not overwrite that newer value during cleanup.
-                    if (current == lastEffective && current != baseline) {
-                        widthField.set(statusIcons, baseline)
-                        changedField.set(statusIcons, true)
-                        restored = true
-                    }
-                }
-            }
-
-            clearState()
-            if (restored) {
-                statusIcons.requestLayout()
-            }
-        }
-
-        fun diagnostic(): String =
-            when {
-                active && contractReady ->
-                    "active:base=" + (baselineIslandWidthPx ?: -1) +
-                        "/effective=" + (lastEffectiveIslandWidthPx ?: -1) +
-                        "/delta=" + lastPaddingDeltaPx
-                active -> "unavailable"
-                else -> "inactive"
-            }
-
-        private fun isIslandShowing(): Boolean {
-            val method = islandShowingMethod ?: return false
-            return runCatching {
-                method.invoke(statusIcons) as? Boolean
-            }.getOrNull() == true
-        }
-
-        private fun findField(
-            type: Class<*>,
-            name: String,
-        ): Field? {
-            var current: Class<*>? = type
-            while (current != null && current != Any::class.java) {
-                val owner = current
-                val field =
-                    runCatching {
-                        owner.getDeclaredField(name).apply { isAccessible = true }
-                    }.getOrNull()
-                if (field != null) return field
-                current = owner.superclass
-            }
-            return null
-        }
-
-        private fun failActive(): Boolean {
-            release()
-            return false
-        }
-
-        private fun fail(): Boolean {
-            clearState()
-            return false
-        }
-
-        private fun clearState() {
-            islandWidthField = null
-            islandWidthChangedField = null
-            islandShowingMethod = null
-            baselineIslandWidthPx = null
-            lastEffectiveIslandWidthPx = null
-            lastPaddingDeltaPx = 0
-            active = false
-            contractReady = false
-        }
-    }
-
     private class Session(
         root: ViewGroup,
         fakeRoot: ViewGroup,
@@ -975,9 +751,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var transitionReservationEnabled = false
         private var nativePaddingExpansionAllowed = true
         private var genericIslandShowing: Boolean? = null
-        private var fakeIslandReservationBridgeReady = false
-        private val fakeIslandReservationBridge =
-            FakeIslandReservationBridge(fakeStatusIcons)
+        private var fakeIslandBoundaryProjectionReady = false
+        private var fakeIslandBoundaryDeltaPx: Int? = null
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -1039,14 +814,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
-                    genericIslandShowing == true && fakeIslandReservationBridgeReady ->
-                        "native-progress-fake-island-compensated"
+                    genericIslandShowing == true && fakeIslandBoundaryProjectionReady ->
+                        "native-progress-fake-island-projected"
                     !nativePaddingExpansionAllowed ->
-                        "internal-progress-island-compensation-unavailable"
+                        "internal-progress-island-projection-unavailable"
                     else -> "native-progress-total-padding"
                 } +
-                ",islandReservationBridge=" +
-                    fakeIslandReservationBridge.diagnostic() +
+                ",islandBoundaryProjection=" +
+                    when {
+                        fakeIslandBoundaryDeltaPx != null ->
+                            "active:delta=" + fakeIslandBoundaryDeltaPx
+                        fakeIslandBoundaryProjectionReady -> "ready"
+                        else -> "inactive"
+                    } +
                 "}"
 
         fun matches(
@@ -1097,23 +877,25 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.transitionReservationEnabled = transitionReservationEnabled
             this.genericIslandShowing = genericIslandShowing
 
-            val freezeRequired =
+            val projectionRequired =
                 transitionReservationEnabled &&
                     sourceScene == CombinedStatusSourceScene.HOME &&
                     genericIslandShowing == true
-            this.fakeIslandReservationBridgeReady =
-                if (freezeRequired) {
-                    fakeIslandReservationBridge.acquire()
-                } else {
-                    fakeIslandReservationBridge.release()
-                    false
-                }
+            this.fakeIslandBoundaryProjectionReady =
+                projectionRequired &&
+                    SystemUiPanelTransitionSource
+                        .isFakeIslandBoundaryProjectionAvailable()
+            if (!projectionRequired) {
+                SystemUiPanelTransitionSource
+                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                fakeIslandBoundaryDeltaPx = null
+            }
             this.nativePaddingExpansionAllowed =
                 Policy.allowsNativeTransitionPaddingExpansion(
                     sourceScene = sourceScene,
                     genericIslandShowing = genericIslandShowing,
                     fakeIslandReservationBridgeReady =
-                        fakeIslandReservationBridgeReady,
+                        fakeIslandBoundaryProjectionReady,
                 )
             if (appearanceChanged) {
                 refreshNativePeerTint()
@@ -1126,8 +908,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
             SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
                 "transition-" + source,
             )
-            fakeIslandReservationBridge.release()
-            fakeIslandReservationBridgeReady = false
+            SystemUiPanelTransitionSource
+                .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+            fakeIslandBoundaryProjectionReady = false
+            fakeIslandBoundaryDeltaPx = null
             genericIslandShowing = null
             if (!started) return
             started = false
@@ -1996,6 +1780,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         "transition-source-native-peer-motion",
                     )
                 }
+                SystemUiPanelTransitionSource
+                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                fakeIslandBoundaryDeltaPx = null
                 lastReservationWidthPx = null
                 lastNativeReservationWidthPx = null
                 return
@@ -2009,16 +1796,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             frozenReservationSpans = resolved
                         }
                     ?: return
+            val compactWidth = frozenSource?.width ?: source.width
             val requestedWidth =
                 Policy.resolveTransitionReservationWidth(
-                    compactWidthPx = frozenSource?.width ?: source.width,
+                    compactWidthPx = compactWidth,
                     spans = spans,
                     progress = progress,
                 )
 
-            // Keep logical reservation progress for Guiyuan transition/latent
-            // reveal regardless of whether the native container may expose
-            // that expanded width to HyperOS.
+            // The logical reservation is Guiyuan-owned. HyperOS keeps sole
+            // ownership of islandWidth; the fake-only hook projects the
+            // collision read by the same delta as paddingEnd expands.
             lastReservationWidthPx = requestedWidth
 
             if (!nativePaddingExpansionAllowed) {
@@ -2028,36 +1816,52 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     )
                     lastNativeReservationWidthPx = null
                 }
+                SystemUiPanelTransitionSource
+                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                fakeIslandBoundaryDeltaPx = null
                 return
             }
 
-            if (
+            val projectionRequired =
                 genericIslandShowing == true &&
-                fakeIslandReservationBridgeReady
-            ) {
-                val compactWidth = frozenSource?.width ?: source.width
-                val paddingDelta = (requestedWidth - compactWidth).coerceAtLeast(0)
-                if (!fakeIslandReservationBridge.applyPaddingDelta(paddingDelta)) {
-                    nativePaddingExpansionAllowed = false
-                    fakeIslandReservationBridgeReady = false
-                    if (lastNativeReservationWidthPx != null) {
-                        SystemUiHomePresentationOwner
-                            .clearControlCenterTransitionReservation(
-                                "transition-island-compensation-failed",
-                            )
-                        lastNativeReservationWidthPx = null
-                    }
-                    return
-                }
+                    fakeIslandBoundaryProjectionReady
+            val paddingDelta = (requestedWidth - compactWidth).coerceAtLeast(0)
+
+            if (lastNativeReservationWidthPx != requestedWidth) {
+                val applied =
+                    SystemUiHomePresentationOwner
+                        .updateControlCenterTransitionReservation(
+                            requestedSlotWidthPx = requestedWidth,
+                        )
+                if (!applied) return
+                lastNativeReservationWidthPx = requestedWidth
             }
 
-            if (lastNativeReservationWidthPx == requestedWidth) return
-            if (
-                SystemUiHomePresentationOwner.updateControlCenterTransitionReservation(
-                    requestedSlotWidthPx = requestedWidth,
-                )
-            ) {
-                lastNativeReservationWidthPx = requestedWidth
+            if (projectionRequired) {
+                val projected =
+                    SystemUiPanelTransitionSource
+                        .updateFakeIslandBoundaryProjection(
+                            container = fakeStatusIcons,
+                            transitionPaddingDeltaPx = paddingDelta,
+                        )
+                if (!projected) {
+                    SystemUiHomePresentationOwner
+                        .clearControlCenterTransitionReservation(
+                            "transition-island-projection-unavailable",
+                        )
+                    SystemUiPanelTransitionSource
+                        .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                    fakeIslandBoundaryProjectionReady = false
+                    fakeIslandBoundaryDeltaPx = null
+                    nativePaddingExpansionAllowed = false
+                    lastNativeReservationWidthPx = null
+                    return
+                }
+                fakeIslandBoundaryDeltaPx = paddingDelta
+            } else {
+                SystemUiPanelTransitionSource
+                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                fakeIslandBoundaryDeltaPx = null
             }
         }
 
