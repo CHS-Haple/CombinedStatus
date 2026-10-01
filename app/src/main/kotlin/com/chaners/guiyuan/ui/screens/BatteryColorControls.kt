@@ -532,6 +532,9 @@ private fun BatterySchemePageContent(
                 Button(
                     onClick = onApply,
                     enabled = !isActive,
+                    minWidth = 120.dp,
+                    minHeight = ButtonDefaults.MinHeight,
+                    cornerRadius = ButtonDefaults.MinHeight / 2,
                     colors = ButtonDefaults.buttonColorsPrimary(),
                 ) {
                     Text(
@@ -783,7 +786,7 @@ private fun BatteryPagerIndicator(
                     if (index == currentPage) {
                         MiuixTheme.colorScheme.primary
                     } else {
-                        MiuixTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
                     },
             ) {}
         }
