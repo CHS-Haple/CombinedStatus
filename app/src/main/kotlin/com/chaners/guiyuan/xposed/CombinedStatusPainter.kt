@@ -11,6 +11,9 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
+import com.chaners.guiyuan.settings.COMBINED_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.COMBINED_SCALE_MAX
+import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import kotlin.math.cos
@@ -78,17 +81,15 @@ internal class CombinedStatusPainter(
             return
         }
 
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val visualWidth = CANONICAL_SIZE * scale
-        val visualHeight = CANONICAL_SIZE * scale
-        val offsetX = (width - visualWidth) / 2f
-        val offsetY = (height - visualHeight) / 2f
         val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = offsetX,
-                offsetY = offsetY,
-            )
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val save = canvas.save()
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
@@ -167,15 +168,14 @@ internal class CombinedStatusPainter(
         scaleMobileTypeWithCanvas: Boolean = false,
     ): Int {
         if (width <= 0 || height <= 0) return 0
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        if (!scale.isFinite() || scale <= 0f) return 0
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
         val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = (width - CANONICAL_SIZE * scale) / 2f,
-                offsetY = offsetY,
-            )
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return 0
+        val scale = nativeTransform.scale
+        val offsetY = nativeTransform.offsetY
         val topBounds =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
                 val geometry =
@@ -227,17 +227,15 @@ internal class CombinedStatusPainter(
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val visualWidth = CANONICAL_SIZE * scale
-        val visualHeight = CANONICAL_SIZE * scale
-        val offsetX = (width - visualWidth) / 2f
-        val offsetY = (height - visualHeight) / 2f
         val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = offsetX,
-                offsetY = offsetY,
-            )
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val save = canvas.save()
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
@@ -585,9 +583,15 @@ internal class CombinedStatusPainter(
     ): List<TransitionComponentSpec> {
         if (width <= 0 || height <= 0) return emptyList()
 
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val nativeTransform =
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return emptyList()
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val outerGeometry =
             resolveOuterGeometry(visualSettings.outerWeightScale)
         val centerGeometry =
@@ -821,9 +825,15 @@ internal class CombinedStatusPainter(
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ): TransitionBounds? {
         if (width <= 0 || height <= 0) return null
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val nativeTransform =
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return null
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val geometry =
             resolveCenterGeometry(visualSettings)
         val metrics =
@@ -869,17 +879,15 @@ internal class CombinedStatusPainter(
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val visualWidth = CANONICAL_SIZE * scale
-        val visualHeight = CANONICAL_SIZE * scale
-        val offsetX = (width - visualWidth) / 2f
-        val offsetY = (height - visualHeight) / 2f
         val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = offsetX,
-                offsetY = offsetY,
-            )
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val geometry =
             resolveCenterGeometry(visualSettings)
         val save = canvas.save()
@@ -906,9 +914,15 @@ internal class CombinedStatusPainter(
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ): TransitionBounds? {
         if (width <= 0 || height <= 0) return null
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val nativeTransform =
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return null
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val geometry =
             resolveCenterGeometry(visualSettings)
         val metrics =
@@ -948,17 +962,15 @@ internal class CombinedStatusPainter(
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val visualWidth = CANONICAL_SIZE * scale
-        val visualHeight = CANONICAL_SIZE * scale
-        val offsetX = (width - visualWidth) / 2f
-        val offsetY = (height - visualHeight) / 2f
         val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = offsetX,
-                offsetY = offsetY,
-            )
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val geometry =
             resolveCenterGeometry(visualSettings)
         val save = canvas.save()
@@ -1068,6 +1080,30 @@ internal class CombinedStatusPainter(
         progress: Float,
     ): Float =
         start + (end - start) * progress.coerceIn(0f, 1f)
+
+    private fun resolveCanvasTransform(
+        width: Int,
+        height: Int,
+        visualSettings: CombinedStatusVisualSettings,
+    ): NativeRenderTransform? {
+        if (width <= 0 || height <= 0) return null
+        val combinedScale =
+            visualSettings.combinedScale
+                .takeIf(Float::isFinite)
+                ?.coerceIn(COMBINED_SCALE_MIN, COMBINED_SCALE_MAX)
+                ?: COMBINED_SCALE_DEFAULT
+        val scale =
+            min(width / CANONICAL_SIZE, height / CANONICAL_SIZE) *
+                combinedScale
+        if (!scale.isFinite() || scale <= 0f) return null
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        return NativeRenderTransform(
+            scale = scale,
+            offsetX = (width - visualWidth) / 2f,
+            offsetY = (height - visualHeight) / 2f,
+        )
+    }
 
     private fun resolveCenterGeometry(
         visualSettings: CombinedStatusVisualSettings,
@@ -1802,7 +1838,13 @@ internal class CombinedStatusPainter(
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ): TransitionBounds? {
         if (width <= 0 || height <= 0) return null
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val nativeTransform =
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return null
+        val scale = nativeTransform.scale
         val base =
             resolveCenterGeometry(visualSettings)
         val weight =
@@ -1827,13 +1869,11 @@ internal class CombinedStatusPainter(
             } else {
                 baseLocal
             }
-        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
         return TransitionBounds(
-            left = offsetX + local.left * scale,
-            top = offsetY + local.top * scale,
-            right = offsetX + local.right * scale,
-            bottom = offsetY + local.bottom * scale,
+            left = nativeTransform.offsetX + local.left * scale,
+            top = nativeTransform.offsetY + local.top * scale,
+            right = nativeTransform.offsetX + local.right * scale,
+            bottom = nativeTransform.offsetY + local.bottom * scale,
         )
     }
 
@@ -1847,9 +1887,15 @@ internal class CombinedStatusPainter(
         progress: Float,
     ): TransitionBounds? {
         if (width <= 0 || height <= 0) return null
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val nativeTransform =
+            resolveCanvasTransform(
+                width = width,
+                height = height,
+                visualSettings = visualSettings,
+            ) ?: return null
+        val scale = nativeTransform.scale
+        val offsetX = nativeTransform.offsetX
+        val offsetY = nativeTransform.offsetY
         val nativeTransform =
             NativeRenderTransform(
                 scale = scale,

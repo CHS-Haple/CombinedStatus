@@ -356,3 +356,40 @@ Replace the obsolete “all center families share one size” test with independ
 ### Validation
 
 Run exact-head Runtime CI. Default values preserve current runtime appearance, so no device gate is required until UI controls are exposed.
+
+
+## 2026-10-01 — Build 558 shrink-only overall combined scale
+
+**Type:** runtime geometry wiring  
+**Display version:** 0.0.3  
+**Build:** 558 / `20261001-558`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Final range
+
+Maintainer set 100% as both the default and maximum overall size. The supported range is therefore 75%-100%, with 100% as the future slider key point/magnet.
+
+This intentionally permits shrinking only. It avoids increasing the host viewport requirement and remains safe when outer weight is independently increased.
+
+### Pre-commit 审查 / review
+
+The candidate was reviewed before branch update:
+- `COMBINED_SCALE_MIN = 0.75`, `MAX = DEFAULT = 1.00`;
+- one `resolveCanvasTransform()` owns effective scale and centered offsets;
+- all ten runtime geometry paths use the same helper;
+- raw `min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)` calculation remains only inside that helper;
+- steady draw, top-overflow calculation, transition drawing/specs, airplane/no-SIM bounds, mobile-type current bounds, and Battery Number current bounds therefore cannot diverge;
+- default 100% preserves Build-557 geometry exactly;
+- no new View size, LayoutParams, writer, listener, animator, or transition clock is introduced;
+- range constants are sourced from settings schema rather than duplicated in Painter.
+
+### Tests
+
+Settings normalization now locks:
+- 100% is both default and maximum;
+- values above max clamp to 100%;
+- values below the supported range clamp to 75%.
+
+### Validation
+
+Run exact-head Runtime CI. No device gate yet because no UI exposes the new setting and the default leaves runtime output unchanged.

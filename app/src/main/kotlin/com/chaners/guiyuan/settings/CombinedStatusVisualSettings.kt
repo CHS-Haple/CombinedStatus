@@ -810,8 +810,8 @@ internal fun batteryTopVerticalOffsetRaw(uiOffset: Float): Float =
 
 
 internal const val COMBINED_SCALE_DEFAULT = 1f
-internal const val COMBINED_SCALE_MIN = 0.85f
-internal const val COMBINED_SCALE_MAX = 1.15f
+internal const val COMBINED_SCALE_MIN = 0.75f
+internal const val COMBINED_SCALE_MAX = 1.00f
 internal const val OUTER_WEIGHT_SCALE_DEFAULT = 1f
 internal const val OUTER_WEIGHT_SCALE_MIN = 0.70f
 internal const val OUTER_WEIGHT_SCALE_MAX = 1.30f

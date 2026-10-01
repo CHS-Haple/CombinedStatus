@@ -21,7 +21,13 @@ class CombinedStatusVisualSettingsTest {
                 mobileTypeSizeScale = 9f,
                 mobileTypeWeight = 5000,
             ).normalized()
+        assertEquals(COMBINED_SCALE_DEFAULT, COMBINED_SCALE_MAX, 0.0001f)
         assertEquals(COMBINED_SCALE_MAX, normalized.combinedScale, 0.0001f)
+        assertEquals(
+            COMBINED_SCALE_MIN,
+            settings.copy(combinedScale = -1f).normalized().combinedScale,
+            0.0001f,
+        )
         assertEquals(OUTER_WEIGHT_SCALE_MAX, normalized.outerWeightScale, 0.0001f)
         assertEquals(WIFI_SIZE_SCALE_MAX, normalized.wifiSizeScale, 0.0001f)
         assertEquals(MOBILE_TYPE_SIZE_SCALE_MAX, normalized.mobileTypeSizeScale, 0.0001f)
