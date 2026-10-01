@@ -716,10 +716,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 "combined_status",
             )
         private var accessor: Method? = null
-        private var stateClass: Class<*>? = null
         private var forceAppearField: Field? = null
-        private var visibleStateField: Field? = null
-        private var slotField: Field? = null
         private var entries: List<Entry> = emptyList()
         private var active = false
         private var contractReady = false
@@ -748,8 +745,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     resolvedVisibleField = findField(state.javaClass, "visibleState")
                     resolvedSlotField = findField(state.javaClass, "slot")
                 }
-                val forceField = resolvedForceField ?: return rollback(changed)
-                val visibleField = resolvedVisibleField ?: return rollback(changed)
+                val forceField = resolvedForceField ?: return rollback(changed, resolvedAccessor, resolvedForceField)
+                val visibleField = resolvedVisibleField ?: return rollback(changed, resolvedAccessor, resolvedForceField)
                 val currentSlot =
                     (resolvedSlotField?.let { field ->
                         runCatching { field.get(state) as? String }.getOrNull()
@@ -771,26 +768,23 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val original =
                     runCatching { forceField.getBoolean(state) }
                         .getOrNull()
-                        ?: return rollback(changed)
+                        ?: return rollback(changed, resolvedAccessor, resolvedForceField)
                 if (!original) {
                     val written =
                         runCatching {
                             forceField.setBoolean(state, true)
                             true
                         }.getOrDefault(false)
-                    if (!written) return rollback(changed)
+                    if (!written) return rollback(changed, resolvedAccessor, resolvedForceField)
                     changed += Entry(WeakReference(child), originalForceAppear = false)
                 }
             }
 
             if (!stateObserved || resolvedStateClass == null) {
-                return rollback(changed)
+                return rollback(changed, resolvedAccessor, resolvedForceField)
             }
             accessor = resolvedAccessor
-            stateClass = resolvedStateClass
             forceAppearField = resolvedForceField
-            visibleStateField = resolvedVisibleField
-            slotField = resolvedSlotField
             entries = changed
             active = true
             contractReady = true
@@ -867,35 +861,39 @@ internal object CombinedStatusControlCenterTransitionOwner {
         ): Field? {
             var current: Class<*>? = type
             while (current != null && current != Any::class.java) {
+                val owner = current
                 val field =
                     runCatching {
-                        current.getDeclaredField(name).apply { isAccessible = true }
+                        owner.getDeclaredField(name).apply { isAccessible = true }
                     }.getOrNull()
                 if (field != null) return field
-                current = current.superclass
+                current = owner.superclass
             }
             return null
         }
 
-        private fun rollback(changed: List<Entry>): Boolean {
-            if (changed.isNotEmpty()) {
-                val resolvedAccessor = accessor ?: resolveAccessor()
-                val forceField = forceAppearField
-                if (resolvedAccessor != null && forceField != null) {
-                    changed.forEach { entry ->
-                        val child = entry.view.get() ?: return@forEach
-                        val state =
-                            runCatching { resolvedAccessor.invoke(null, child) }
-                                .getOrNull()
-                                ?: return@forEach
-                        runCatching {
-                            if (forceField.getBoolean(state)) {
-                                forceField.setBoolean(state, entry.originalForceAppear)
-                            }
+        private fun rollback(
+            changed: List<Entry>,
+            resolvedAccessor: Method,
+            resolvedForceField: Field?,
+        ): Boolean {
+            if (changed.isNotEmpty() && resolvedForceField != null) {
+                changed.forEach { entry ->
+                    val child = entry.view.get() ?: return@forEach
+                    val state =
+                        runCatching { resolvedAccessor.invoke(null, child) }
+                            .getOrNull()
+                            ?: return@forEach
+                    runCatching {
+                        if (resolvedForceField.getBoolean(state)) {
+                            resolvedForceField.setBoolean(
+                                state,
+                                entry.originalForceAppear,
+                            )
                         }
                     }
-                    statusIcons.requestLayout()
                 }
+                statusIcons.requestLayout()
             }
             clearState()
             return false
@@ -910,10 +908,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             entries = emptyList()
             active = false
             contractReady = false
-            stateClass = null
             forceAppearField = null
-            visibleStateField = null
-            slotField = null
         }
     }
 
