@@ -1,3 +1,22 @@
+## 2026-10-02 — Build 586 compile-only correction
+
+**Type:** App UI compile fix  
+**Display version:** 0.0.3  
+**Build:** 586 / `20261002-586`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### CI evidence
+Build 585 Runtime CI #2130 failed in Kotlin compilation at the two new title-row `Modifier.heightIn` calls.
+
+### Root cause
+`androidx.compose.foundation.layout.heightIn` was not imported.
+
+### Change
+Add the missing import only. No geometry, typography, color token, pager, Runtime/SystemUI, hook, or persistence behavior changed.
+
+### Validation
+Re-run exact-head Runtime CI. Canary remains blocked until green.
+
 ## 2026-10-02 — Build 585 MIUIX geometry/token audit
 
 **Type:** App UI / MIUIX conformance  
