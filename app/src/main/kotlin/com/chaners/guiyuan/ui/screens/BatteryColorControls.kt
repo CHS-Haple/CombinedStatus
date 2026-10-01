@@ -74,6 +74,7 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarDefaults
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -550,7 +551,8 @@ private fun BatterySchemePageContent(
                     enabled = !isActive,
                     minWidth = 120.dp,
                     minHeight = ButtonDefaults.MinHeight,
-                    cornerRadius = 50.dp,
+                    cornerRadius = SnackbarDefaults.ActionCornerRadius,
+                    insideMargin = SnackbarDefaults.ActionInsideMargin,
                     colors = ButtonDefaults.buttonColorsPrimary(),
                 ) {
                     Text(
