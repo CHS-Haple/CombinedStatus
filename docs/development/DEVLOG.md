@@ -14756,3 +14756,111 @@ Expected affected-pull diagnostics:
 - `islandReservationBridge=active:base=<W>/effective=<...>/delta=<Δ>`.
 
 Reject for compensation unavailable, continued premature disappearance, new icon resurrection, overlap/jump, stale spacing after collapse, or any non-island regression.
+
+## 2026-10-01 — Build 542 final ownership correction: project the QS_FAKE island boundary at the native getter
+
+**Type:** root-cause correction / exact-target ownership review  
+**Display version:** 0.0.3  
+**Build / source:** 542 / `20261001-542` / `feat/battery-top-readout` / PR #181
+
+### Build-541 rejection evidence
+
+The maintainer's Build-541 recording still reproduces the island-only sequential peer disappearance. At the same time the Detailed report proves that the Build-541 mechanism was actually active: the affected pull carries a growing non-negative `nativeReservation`, `reservationMode=native-progress-fake-island-freeze`, and `islandPeerFreeze=active:3`.
+
+Therefore Build 541 does **not** fail because the freeze failed to install. It disproves the per-child `forceAppear` seam itself for this path. Do not revive that route.
+
+### Exact-target root-cause closure
+
+Directed JADX 1.5.6 review of the retained exact SystemUI artifact
+`a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
+closes the native collision path:
+
+1. `MiuiStatusIconContainer.onLayout()` places peers from the physical end using the container's current `paddingEnd`.
+2. The same layout then reads private `getIslandTranslationX()`.
+3. With a positive island boundary, it walks the native child states from the end. A peer remains outside the island only while its `layoutTranslationX >= islandBoundary`; once a peer falls below that boundary, the affected remainder is assigned `visibleState=2 / inIslandState=10`.
+4. `IslandMonitor.FakeContainerIslandMonitor` independently consumes Home `StatusBarIslandControllerImpl.statusContainerSpace` and owns its native island-width state; changes mark the fake container for layout again.
+
+This explains the device video without an extra geometric hypothesis. Guiyuan's semantic decomposition expands `statusIcons.paddingEnd` by `Δ`. That shifts every fake peer's native layout X left by `Δ`, while the stock fake island boundary `W` is unchanged. Peers therefore cross the native X-only threshold one by one even though the fake row has already moved vertically away from the Home island.
+
+### Final Build-542 invariant
+
+The correction preserves the stock classification rather than suppressing island handling:
+
+`(x - Δ) >= (W - Δ)  <=>  x >= W`
+
+For the active QS_FAKE `MiuiStatusIconContainer` only, the private
+`getIslandTranslationX()` result is projected from native `W` to
+`max(0, W - Δ)` while Guiyuan's transition padding is expanded by `Δ`.
+
+Consequences:
+- a peer that was outside the native island boundary at the steady start remains outside it while Guiyuan releases transition occupancy;
+- a peer already inside the native island boundary does not get resurrected;
+- surrounding native peers still receive the required leftward reflow from the existing `statusIcons.paddingEnd` reservation;
+- the final Control Center surface and every unregistered status-icon container receive the untouched native getter result.
+
+### Final implementation
+
+- `SystemUiPanelTransitionSource` installs one additional exact-target Hook on private `MiuiStatusIconContainer.getIslandTranslationX()`; Control Center runtime Hook count is therefore 5.
+- A `WeakHashMap<ViewGroup, Int>` stores only the current Guiyuan transition padding delta for the active QS_FAKE status-icon container.
+- The Hook always calls the native method first. If that container has no active projection entry, it returns the native result unchanged.
+- If an active entry exists, it applies the pure `Policy.compensateFakeIslandWidth(...)` function to the native result.
+- `CombinedStatusControlCenterTransitionOwner` registers/updates the projection only for Home + generic-island + semantic-reservation sessions and clears it on reservation disable, scene change, transition stop, detach, or runtime reset.
+- If the exact Hook is unavailable, the existing Home-island native-padding guard remains authoritative; expanded native reservation is not exposed.
+
+### Rejected Build-542 intermediate attempts
+
+Two implementation variants were reviewed and rejected before Canary packaging:
+
+- **direct native `islandWidth` write:** mathematically compensated the correct quantity but would make Guiyuan a second writer of state already owned by `FakeContainerIslandMonitor/statusContainerSpace`, allowing asynchronous native updates to race it;
+- **fake-monitor detach/bypass:** removed the collision owner too broadly and could change steady-island membership, including allowing icons already hidden by the native island to reappear.
+
+A transient malformed-tree commit was also repaired during this sequence. It is a repository-operation error, not a runtime baseline. Final acceptance is based only on the complete current tree and its exact-head CI.
+
+### 问题执行流程
+
+1. HyperOS establishes the steady Home island boundary and stock fake icon membership.
+2. Control Center begins and QS_FAKE copies that native membership.
+3. Guiyuan decomposes its compact source and increases only its existing native peer reservation through `statusIcons.paddingEnd`.
+4. The added padding moves native fake peers left by `Δ`.
+5. Before HyperOS evaluates the fake island collision threshold, the exact getter Hook returns the native boundary shifted left by the same `Δ` for this fake container only.
+6. Native `MiuiStatusIconContainer.onLayout()` continues to decide child positions and visibility using its own algorithm.
+7. On collapse/handoff/detach, the projection map entry is removed; subsequent getter calls immediately return the untouched native boundary.
+
+### 审查 / review
+
+- **root-cause-first:** the correction targets the exact inequality that the device evidence violates; no screenshot-derived X/Y threshold, delay, extra padding factor, or custom island animator is introduced.
+- **single writer:** HyperOS remains the sole writer of fake `islandWidth`, `islandWidthChanged`, monitor/controller state, and child island states. `statusIcons.paddingEnd` remains Guiyuan's sole native peer-layout writer.
+- **native-first:** native `getIslandTranslationX()` is always evaluated first and is the basis of the projected result.
+- **scope:** only the actual active QS_FAKE `MiuiStatusIconContainer` is keyed in the weak projection map. Home, Keyguard, final QS, and unrelated containers are pass-through.
+- **steady-membership preservation:** subtracting the same `Δ` from both peer X and the boundary preserves the native start classification, so the fix does not require `ignoredSlots` or per-child state mutation.
+- **cleanup:** no native island field needs restoration. Removing the weak-map entry restores native behavior on the very next getter call.
+- **Fail native:** Hook unavailable -> projection readiness false -> generic-island native-padding expansion stays guarded.
+- **Build-526 boundary:** generic island visibility remains distinct from exact Battery-Island authority `ControlCenterHeaderExpandController.isAddBatteryIsland`.
+- **performance:** one narrow existing-layout getter interceptor and O(1) weak-map lookup; no new traversal, polling, timer, animator, pre-draw observer, or per-child mutation.
+- **compatibility:** the private getter is resolved from the pinned target during install. A missing method fails installation instead of silently guessing another island contract.
+
+### Automated validation
+
+- Pure compensation policy is unit-covered for zero delta, positive delta, saturation at zero, and native non-positive sentinel preservation.
+- Panel runtime Hook-count coverage is updated from 4 to 5.
+- Final getter-projection runtime at `6a18f04722bc65cc8a74113403ea279427fb5ffb`: Runtime CI #2046 **success** — pinned target profile, unit tests / Debug build, and Modern Xposed metadata all green.
+- CURRENT/DEVLOG closure changes documentation only. One final exact-head Runtime CI is required after this record.
+
+### Device gate
+
+After the final exact-head Runtime is green, freeze that SHA and produce one signed Work Branch Canary.
+
+With a generic Super-Island visible:
+1. pull Home -> Control Center normally, then once quickly;
+2. native peers must continue moving left as Guiyuan decomposes;
+3. the extra sequential disappearance reproduced on Build 541 must be absent;
+4. an icon already hidden by the steady island must not unexpectedly appear;
+5. collapse fully and repeat once; no stale gap/projection state may survive;
+6. export Detailed diagnostics and, if any visual anomaly remains, attach the recording.
+
+Expected affected-pull diagnostics:
+- `reservationMode=native-progress-fake-island-projected`;
+- `nativeReservation >= 0`;
+- `islandBoundaryProjection=active:delta=<Δ>`.
+
+Reject Build 542 for projection-unavailable, continued premature disappearance, native-hidden icon resurrection, overlap/jump, stale spacing/projection after collapse, or any non-island regression.
