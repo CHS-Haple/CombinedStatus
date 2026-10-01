@@ -59,6 +59,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -193,7 +194,6 @@ internal fun BatteryColorBottomSheet(
     OverlayBottomSheet(
         show = show,
         title = sheetTitle,
-        backgroundColor = MiuixTheme.colorScheme.surface,
         startAction =
             if (inDetail) {
                 {
@@ -482,38 +482,58 @@ private fun BatterySchemePageContent(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 16.dp),
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors =
+                CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface,
+                ),
+            insideMargin = PaddingValues(16.dp),
         ) {
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 40.dp),
             ) {
                 Text(
                     text = name,
                     style = MiuixTheme.textStyles.title2,
+                    modifier = Modifier.align(Alignment.Center),
                 )
-                Spacer(Modifier.height(12.dp))
-                BatterySchemePreviewStrip(
-                    page =
-                        if (builtIn != null) {
-                            BatterySchemePage.BuiltIn(builtIn)
-                        } else {
-                            custom?.let(BatterySchemePage::Custom)
-                        },
-                    size = 28.dp,
-                    spacing = 10.dp,
-                )
-                Spacer(Modifier.height(8.dp))
-                BatterySchemeNavigator(
-                    pageCount = pageCount,
-                    currentPage = pageIndex,
-                    onNavigateTo = onNavigateTo,
-                )
-                Spacer(Modifier.height(8.dp))
+                if (custom != null && onRename != null && onCopy != null && onDelete != null) {
+                    BatterySchemeManageMenu(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        canCopy = canCreateCustom,
+                        onRename = onRename,
+                        onCopy = onCopy,
+                        onDelete = onDelete,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            BatterySchemePreviewStrip(
+                page =
+                    if (builtIn != null) {
+                        BatterySchemePage.BuiltIn(builtIn)
+                    } else {
+                        custom?.let(BatterySchemePage::Custom)
+                    },
+                size = 28.dp,
+                spacing = 10.dp,
+            )
+            Spacer(Modifier.height(8.dp))
+            BatterySchemeNavigator(
+                pageCount = pageCount,
+                currentPage = pageIndex,
+                onNavigateTo = onNavigateTo,
+            )
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
                 Button(
                     onClick = onApply,
                     enabled = !isActive,
@@ -532,42 +552,33 @@ private fun BatterySchemePageContent(
                     )
                 }
             }
-            if (custom != null && onRename != null && onCopy != null && onDelete != null) {
-                BatterySchemeManageMenu(
-                    modifier = Modifier.align(Alignment.TopEnd),
-                    canCopy = canCreateCustom,
-                    onRename = onRename,
-                    onCopy = onCopy,
-                    onDelete = onDelete,
-                )
-            }
-        }
-
-        Card {
-            CombinedStatusBatteryColorSlot.entries.forEach { slot ->
-                val color =
-                    when {
-                        builtIn != null -> batteryBuiltInColor(builtIn, slot)
-                        custom != null ->
-                            batterySchemeEntryColor(custom.entries.entryFor(slot), slot)
-                        else -> null
-                    }
-                val followsSystem =
-                    when {
-                        builtIn != null -> color == null
-                        custom != null ->
-                            custom.entries.entryFor(slot).source ==
-                                BatteryColorSchemeSource.FOLLOW_SYSTEM ||
-                                color == null
-                        else -> true
-                    }
-                BatteryModeSettingItem(
-                    slot = slot,
-                    color = color,
-                    followsSystem = followsSystem,
-                    enabled = custom != null || canCreateCustom,
-                    onClick = { onSlotClick(slot) },
-                )
+            Spacer(Modifier.height(16.dp))
+            Card {
+                CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+                    val color =
+                        when {
+                            builtIn != null -> batteryBuiltInColor(builtIn, slot)
+                            custom != null ->
+                                batterySchemeEntryColor(custom.entries.entryFor(slot), slot)
+                            else -> null
+                        }
+                    val followsSystem =
+                        when {
+                            builtIn != null -> color == null
+                            custom != null ->
+                                custom.entries.entryFor(slot).source ==
+                                    BatteryColorSchemeSource.FOLLOW_SYSTEM ||
+                                    color == null
+                            else -> true
+                        }
+                    BatteryModeSettingItem(
+                        slot = slot,
+                        color = color,
+                        followsSystem = followsSystem,
+                        enabled = custom != null || canCreateCustom,
+                        onClick = { onSlotClick(slot) },
+                    )
+                }
             }
         }
     }
@@ -615,19 +626,28 @@ private fun BatteryAddSchemePage(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors =
+                CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface,
+                ),
+            insideMargin = PaddingValues(16.dp),
         ) {
-            Text(
-                text = stringResource(R.string.battery_custom_scheme_add_page_title),
-                style = MiuixTheme.textStyles.title2,
-            )
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 40.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(R.string.battery_custom_scheme_add_page_title),
+                    style = MiuixTheme.textStyles.title2,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             BatterySchemePreviewStrip(
                 page = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
@@ -640,47 +660,47 @@ private fun BatteryAddSchemePage(
                 currentPage = pageIndex,
                 onNavigateTo = onNavigateTo,
             )
-        }
-
-        Card(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(144.dp),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(144.dp),
             ) {
-                if (enabled) {
-                    FloatingActionButton(
-                        onClick = onClick,
-                        shadowElevation = 0.dp,
-                    ) {
-                        Icon(
-                            imageVector = MiuixIcons.Add,
-                            contentDescription =
-                                stringResource(R.string.battery_custom_scheme_new),
-                            modifier = Modifier.size(32.dp),
-                            tint = MiuixTheme.colorScheme.onPrimary,
-                        )
-                    }
-                } else {
-                    Surface(
-                        modifier = Modifier.size(60.dp),
-                        shape = CircleShape,
-                        color = MiuixTheme.colorScheme.disabledPrimaryButton,
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (enabled) {
+                        FloatingActionButton(
+                            onClick = onClick,
+                            shadowElevation = 0.dp,
                         ) {
                             Icon(
                                 imageVector = MiuixIcons.Add,
-                                contentDescription = null,
+                                contentDescription =
+                                    stringResource(R.string.battery_custom_scheme_new),
                                 modifier = Modifier.size(32.dp),
-                                tint = MiuixTheme.colorScheme.disabledOnPrimaryButton,
+                                tint = MiuixTheme.colorScheme.onPrimary,
                             )
+                        }
+                    } else {
+                        Surface(
+                            modifier = Modifier.size(60.dp),
+                            shape = CircleShape,
+                            color = MiuixTheme.colorScheme.disabledPrimaryButton,
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = MiuixIcons.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MiuixTheme.colorScheme.disabledOnPrimaryButton,
+                                )
+                            }
                         }
                     }
                 }
@@ -965,7 +985,16 @@ private fun BatteryCustomModeEditor(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
     ) {
-        OverlayDropdownPreference(
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors =
+                CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface,
+                ),
+            insideMargin = PaddingValues(16.dp),
+        ) {
+            OverlayDropdownPreference(
             items = sourceLabels,
             selectedIndex = selectedSourceIndex,
             title = stringResource(R.string.battery_color_source),
@@ -1153,6 +1182,7 @@ private fun BatteryCustomModeEditor(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
             }
+        }
         }
     }
 }
