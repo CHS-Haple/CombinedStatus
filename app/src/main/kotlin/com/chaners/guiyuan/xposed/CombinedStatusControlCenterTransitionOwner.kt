@@ -766,13 +766,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     continue
                 }
                 val original =
-                    runCatching { forceField.getBoolean(state) }
+                    runCatching { (forceField.get(state) as? Boolean) ?: false }
                         .getOrNull()
                         ?: return rollback(changed, resolvedAccessor, resolvedForceField)
                 if (!original) {
                     val written =
                         runCatching {
-                            forceField.setBoolean(state, true)
+                            forceField.set(state, true)
                             true
                         }.getOrDefault(false)
                     if (!written) return rollback(changed, resolvedAccessor, resolvedForceField)
@@ -810,12 +810,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             .getOrNull()
                             ?: return@forEach
                     val current =
-                        runCatching { forceField.getBoolean(state) }
+                        runCatching { (forceField.get(state) as? Boolean) ?: false }
                             .getOrNull()
                             ?: return@forEach
                     if (!entry.originalForceAppear && current) {
                         runCatching {
-                            forceField.setBoolean(state, false)
+                            forceField.set(state, false)
                             restored = true
                         }
                     }
@@ -885,8 +885,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             .getOrNull()
                             ?: return@forEach
                     runCatching {
-                        if (resolvedForceField.getBoolean(state)) {
-                            resolvedForceField.setBoolean(
+                        if ((resolvedForceField.get(state) as? Boolean) ?: false) {
+                            resolvedForceField.set(
                                 state,
                                 entry.originalForceAppear,
                             )
