@@ -491,3 +491,16 @@ Coverage added/updated for:
 ### Validation
 
 Run exact-head Runtime CI before any BottomSheet/UI work is committed.
+
+
+### Build 559 CI correction — legacy color-policy expectations
+
+Runtime CI #2078 compiled the new palette/mode model but exposed four existing `CombinedStatusColorPolicyTest` cases whose expectations still assumed the old global default was HyperOS.
+
+Pre-commit review separated test intent instead of blindly replacing expected colors:
+- the native semantic-color test now explicitly selects the HyperOS preset;
+- the default performance-mode test now validates the Recommended performance color;
+- the optional center/mobile follow test explicitly selects HyperOS so it continues to test propagation of the final battery color rather than palette choice;
+- the battery-text / charging-icon independent tint test explicitly selects HyperOS so it continues to isolate its intended follow-system behavior.
+
+Runtime production code is unchanged. This is a test-contract correction for the intentional default-palette change introduced by Build 559.

@@ -1,5 +1,7 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
+import com.chaners.guiyuan.settings.CombinedStatusRecommendedBatteryPalette
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -24,7 +26,7 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
-    fun chargingUsesNativeSystemSemanticColorByDefault() {
+    fun hyperosPresetUsesNativeSystemSemanticColor() {
         val semanticColor = 0xff1dcd3a.toInt()
         val colors =
             CombinedStatusColorPolicy.resolve(
@@ -37,6 +39,10 @@ class CombinedStatusColorPolicyTest {
                     CombinedStatusTintState(
                         appliedTint = 0xffddeeff.toInt(),
                         statusIconTint = 0xff556677.toInt(),
+                    ),
+                visualSettings =
+                    CombinedStatusVisualSettings(
+                        batteryColorPreset = CombinedStatusBatteryColorPreset.HYPEROS,
                     ),
             )
         assertEquals(0xff556677.toInt(), colors.centerTint)
@@ -64,9 +70,18 @@ class CombinedStatusColorPolicyTest {
             )
         assertEquals(0xff445566.toInt(), colors.centerTint)
         assertEquals(0xff445566.toInt(), colors.mobileTint)
-        assertEquals(semanticColor, colors.batteryTint)
-        assertEquals(semanticColor, colors.batteryTextTint)
-        assertEquals(semanticColor, colors.chargingIconTint)
+        assertEquals(
+            CombinedStatusRecommendedBatteryPalette.PERFORMANCE,
+            colors.batteryTint,
+        )
+        assertEquals(
+            CombinedStatusRecommendedBatteryPalette.PERFORMANCE,
+            colors.batteryTextTint,
+        )
+        assertEquals(
+            CombinedStatusRecommendedBatteryPalette.PERFORMANCE,
+            colors.chargingIconTint,
+        )
     }
 
     @Test
@@ -88,6 +103,7 @@ class CombinedStatusColorPolicyTest {
                     CombinedStatusVisualSettings(
                         mobileFollowsBatteryColor = true,
                         centerFollowsBatteryColor = true,
+                        batteryColorPreset = CombinedStatusBatteryColorPreset.HYPEROS,
                     ),
             )
         assertEquals(semanticColor, colors.centerTint)
@@ -116,6 +132,7 @@ class CombinedStatusColorPolicyTest {
                     CombinedStatusVisualSettings(
                         batteryTopTextFollowsBatteryColor = false,
                         batteryTopChargingIconFollowsBatteryColor = false,
+                        batteryColorPreset = CombinedStatusBatteryColorPreset.HYPEROS,
                     ),
             )
 
