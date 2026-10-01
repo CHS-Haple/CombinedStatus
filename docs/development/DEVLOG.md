@@ -1,3 +1,49 @@
+## 2026-10-02 — Build 580 mode-detail MIUIX conformance refinement
+
+**Type:** App UI hierarchy / color editor / MIUIX conformance  
+**Display version:** 0.0.3  
+**Build:** 580 / `20261002-580`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+- Source dropdown stands alone: no duplicate gray title and no wrapping Card.
+- One actual function group maps to one Card.
+- Remove redundant Current color and separate Restore-this-mode entry.
+- Common colors need larger optical presence, long-press details, and selection that does not shrink the chosen color.
+- HSV must expose live values.
+- Follow inversion should look inactive but remain directly editable, promoting to Custom only on a valid edit.
+- Prefer pinned MIUIX typography, spacing, tokens and controls before project tuning.
+
+### Pinned MIUIX audit
+Revision: `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`.
+
+Verified directly:
+- `SmallTitle`: subtitle style, 28dp horizontal / 8dp vertical default inset.
+- `BasicComponent`: native title/body2 typography, 16dp inset, disabled title/summary tokens.
+- `TextField`: native text style, 16dp corners and 16dp internal margins.
+- `TooltipBox`: native touch long-press tooltip; already used by Guiyuan Hot Reload.
+- `ColorPalette`: selected color remains full-size; a white ring/glow is overlaid instead of shrinking the color body.
+- MIUIX has no discrete common-color swatch component, so the visible swatch diameter remains an explicit project optical parameter rather than being presented as an upstream default.
+
+### Changes
+- Bare `OverlayDropdownPreference` at the top owns source + effective value.
+- Common colors / Full adjustment / Precise input each use their own Card.
+- Remove duplicate Current color and Management/Restore group.
+- Restore SmallTitle default inset.
+- Common colors use 40dp interaction cells, 28dp visible bodies, 16dp Card inset, 12dp row spacing, outer-only selection ring, and `TooltipBox(text = "#RRGGBB")`.
+- HSV rows show `degree`, `saturation %`, and `brightness %` values using body2/action-color semantics.
+- Follow inversion uses MIUIX disabled visual tokens while preserving interaction. A valid common-color/HEX/RGB/HSV edit continues through `setCustomColor`, which is the single copy-on-write writer for promotion to Custom.
+
+### Review
+- MIUIX-first hierarchy/typography/spacing confirmed.
+- No second editor state writer.
+- No Runtime/SystemUI/hook/persistence-schema change.
+- No fake color is created for Follow inversion with no remembered seed.
+- The only project-owned optical exception is the discrete swatch geometry because upstream exposes no equivalent component.
+
+### Validation
+Run exact-head Runtime CI only. Do not trigger Canary until explicitly requested.
+
 ## 2026-10-02 — Build 578 scheme-page vertical overflow correction
 
 **Type:** App UI layout / MIUIX settings-page scrolling  
