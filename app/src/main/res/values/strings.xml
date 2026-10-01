@@ -177,6 +177,10 @@
     <string name="battery_colors">Battery colors</string>
     <string name="battery_color_scheme_summary">Scheme: %1$s</string>
     <string name="battery_color_scheme">Color scheme</string>
+    <string name="battery_color_scheme_apply">Apply</string>
+    <string name="battery_color_scheme_applied">Applied</string>
+    <string name="battery_color_scheme_previous">Previous style</string>
+    <string name="battery_color_scheme_next">Next style</string>
     <string name="battery_color_preset_recommended">Low saturation</string>
     <string name="battery_color_preset_hyperos">HyperOS</string>
     <string name="battery_color_preset_ios">iOS</string>
