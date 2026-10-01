@@ -178,8 +178,8 @@
     <string name="battery_color_scheme">配色方案</string>
     <string name="battery_color_scheme_apply">应用</string>
     <string name="battery_color_scheme_applied">已应用</string>
-    <string name="battery_color_scheme_previous">上一个样式</string>
-    <string name="battery_color_scheme_next">下一个样式</string>
+    <string name="battery_color_scheme_previous">切换至上一样式</string>
+    <string name="battery_color_scheme_next">切换至下一样式</string>
     <string name="battery_color_preset_recommended">低饱和</string>
     <string name="battery_color_preset_hyperos">HyperOS</string>
     <string name="battery_color_preset_ios">iOS</string>
