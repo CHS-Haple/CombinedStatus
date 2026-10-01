@@ -7,6 +7,24 @@ import org.junit.Test
 
 class PreviewSandboxPolicyTest {
     @Test
+    fun mobileNetworkSandboxCoversCommonNativeLabelsWithoutChangingLegacyOrdinals() {
+        assertEquals(0, PreviewMobileNetwork.NONE.ordinal)
+        assertEquals(1, PreviewMobileNetwork.FOUR_G.ordinal)
+        assertEquals(2, PreviewMobileNetwork.FIVE_G.ordinal)
+        assertEquals(3, PreviewMobileNetwork.FIVE_GA.ordinal)
+
+        assertEquals("", PreviewMobileNetwork.NONE.systemLabel)
+        assertEquals("2G", PreviewMobileNetwork.TWO_G.systemLabel)
+        assertEquals("E", PreviewMobileNetwork.EDGE.systemLabel)
+        assertEquals("3G", PreviewMobileNetwork.THREE_G.systemLabel)
+        assertEquals("H+", PreviewMobileNetwork.H_PLUS.systemLabel)
+        assertEquals("4G", PreviewMobileNetwork.FOUR_G.systemLabel)
+        assertEquals("LTE", PreviewMobileNetwork.LTE.systemLabel)
+        assertEquals("5G", PreviewMobileNetwork.FIVE_G.systemLabel)
+        assertEquals("5G-A", PreviewMobileNetwork.FIVE_GA.systemLabel)
+    }
+
+    @Test
     fun noInternetWifiUsesExactHyperOsUnavailableFamily() {
         val names = previewWifiResourceNames(
             state = PreviewWifiState.NO_INTERNET,

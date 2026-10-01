@@ -76,3 +76,37 @@ Keep `TRANSITION_COMPLETE_PROGRESS = 0.35` and front-load only the shape-progres
 ### Validation
 
 Run exact-head Runtime CI and then one signed exact-head Canary. Device focus: compare Build 549 vs 550 during the first half of a normal and slow pull. The ring should yield visibly sooner from the start while the last part remains continuous, with no chunk disappearance or change to CENTER/network trajectory.
+
+
+## 2026-10-01 — Build 551 Preview Sandbox mobile-network coverage
+
+**Type:** preview/UI coverage + regression tests  
+**Display version:** 0.0.3  
+**Build:** 551 / `20261001-551`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Goal
+
+Expose the mobile standards already handled by the generic native-label rendering path in Preview Sandbox instead of limiting manual preview to None / 4G / 5G / 5G-A.
+
+### Implementation
+
+- Add Preview Sandbox choices for `2G`, `E`, `3G`, `H+`, and `LTE`.
+- Final UI order: None / 2G / E / 3G / H+ / 4G / LTE / 5G / 5G-A.
+- Keep the original PreviewMobileNetwork ordinals (None=0, 4G=1, 5G=2, 5G-A=3) stable; new enum values append after them. The UI uses an explicit ordered choice list rather than enum ordinal order.
+- Add `systemLabel` to PreviewMobileNetwork and feed it directly into the existing `CenterIndicator.MobileType` model.
+- Use one horizontally scrollable MIUIX `TabRowWithContour` at a fixed comfortable content width rather than squeezing nine labels into the card width.
+- Add bilingual resource entries; technology labels remain standards notation in both locales.
+- Add production-path regression coverage proving 2G / E / 3G / H+ / 4G / LTE labels pass through `NativePresentationResolver.normalizeDrawableNetworkType` unchanged.
+
+### 审查 / review
+
+- **runtime architecture:** unchanged; production still reads HyperOS `mobile_type` / `mobile_type_single` and renders generic native text.
+- **no per-standard fork:** no extra production branch for 2G/3G/LTE/H+ is introduced.
+- **state compatibility:** legacy preview ordinals are preserved to avoid rememberSaveable restoring an old 4G/5G selection as a newly inserted standard.
+- **layout:** scrolling prevents label compression; no custom density/touch geometry.
+- **scope:** sandbox UI/model/resources and tests only; current Build-550 battery-ring transition runtime remains untouched.
+
+### Validation
+
+Run Runtime CI. Because the functional mapping is deterministic, no runtime-transition device gate is required. A Canary is useful only to visually review the nine-option sandbox control and confirm scrolling/touch ergonomics on the target device.

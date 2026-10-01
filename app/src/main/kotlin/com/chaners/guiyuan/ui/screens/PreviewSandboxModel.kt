@@ -13,11 +13,20 @@ internal enum class PreviewNetworkMode {
     WIFI,
 }
 
-internal enum class PreviewMobileNetwork {
-    NONE,
-    FOUR_G,
-    FIVE_G,
-    FIVE_GA,
+internal enum class PreviewMobileNetwork(
+    val systemLabel: String,
+) {
+    NONE(""),
+    FOUR_G("4G"),
+    FIVE_G("5G"),
+    FIVE_GA("5G-A"),
+
+    // Keep the original four ordinals stable for rememberSaveable restoration.
+    TWO_G("2G"),
+    EDGE("E"),
+    THREE_G("3G"),
+    H_PLUS("H+"),
+    LTE("LTE"),
 }
 
 internal enum class PreviewWifiState {
@@ -176,13 +185,7 @@ internal fun PreviewSandboxUiState.toRenderModel(
 
             PreviewCenterSource.MOBILE ->
                 CenterIndicator.MobileType(
-                    label =
-                        when (mobileNetwork) {
-                            PreviewMobileNetwork.NONE -> ""
-                            PreviewMobileNetwork.FOUR_G -> "4G"
-                            PreviewMobileNetwork.FIVE_G -> "5G"
-                            PreviewMobileNetwork.FIVE_GA -> "5G-A"
-                        },
+                    label = mobileNetwork.systemLabel,
                     enhanced = false,
                     internet = InternetState.VALIDATED,
                 )

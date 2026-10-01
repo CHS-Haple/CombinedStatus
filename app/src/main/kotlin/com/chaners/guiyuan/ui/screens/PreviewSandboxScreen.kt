@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -85,12 +87,17 @@ internal fun PreviewSandboxScreen(
             stringResource(R.string.home_preview_sim_present),
             stringResource(R.string.home_preview_sim_absent),
         )
-    val mobileNetworkOptions =
+    val mobileNetworkChoices =
         listOf(
-            stringResource(R.string.home_preview_network_none),
-            stringResource(R.string.home_preview_network_4g),
-            stringResource(R.string.home_preview_network_5g),
-            stringResource(R.string.home_preview_network_5ga),
+            PreviewMobileNetwork.NONE to stringResource(R.string.home_preview_network_none),
+            PreviewMobileNetwork.TWO_G to stringResource(R.string.home_preview_network_2g),
+            PreviewMobileNetwork.EDGE to stringResource(R.string.home_preview_network_edge),
+            PreviewMobileNetwork.THREE_G to stringResource(R.string.home_preview_network_3g),
+            PreviewMobileNetwork.H_PLUS to stringResource(R.string.home_preview_network_h_plus),
+            PreviewMobileNetwork.FOUR_G to stringResource(R.string.home_preview_network_4g),
+            PreviewMobileNetwork.LTE to stringResource(R.string.home_preview_network_lte),
+            PreviewMobileNetwork.FIVE_G to stringResource(R.string.home_preview_network_5g),
+            PreviewMobileNetwork.FIVE_GA to stringResource(R.string.home_preview_network_5ga),
         )
     val wifiOptions =
         listOf(
@@ -235,12 +242,17 @@ internal fun PreviewSandboxScreen(
 
                         if (state.networkMode == PreviewNetworkMode.MOBILE) {
                             if (state.mobileOptionsVisible) {
-                                SandboxSegmentedField(
+                                SandboxScrollableSegmentedField(
                                     title = stringResource(R.string.home_preview_mobile_network_title),
-                                    options = mobileNetworkOptions,
-                                    selectedIndex = state.mobileNetwork.ordinal,
+                                    options = mobileNetworkChoices.map { it.second },
+                                    selectedIndex =
+                                        mobileNetworkChoices.indexOfFirst {
+                                            it.first == state.mobileNetwork
+                                        }.coerceAtLeast(0),
                                     onSelected = { index ->
-                                        onMobileNetworkChange(PreviewMobileNetwork.entries[index])
+                                        mobileNetworkChoices.getOrNull(index)
+                                            ?.first
+                                            ?.let(onMobileNetworkChange)
                                     },
                                     modifier = Modifier.padding(top = 4.dp),
                                 )
@@ -388,6 +400,37 @@ private fun PreviewStatusLine(
 }
 
 @Composable
+private fun SandboxScrollableSegmentedField(
+    title: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scrollState = rememberScrollState()
+    BasicComponent(
+        title = title,
+        modifier = modifier,
+        insideMargin = SandboxPreferenceInsideMargin,
+        bottomAction = {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(scrollState),
+            ) {
+                TabRowWithContour(
+                    tabs = options,
+                    selectedTabIndex = selectedIndex,
+                    onTabSelected = onSelected,
+                    modifier = Modifier.width(540.dp),
+                )
+            }
+        },
+    )
+}
+
+@Composable
 private fun SandboxSegmentedField(
     title: String,
     options: List<String>,
@@ -483,7 +526,12 @@ internal fun previewNetworkSummary(
     val mobileType =
         when (state.mobileNetwork) {
             PreviewMobileNetwork.NONE -> stringResource(R.string.home_preview_network_none)
+            PreviewMobileNetwork.TWO_G -> stringResource(R.string.home_preview_network_2g)
+            PreviewMobileNetwork.EDGE -> stringResource(R.string.home_preview_network_edge)
+            PreviewMobileNetwork.THREE_G -> stringResource(R.string.home_preview_network_3g)
+            PreviewMobileNetwork.H_PLUS -> stringResource(R.string.home_preview_network_h_plus)
             PreviewMobileNetwork.FOUR_G -> stringResource(R.string.home_preview_network_4g)
+            PreviewMobileNetwork.LTE -> stringResource(R.string.home_preview_network_lte)
             PreviewMobileNetwork.FIVE_G -> stringResource(R.string.home_preview_network_5g)
             PreviewMobileNetwork.FIVE_GA -> stringResource(R.string.home_preview_network_5ga)
         }
