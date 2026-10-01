@@ -4,8 +4,8 @@ import kotlin.math.max
 import kotlin.math.min
 
 internal object CombinedStatusBatteryRingTransitionPolicy {
-    private const val TRANSITION_COMPLETE_PROGRESS = 0.35f
-    private const val FRONT_LOAD = 0.45f
+    private const val TRANSITION_COMPLETE_PROGRESS = 0.45f
+    private const val FRONT_LOAD = 0.92f
 
     internal enum class ExitDirection { NONE, LEFT, RIGHT }
 

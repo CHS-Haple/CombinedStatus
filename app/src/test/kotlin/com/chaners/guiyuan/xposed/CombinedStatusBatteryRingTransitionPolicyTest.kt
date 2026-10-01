@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CombinedStatusBatteryRingTransitionPolicyTest {
     @Test
-    fun transitionProgressFinishesRingAtThirtyFivePercentWithoutJump() {
+    fun transitionProgressFinishesRingAtFortyFivePercentWithoutJump() {
         assertEquals(
             0f,
             CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0f),
@@ -14,12 +14,12 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
         )
         assertEquals(
             0.5f,
-            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.175f),
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.225f),
             0.0001f,
         )
         assertEquals(
             1f,
-            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.35f),
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.45f),
             0.0001f,
         )
         assertEquals(
@@ -35,19 +35,19 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
-    fun remainingFractionFrontLoadsFirstHalfWithSmoothEndpoints() {
+    fun remainingFractionUsesContinuousFrontLoadedCurve() {
         assertEquals(
             1f,
             CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0f),
             0.0001f,
         )
         assertEquals(
-            0.7393508f,
+            0.615319f,
             CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.25f),
             0.0001f,
         )
         assertEquals(
-            0.33409765f,
+            0.179334f,
             CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f),
             0.0001f,
         )
@@ -61,6 +61,19 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
             CombinedStatusBatteryRingTransitionPolicy.remainingFraction(Float.NaN),
             0.0001f,
         )
+    }
+
+    @Test
+    fun globalCurveKeepsBuild550EarlyPaceAndExtendsTailContinuously() {
+        fun remainingAtGlobal(progress: Float): Float =
+            CombinedStatusBatteryRingTransitionPolicy.remainingFraction(
+                CombinedStatusBatteryRingTransitionPolicy.transitionProgress(progress),
+            )
+
+        assertEquals(0.7337591f, remainingAtGlobal(0.0875f), 0.0001f)
+        assertEquals(0.34119043f, remainingAtGlobal(0.175f), 0.0001f)
+        assertEquals(0.01148136f, remainingAtGlobal(0.35f), 0.0001f)
+        assertEquals(0f, remainingAtGlobal(0.45f), 0.0001f)
     }
 
     @Test

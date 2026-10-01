@@ -110,3 +110,47 @@ Expose the mobile standards already handled by the generic native-label renderin
 ### Validation
 
 Run Runtime CI. Because the functional mapping is deterministic, no runtime-transition device gate is required. A Canary is useful only to visually review the nine-option sandbox control and confirm scrolling/touch ergonomics on the target device.
+
+
+## 2026-10-01 — Build 552 smooth long-tail Battery-ring retract AB
+
+**Type:** focused device-evidence curve refinement  
+**Display version:** 0.0.3  
+**Build:** 552 / `20261001-552`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Goal
+
+Keep the accepted fast first half from Build 550, but make the latter half slower and finish later without creating an obvious two-speed or piecewise animation.
+
+### Root cause / design
+
+A literal 50/50 piecewise timing split would create a slope handoff that can read as layered speed. Build 552 instead keeps the same single analytic form used by Build 550 and retunes its two scalar parameters:
+- completion point: `0.35 -> 0.45`;
+- continuous front-load coefficient: `0.45 -> 0.92`;
+- warp remains `p + FRONT_LOAD * p * (1 - p)`, followed by the same smoothstep.
+
+This produces one monotonic continuous curve. The stronger front-load offsets the longer completion window during the early phase, while the longer terminal window and low end slope stretch the tail naturally.
+
+### Checkpoints
+
+Composite global progress -> consumed ring:
+- 0.0875 -> about 26.62% (Build 550: about 26.06%);
+- 0.175 -> about 65.88% (Build 550: about 66.59%);
+- 0.35 -> about 98.85% (Build 550: 100%);
+- 0.45 -> 100%.
+
+So the first half stays visually close to Build 550, while the final ~1.15% decays through the extra tail instead of disappearing at 35%.
+
+### 审查 / review
+
+- one continuous stateless curve; no piecewise speed tier, threshold gate, delay, Animator, or second clock;
+- ordered-arc topology and LEFT/RIGHT/NONE semantics unchanged;
+- CENTER/network native target path and timing authority unchanged;
+- Battery handoff, reverse symmetry, Build-542 island projection, and Build-551 sandbox coverage unchanged;
+- constant arithmetic only; no new runtime allocations or hierarchy work;
+- tests now lock both local curve continuity checkpoints and the intended global early/tail relationship.
+
+### Validation
+
+Run exact-head Runtime CI, then signed exact-head Canary because the requested difference is visual. Device focus: normal and slow pulls. The first half should feel essentially as quick as Build 550, then decelerate naturally into a slightly later tail without any visible speed step or chunk disappearance.
