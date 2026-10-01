@@ -15192,3 +15192,89 @@ Primary checks:
 6. Build-542 Super-Island peer behavior must remain unchanged.
 
 If residual rubbing remains, use the recording to tune the gate lead fraction / optical clearance only; do not bend CENTER's native path or globally accelerate the Battery transition.
+
+
+## 2026-10-01 — Build 546 continuous accelerated battery-ring retract
+
+**Type:** device-evidence rollback + timing correction  
+**Display version:** 0.0.3  
+**Build:** 546 / `20261001-546`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+**Runtime commit:** `8ac5dd1fa9ac60d271aad02e8dbbaed63bca0947`  
+**Runtime CI:** #2058 — success
+
+### Device rejection of Build 545
+
+The Build-545 live optical portal is rejected by maintainer device evidence.
+
+The submitted recording shows a clear topology break during the pull: between adjacent frames the outlet-side section of the ring disappears as a large chunk, leaving a visibly disconnected residual arc. The issue is not frame rate or CENTER target motion. It is caused by the gate's minimum-consumed-sweep floor overtaking the normal retract too aggressively over a short movement interval.
+
+This route is now disproven and must not be revived as the default:
+- do not restore `CombinedStatusBatteryRingExitGatePolicy`;
+- do not use a geometry-driven minimum consumed sweep to carve a portal;
+- do not repair the symptom by widening the portal further.
+
+### Root-cause decision
+
+The maintainer's earlier observation that the ring itself simply finishes too slowly is the narrower and better-supported diagnosis.
+
+The accepted visual property from Builds 543/544 is the **continuous ordered arc-length retract**. Build 545 solved overlap by changing topology too aggressively. Build 546 therefore preserves topology and changes only the rate at which Battery-ring shape progress traverses the already-accepted retract.
+
+### Build 546 implementation
+
+- Restore Build-544 runtime geometry and ownership path.
+- Delete the Build-545 exit-gate implementation and its tests rather than leaving dormant compatibility code.
+- Keep `CombinedStatusBatteryRingTransitionPolicy.remainingFraction()` and its smoothstep unchanged.
+- Add a pure transition-progress remap:
+  - raw 0.0 -> ring 0.0;
+  - raw 0.4 -> ring 0.5;
+  - raw 0.8 -> ring 1.0;
+  - raw >= 0.8 -> ring remains complete.
+- The remapped progress is used only by `BATTERY_RETRACT` local ring drawing.
+- Battery component translation, native Battery target, CENTER path, mobile morph, text/lightning handoff, reservation ownership and island projection are unchanged.
+
+### 问题执行流程
+
+1. The existing transition owner still supplies the single native expansion / appearance clock.
+2. Battery component geometry follows the existing source->native target path with no timing change.
+3. Only local Battery-ring shape progress is mapped by `p / 0.80`, clamped to [0, 1].
+4. The existing smoothstep then evaluates the visible remaining arc length.
+5. LEFT direction continues to consume the same ordered ring path as Build 544; no extra portal is created.
+6. At raw transition progress 0.8 the ring has smoothly completed its retract.
+7. Reverse motion evaluates the same stateless mapping in reverse.
+8. No Animator, timer, delay, target mutation, geometry gate or cross-frame state is introduced.
+
+### 审查 / review
+
+- **device evidence first:** Build 545 is explicitly recorded as rejected; its gate code is removed.
+- **single variable:** only local ring shape-rate changes relative to Build 544.
+- **continuous topology:** no separate missing segment or portal floor exists.
+- **single clock:** 546 derives from the same transition progress; no independent timing source.
+- **native-first:** CENTER and Battery native target geometry are untouched.
+- **reverse symmetry:** the progress mapping is stateless and monotonic.
+- **Fail-native / ownership:** no new target ownership or View writes are introduced.
+- **performance:** the per-frame inverse matrix / four-point mapping added in 545 is removed.
+- **Build-542 boundary:** island reservation/projection logic remains untouched.
+
+### Automated coverage
+
+Build 546 adds regression coverage for the progress map:
+- 0 -> 0;
+- 0.4 -> 0.5;
+- 0.8 -> 1;
+- 1 -> 1.
+
+All existing Build-543/544 arc-order, battery-fill and completion tests remain active. Runtime CI #2058 passes the full test/build and pinned HyperOS / Modern Xposed validation.
+
+### Device gate
+
+A signed exact-head Canary is required.
+
+Primary validation:
+1. slow pull: ring must remain a continuous retract with no Build-545 chunk disappearance;
+2. normal/fast pull: ring should finish clearly earlier than Build 544;
+3. watch 5G/5GA or Wi-Fi crossing: overlap should be reduced by earlier completion rather than by cutting a portal;
+4. slow reverse: ring should grow back continuously without snap;
+5. confirm Build-542 Super-Island peer behavior remains normal.
+
+If 80% completion still feels too slow or too fast, tune only the completion fraction in a follow-up AB build; do not reintroduce the rejected dynamic gate.
