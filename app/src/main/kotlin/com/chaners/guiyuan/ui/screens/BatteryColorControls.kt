@@ -1024,6 +1024,7 @@ private fun BatteryCustomModeEditor(
                 sourceOptions.getOrNull(index)?.let(onSourceChange)
             },
         )
+        }
 
         BatterySheetSmallTitle(
             text = stringResource(R.string.battery_color_common),
