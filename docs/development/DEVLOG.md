@@ -1,3 +1,59 @@
+## 2026-10-01 — Build 573 final MIUIX proportion / optical pass
+
+**Type:** App UI proportion / spacing normalization  
+**Display version:** 0.0.3  
+**Build:** 573 / `20261001-573`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Basis
+
+After the component-first pass was structurally closed in Build 572, the maintainer requested one final global layout review against MIUIX itself rather than screenshot-fitted tuning.
+
+The exact pinned dependency is:
+- MIUIX `0.9.4-5c91d5e5-SNAPSHOT`;
+- revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`.
+
+Exact defaults read from that revision:
+- `BasicComponent`: 56dp minimum height, 16dp internal padding, 8dp action spacing; title uses headline1 (17sp Medium), summary uses body2 (14sp);
+- `Card`: 16dp corner radius, 0dp default internal padding;
+- `BottomSheet`: 28dp top corner radius, 24dp horizontal internal margin, 640dp max width; title uses title4 18sp Medium; title row top/bottom 6/12dp;
+- official BottomSheet demo: in-sheet `SmallTitle` uses 16dp horizontal / 8dp vertical margins and Cards are not given an additional horizontal inset;
+- `IconButton`: 40x40dp minimum hit target;
+- `TextField`: 16dp corner radius, 16x16dp internal margin;
+- MIUIX HSV sliders: 26dp track height, 20dp indicator;
+- `FloatingToolbar`: 50dp corner radius, surfaceContainer background, 4dp default shadow.
+
+### Changes
+
+- Fix the inner BottomSheet navigation Pager at the previously chosen 520dp baseline instead of letting `heightIn(520..650)` expand the page and create unnecessary blank vertical space.
+- Remove the extra 12dp horizontal page/editor inset because `OverlayBottomSheet` already supplies 24dp.
+- Normalize scheme-header custom padding to 16dp and remove the mode-card's ad-hoc 2dp internal margin; mode rows therefore use native `BasicComponent` 56/16 geometry.
+- Scheme title uses MIUIX headline1 17sp Medium.
+- Scheme mode value/status column uses MIUIX body2 14sp + summary color rather than default-size secondary text.
+- Keep the approved aligned mode / swatch / value / action columns and their functional widths.
+- Add page keeps the approved centered add-card concept, but centers the card within the Pager, uses a 24dp MIUIX Add icon, 8dp icon-label gap and 24dp vertical card inset.
+- Replace the page-indicator container Card with actual MIUIX `FloatingToolbar`; page dots remain MIUIX `Surface` primitives and preserve the active short-pill behavior.
+- Detail page title becomes `<mode> color` / `<模式>颜色`; remove the redundant custom-scheme subtitle below it.
+- Use the official BottomSheet-demo section-title margin of 16x8dp throughout the editor.
+- Keep custom-content Card insets at 16dp; remove the residual 16x14dp asymmetry.
+- Current color preview moves from 28dp to 26dp to align with the native HSV track height.
+- Palette strip mini swatches use 12dp with 6dp spacing.
+- Common-color options retain a 40dp clickable MIUIX `Surface` target but reduce the visible swatch to ~20dp; selected state uses a white MIUIX Surface ring + 2dp shadow around the smaller color core instead of a giant filled 36dp disc.
+- Reset action icon uses the standard 24dp icon footprint.
+
+### 审查 / review — pre-commit
+
+- **hierarchy:** unchanged; one BottomSheet, one whole-scheme Pager, fixed floating indicator, in-sheet detail page, default-collapsed source selector;
+- **behavior:** source order, copy-on-write, template references, custom persistence, five-style cap, create/rename/delete and destructive error semantics unchanged;
+- **MIUIX:** all visual primitives remain MIUIX components/public APIs; no project Canvas/drawCircle/drawRect/drawWithCache/raw clickable was introduced;
+- **Runtime:** no Xposed hook, state source, painter, transition, geometry, reservation, color policy or Runtime preference-key change;
+- **no screenshot fitting:** numeric changes are traced to exact MIUIX defaults/examples or preserve an already-approved Guiyuan functional alignment constraint.
+
+### Validation
+
+Run exact-head automated CI. If green, perform a final code review and build one signed exact-head Canary for App-UI device validation.
+
+
 ## 2026-10-01 — Build 572 final battery-color editor MIUIX semantics
 
 **Type:** App UI component semantics only  

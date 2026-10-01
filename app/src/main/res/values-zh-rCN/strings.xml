@@ -216,6 +216,7 @@
     <string name="battery_color_edit_auto_custom">修改任意参数后自动切换为“自定义”</string>
     <string name="battery_color_restore_from_scheme">恢复为 %1$s 的此模式颜色</string>
     <string name="battery_custom_mode_title">%1$s · %2$s</string>
+    <string name="battery_mode_editor_title">%1$s颜色</string>
     <string name="battery_custom_scheme_new">新建自定义样式</string>
     <string name="battery_custom_scheme_limit">已达自定义上限 · %1$d/%1$d</string>
     <string name="battery_custom_scheme_default_name">自定义样式%1$d</string>

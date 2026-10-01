@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -59,6 +59,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentColors
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.FloatingToolbar
 import top.yukonga.miuix.kmp.basic.HsvHueSlider
 import top.yukonga.miuix.kmp.basic.HsvSaturationSlider
 import top.yukonga.miuix.kmp.basic.HsvValueSlider
@@ -171,10 +172,19 @@ internal fun BatteryColorBottomSheet(
     var renameCustomId by remember { mutableStateOf<Int?>(null) }
     var deleteCustomId by remember { mutableStateOf<Int?>(null) }
     val inDetail = navPager.currentPage == 1
+    val sheetTitle =
+        if (inDetail && selectedSlot != null) {
+            stringResource(
+                R.string.battery_mode_editor_title,
+                stringResource(batteryColorSlotLabel(requireNotNull(selectedSlot))),
+            )
+        } else {
+            stringResource(R.string.battery_colors)
+        }
 
     OverlayBottomSheet(
         show = show,
-        title = stringResource(R.string.battery_colors),
+        title = sheetTitle,
         startAction =
             if (inDetail) {
                 {
@@ -207,7 +217,7 @@ internal fun BatteryColorBottomSheet(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 520.dp, max = 650.dp),
+                    .height(520.dp),
             userScrollEnabled = false,
         ) { page ->
             if (page == 0) {
@@ -475,21 +485,22 @@ private fun BatterySchemePageContent(
     manageHeldDown: Boolean,
 ) {
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Card(
-            insideMargin = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+            insideMargin = PaddingValues(16.dp),
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(name)
-                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = name,
+                        fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(Modifier.height(8.dp))
                     BatterySchemePreviewStrip(
                         page =
                             if (builtIn != null) {
@@ -515,11 +526,9 @@ private fun BatterySchemePageContent(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
 
-        Card(
-            insideMargin = PaddingValues(vertical = 2.dp),
-        ) {
+        Card {
             CombinedStatusBatteryColorSlot.entries.forEach { slot ->
                 val color =
                     when {
@@ -583,7 +592,8 @@ private fun BatteryModeRow(
                             batteryColorHex(color)
                         },
                     modifier = Modifier.width(92.dp),
-                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    fontSize = MiuixTheme.textStyles.body2.fontSize,
                     fontFamily =
                         if (followsSystem || color == null) {
                             FontFamily.Default
@@ -616,15 +626,12 @@ private fun BatteryAddSchemePage(
     onClick: () -> Unit,
 ) {
     Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-        contentAlignment = Alignment.TopCenter,
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            insideMargin = PaddingValues(vertical = 46.dp),
+            insideMargin = PaddingValues(vertical = 24.dp),
             pressFeedbackType = PressFeedbackType.Sink,
             showIndication = enabled,
             holdDownState = holdDownState,
@@ -637,7 +644,7 @@ private fun BatteryAddSchemePage(
                 Icon(
                     imageVector = MiuixIcons.Add,
                     contentDescription = null,
-                    modifier = Modifier.size(30.dp),
+                    modifier = Modifier.size(24.dp),
                     tint =
                         if (enabled) {
                             MiuixTheme.colorScheme.onSurface
@@ -645,7 +652,7 @@ private fun BatteryAddSchemePage(
                             MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                         },
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text =
                         if (enabled) {
@@ -673,10 +680,11 @@ private fun BatteryPagerIndicator(
     pageCount: Int,
     currentPage: Int,
 ) {
-    Card(
-        insideMargin = PaddingValues(horizontal = 10.dp, vertical = 7.dp),
+    FloatingToolbar(
+        outSidePadding = PaddingValues(0.dp),
     ) {
         Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -755,17 +763,9 @@ private fun BatteryCustomModeEditor(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 12.dp, end = 12.dp, bottom = 24.dp),
+                .padding(bottom = 24.dp),
     ) {
-        SmallTitle(
-            stringResource(
-                R.string.battery_custom_mode_title,
-                customSchemeName(custom),
-                stringResource(batteryColorSlotLabel(slot)),
-            ),
-        )
-
-        SmallTitle(stringResource(R.string.battery_color_source))
+        BatterySheetSmallTitle(stringResource(R.string.battery_color_source))
         Card {
             BasicComponent(
                 title = batterySourceLabel(entry.source),
@@ -816,7 +816,7 @@ private fun BatteryCustomModeEditor(
             }
         }
 
-        SmallTitle(stringResource(R.string.battery_color_settings))
+        BatterySheetSmallTitle(stringResource(R.string.battery_color_settings))
         Card {
             BasicComponent(
                 title =
@@ -828,17 +828,17 @@ private fun BatteryCustomModeEditor(
                 summary = stringResource(R.string.battery_color_edit_auto_custom),
                 endActions = {
                     if (resolved == null) {
-                        BatteryColorMosaic(size = 28.dp)
+                        BatteryColorMosaic(size = 26.dp)
                     } else {
-                        BatteryColorDot(resolved, size = 28.dp)
+                        BatteryColorDot(resolved, size = 26.dp)
                     }
                 },
             )
         }
 
-        SmallTitle(stringResource(R.string.battery_color_common))
+        BatterySheetSmallTitle(stringResource(R.string.battery_color_common))
         Card(
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+            insideMargin = PaddingValues(16.dp),
         ) {
             COMMON_BATTERY_COLORS.chunked(5).forEachIndexed { index, colors ->
                 Row(
@@ -860,7 +860,7 @@ private fun BatteryCustomModeEditor(
             }
         }
 
-        SmallTitle(stringResource(R.string.battery_color_full_adjustment))
+        BatterySheetSmallTitle(stringResource(R.string.battery_color_full_adjustment))
         Card {
             BasicComponent(
                 title = stringResource(R.string.battery_color_hue),
@@ -906,9 +906,9 @@ private fun BatteryCustomModeEditor(
             )
         }
 
-        SmallTitle(stringResource(R.string.battery_color_precise_input))
+        BatterySheetSmallTitle(stringResource(R.string.battery_color_precise_input))
         Card(
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+            insideMargin = PaddingValues(16.dp),
         ) {
             TextField(
                 value = hexText,
@@ -975,7 +975,7 @@ private fun BatteryCustomModeEditor(
             }
         }
 
-        SmallTitle(stringResource(R.string.section_management))
+        BatterySheetSmallTitle(stringResource(R.string.section_management))
         Card {
             BasicComponent(
                 title = stringResource(R.string.battery_color_restore_mode),
@@ -989,7 +989,7 @@ private fun BatteryCustomModeEditor(
                     Icon(
                         imageVector = MiuixIcons.Reset,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(24.dp),
                         tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                     )
                 },
@@ -1097,9 +1097,17 @@ private fun BatteryRenameSchemeDialog(
 }
 
 @Composable
+private fun BatterySheetSmallTitle(text: String) {
+    SmallTitle(
+        text = text,
+        insideMargin = PaddingValues(16.dp, 8.dp),
+    )
+}
+
+@Composable
 private fun BatterySchemePreviewStrip(page: BatterySchemePage?) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BATTERY_COLOR_PREVIEW_SLOTS.forEach { slot ->
@@ -1112,9 +1120,9 @@ private fun BatterySchemePreviewStrip(page: BatterySchemePage?) {
                     else -> null
                 }
             if (color == null) {
-                BatteryColorMosaic(size = 11.dp)
+                BatteryColorMosaic(size = 12.dp)
             } else {
-                BatteryColorDot(color, size = 11.dp)
+                BatteryColorDot(color, size = 12.dp)
             }
         }
     }
@@ -1130,31 +1138,44 @@ private fun BatteryCommonColorButton(
         onClick = onClick,
         modifier = Modifier.size(40.dp),
         shape = CircleShape,
-        color =
-            if (selected) {
-                Color.White
-            } else {
-                MiuixTheme.colorScheme.surface
-            },
-        shadowElevation = if (selected) 2.dp else 0.dp,
+        color = Color.Transparent,
     ) {
         Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(if (selected) 4.dp else 2.dp),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                shape = CircleShape,
-                color = Color(color),
-                border =
-                    BorderStroke(
-                        1.dp,
-                        MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                    ),
-            ) {}
+            if (selected) {
+                Surface(
+                    modifier = Modifier.size(20.dp),
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 2.dp,
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .padding(4.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            shape = CircleShape,
+                            color = Color(color),
+                        ) {}
+                    }
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.size(20.dp),
+                    shape = CircleShape,
+                    color = Color(color),
+                    border =
+                        BorderStroke(
+                            1.dp,
+                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+                        ),
+                ) {}
+            }
         }
     }
 }

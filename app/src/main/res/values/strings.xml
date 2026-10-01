@@ -217,6 +217,7 @@
     <string name="battery_color_edit_auto_custom">Editing any value switches this mode to Custom</string>
     <string name="battery_color_restore_from_scheme">Restore the %1$s source for this mode</string>
     <string name="battery_custom_mode_title">%1$s · %2$s</string>
+    <string name="battery_mode_editor_title">%1$s color</string>
     <string name="battery_custom_scheme_new">New custom style</string>
     <string name="battery_custom_scheme_limit">Custom style limit reached · %1$d/%1$d</string>
     <string name="battery_custom_scheme_default_name">Custom style %1$d</string>
