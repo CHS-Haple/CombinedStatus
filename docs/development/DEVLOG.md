@@ -14880,3 +14880,113 @@ The runtime was tightened so the projection-map delta is installed before `Syste
 **Review:** HyperOS remains the sole writer of `islandWidth` and all child state. Guiyuan still owns only `statusIcons.paddingEnd` as peer geometry plus the scoped getter-result projection. No new field writer, monitor replacement, child mutation, timer, animator, or traversal was added.
 
 Runtime CI #2049 at `36ba3c2e0a7dba9f8e253c2649523ea0b94a87e4`: **success** (target profile, unit tests/build, Modern Xposed metadata, validation summary).
+
+
+## 2026-10-01 — Build 542 device acceptance and Build 543 battery-ring retract
+
+**Type:** device acceptance + reference-backed transition refinement  
+**Display version:** 0.0.3  
+**Build / source:** 543 / `20261001-543` / `feat/battery-top-readout` / PR #181
+
+### Build 542 device acceptance
+
+The maintainer installed the final Build-542 Canary after the ordering-corrected QS_FAKE island-boundary projection was frozen at `f280c6c4b1e744843ec5b6e603bb2aa653b5f399`.
+
+Validation result: **accepted / normal**.
+
+Confirmed:
+- the Super-Island Home -> Control Center path no longer reproduces Build-541's extra sequential native-peer disappearance;
+- native peers retain the expected leftward reflow as Guiyuan decomposes;
+- no new stale spacing or visible island-membership regression was reported;
+- exact-head Runtime CI #2050 and signed Work Branch Canary #610 were both green before the device test.
+
+Build 541's per-child `forceAppear` route remains disproven and must not be revived. Build 542's scoped `getIslandTranslationX()` projection is now the accepted island-transition baseline.
+
+### StatusBar Duo 1.2.0 reference review
+
+The maintainer previously identified StatusBar Duo's battery-ring transition as the preferred visual direction. The supplied `StatusBar Duo_1.2.0.apk` was re-opened and decompiled with the supplied JADX 1.5.6 package.
+
+Reference artifact SHA-256:
+`a4e3467e847f7de40b201e1ae607719dfcba007b7f02cc6b424b1b3cbbffee0d`.
+
+Source review establishes that the visually useful behavior is **arc-length retraction**:
+- the circular ring retains its radius and stroke instead of being vertically squashed;
+- a progress-dependent prefix length of the ring path is retained, so the visible arc continuously shortens along the original circle;
+- the low-alpha background path and active battery path share that same ordered prefix model, with the active battery length scaled by battery percentage;
+- when a top gap splits the circular path, the implementation consumes one ordered path-length budget across the split rather than shrinking each visible segment independently;
+- center/network content and native-icon reveal use separate phases, which is why the overall effect reads as a conversion rather than one compound icon simply fading.
+
+Duo's own expansion driver uses a smoothstep-style easing and an independent expansion span. Those timing and Hook choices are **reference evidence only** and are not adopted by Guiyuan.
+
+### Root cause of Guiyuan's previous battery transition appearance
+
+Guiyuan's retained `BATTERY_FOLD` policy did not perform a path morph. It applied only a Y-axis canvas scale from 1.0 toward 0.72 while the whole Battery component followed the existing native target geometry.
+
+That explains the maintainer's earlier “flattened / stiff” impression: the ring kept the same arc topology and sweep while becoming vertically compressed.
+
+The rejected Build-529 ring-to-battery topology morph remains rejected. Build 543 does not restore it.
+
+### Build 543 change
+
+Build 543 replaces `BATTERY_FOLD` with `BATTERY_RETRACT`.
+
+A new pure `CombinedStatusBatteryRingTransitionPolicy`:
+- consumes the existing Guiyuan `motionProgress`;
+- computes remaining ring length as `1 - smoothstep(progress)`;
+- allocates one remaining sweep budget across the ordered drawable arc path;
+- draws the low-alpha background prefix to that budget;
+- overlays the active battery prefix using the same remaining fraction and current battery percentage.
+
+The existing top-content avoidance is preserved. `CombinedStatusBatteryTopArcPolicy.drawableArcs(...)` exposes the already-resolved post-gap ordered arc list so the retract crosses the dynamic top gap correctly.
+
+The transition Battery component keeps its existing native Battery target witness, translation, similarity scaling and fake-to-final handoff. Only the local ring sweep changes.
+
+Steady rendering is intentionally unchanged: `drawBattery(..., ringRetractProgress = null)` retains the existing accepted steady ring, active/inactive split, dynamic number/lightning cutout, color behavior and content layouts.
+
+### 问题执行流程
+
+1. Home / Keyguard steady presentation renders the accepted circular Guiyuan battery ring.
+2. Control Center transition starts under the existing transition owner and native progress authority.
+3. Battery target geometry continues to come from the verified native Battery witness.
+4. The Battery component follows the existing native-synchronized trajectory.
+5. In local component coordinates, `BATTERY_RETRACT` converts the same motion progress into a reversible remaining arc-length fraction.
+6. The visible gray path and active battery overlay retract along the original circular path, including across a live top-content gap.
+7. At transition completion the local ring length reaches zero while the native/final Battery presentation already owns the endpoint.
+8. Reverse collapse evaluates the same stateless function in reverse; no separate reverse animator or cleanup state exists.
+
+### 审查 / review
+
+- **ownership:** no Control Center ownership, island, reservation, source-target, or appearance authority was changed.
+- **native-first:** target motion and final Battery presentation remain native-observed; only Guiyuan's local source-ring drawing changes.
+- **single time authority:** no Duo timing span is copied. Existing `motionProgress` is the sole progress input.
+- **no second animator:** no Animator, timer, delay, frame scheduler, or independent easing clock was added.
+- **steady safety:** the new retract path is reachable only from transition Battery drawing; steady calls retain the null/default path.
+- **top-gap safety:** one ordered sweep budget crosses the already-resolved dynamic gap, preventing two visible arc fragments from retracting independently.
+- **reverse symmetry:** the transition is a pure function of progress, so pull-down and collapse share the same path.
+- **island boundary:** Build-542 `getIslandTranslationX()` projection and `statusIcons.paddingEnd` ownership are untouched.
+- **rejected routes:** neither the Build-529 topology morph nor the old 0.72 Y squash is retained.
+
+### Automated validation
+
+New tests cover:
+- smoothstep remaining-fraction endpoints and midpoint;
+- active/background prefixes sharing the same ordered path;
+- ordered consumption across a split top gap;
+- zero visible transition ring at completion.
+
+Runtime CI #2051 at `6cf21e85219fb2cc16f5da8edd0aa5ec39b24c89`: **success** (pinned target profile, unit tests/build, Modern Xposed metadata, validation summary).
+
+### Device validation gate
+
+Build 543 is a visual-transition checkpoint and requires a signed exact-head Canary.
+
+Primary checks:
+1. normal and fast Home -> Control Center pull;
+2. reverse collapse;
+3. non-charging and charging if available;
+4. the ring must remain circular while its arc length retracts/restores;
+5. no old vertical flattening, no independent fragment shrink at the top gap, and no late snap before native Battery ownership;
+6. Battery number / charging lightning must retain their existing independent target handoff;
+7. Build-542 peer/island behavior must remain normal.
+
+Video is the primary evidence for this checkpoint. Detailed diagnostics are needed only if ownership, target resolution, or island behavior regresses.

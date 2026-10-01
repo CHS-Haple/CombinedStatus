@@ -15,7 +15,8 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
-- Build 542 / `20261001-542` QS_FAKE island-boundary projection checkpoint;
+- Build 543 / `20261001-543` battery-ring retract transition checkpoint; Runtime CI #2051 is green at `6cf21e85219fb2cc16f5da8edd0aa5ec39b24c89`; the runtime replaces the rejected Y-axis Battery fold with a transition-only ordered arc-length retract while preserving the existing native Battery target path, component handoff, reservation ownership, and Build-542 island-boundary projection;
+- Build 542 / `20261001-542` is maintainer device-accepted at frozen head `f280c6c4b1e744843ec5b6e603bb2aa653b5f399`; exact-head Runtime CI #2050 and signed Work Branch Canary #610 are green, and focused real-device validation reports the Super-Island Home -> Control Center peer flow is normal with no extra sequential disappearance;
 - Build 541 exact-head Runtime CI #2038 and signed Work Branch Canary #608 are green at `15cd544ed68d5303c78aa6e433242aee6f6fd4bc`, but maintainer device evidence rejects the peer-`forceAppear` correction: `reservationMode=native-progress-fake-island-freeze`, `islandPeerFreeze=active:3`, and a growing non-negative `nativeReservation` were all present while native peers still disappeared during the island pull; this route is disproven and must not be revived;
 - Build 542 ordering-corrected Runtime CI #2049 is green at `36ba3c2e0a7dba9f8e253c2649523ea0b94a87e4`; exact JADX proves private `MiuiStatusIconContainer.getIslandTranslationX()` returns the active monitor's `getIslandWidth()`, and `calculateIconTranslations()` uses that value as the X collision boundary; the accepted runtime keeps HyperOS as the sole `islandWidth` owner and projects only that getter for the active QS_FAKE container;
 - Build 540 exact-head Runtime CI #2032 and Work Branch Canary #607 are green at `3ea8a533179ec1a08fb48228109088e5f49cafb8`; cold-start device evidence successfully captured the QS_FAKE island contract and confirms the Build-539/540 guard still blocks native peer reservation during an island pull;
@@ -36,6 +37,16 @@ Build-523 device evidence also identified an independent Control Center peer-mot
 - charging without that combined condition is not the reported failure;
 - the failure is specifically Super-Island + charging, where surrounding native status icons do not follow the expected endpoint rule;
 - the same Build-523 diagnostic reports `addBatteryIsland=false / batteryWidthDiff=0` during the affected pull while Guiyuan selected `reservationMode=native-peer-motion`.
+
+
+Build 543 StatusBar Duo-inspired battery-ring retract:
+- reference study is based on the maintainer-provided `StatusBar Duo_1.2.0.apk` (SHA-256 `a4e3467e847f7de40b201e1ae607719dfcba007b7f02cc6b424b1b3cbbffee0d`), decompiled with JADX 1.5.6;
+- the useful visual contract is arc-length retraction, not a ring-to-battery topology morph: radius and stroke remain stable while the drawable circular path shortens from its ordered start; active battery color overlays the same shrinking prefix;
+- Guiyuan does not copy Duo's independent `expandSpan`, animator, or native-reveal hooks. It consumes the already-verified Guiyuan `motionProgress`, applies a reversible smoothstep remaining-length function, and leaves native target geometry / appearance ownership unchanged;
+- `BATTERY_FOLD` and the 0.72 Y-axis squash are removed. `BATTERY_RETRACT` is transition-only; steady Home drawing still passes `ringRetractProgress=null` and retains the accepted ring / top-readout / charging / color behavior;
+- when the top number or charging glyph creates a dynamic ring gap, the transition treats the post-gap drawable arcs as one ordered path and consumes one shared sweep budget across them; individual segments do not shrink independently;
+- no new Hook, Animator, timer, native View writer, interpolation clock, or transition owner was added;
+- Build 543 requires focused visual device validation before it can replace Build 542 as an accepted rollback baseline.
 
 Build 526 root-cause correction:
 - the old reservation policy used `charging && SystemUiIslandMotionSource.currentIslandShowing()` as a proxy for HyperOS Battery-Island ownership;
