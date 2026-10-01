@@ -211,6 +211,7 @@ internal fun BatteryColorBottomSheet(
                 BatterySchemeOverview(
                     library = library,
                     managedCustomId = manageCustomId,
+                    addHeldDown = showCreateDialog,
                     onSettledScheme = repository::activateScheme,
                     onOpenCustomSlot = { id, slot ->
                         selectedCustomId = id

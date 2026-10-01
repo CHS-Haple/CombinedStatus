@@ -1,3 +1,25 @@
+## 2026-10-01 — Build 571 Add-card hold-state compile correction
+
+**Type:** compile-only correction  
+**Display version:** 0.0.3  
+**Build:** 571 / `20261001-571`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### CI evidence
+
+Build 570 Runtime CI run 36909145146 reported one Kotlin error only: the sole `BatterySchemeOverview` call did not pass `addHeldDown`, which was introduced solely to feed MIUIX Card `holdDownState` while the create-style dialog is visible.
+
+### Correction / review
+
+- pass `addHeldDown = showCreateDialog` at the only overview call;
+- verify the generated source contains both `managedCustomId = manageCustomId` and `addHeldDown = showCreateDialog` before commit;
+- no UI structure, proportion, color, persistence, or Runtime change.
+
+### Validation
+
+Run exact-head automated CI. If green, close the pre-editor component pass and continue with the final custom-mode editor component semantics.
+
+
 ## 2026-10-01 — Build 570 pre-editor MIUIX interaction-state pass
 
 **Type:** App UI component semantics only  
