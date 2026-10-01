@@ -90,7 +90,6 @@ import top.yukonga.miuix.kmp.basic.drawCheckerboard
 import top.yukonga.miuix.kmp.color.api.toHsv
 import top.yukonga.miuix.kmp.color.space.Hsv
 import top.yukonga.miuix.kmp.icon.MiuixIcons
-import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
@@ -185,6 +184,12 @@ internal fun BatteryColorBottomSheet(
     var selectedSlot by remember { mutableStateOf<CombinedStatusBatteryColorSlot?>(null) }
     var requestedSchemeKey by remember { mutableStateOf<String?>(null) }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var pendingCreateSourceKey by remember {
+        mutableStateOf(BATTERY_COLOR_SCHEME_HYPEROS_KEY)
+    }
+    var pendingCreateSlot by remember {
+        mutableStateOf<CombinedStatusBatteryColorSlot?>(null)
+    }
     var renameCustomId by remember { mutableStateOf<Int?>(null) }
     var deleteCustomId by remember { mutableStateOf<Int?>(null) }
     val nextCustomId = repository.nextAvailableCustomId()
@@ -255,22 +260,20 @@ internal fun BatteryColorBottomSheet(
                     canCreateCustom = nextCustomId != null,
                     onApplyScheme = repository::activateScheme,
                     onOpenBuiltInSlot = { scheme, slot ->
-                        val name = nextCustomName
-                        if (name != null) {
-                            repository.createCustom(name, scheme.key)?.let { id ->
-                                requestedSchemeKey = customSchemeKey(id)
-                                selectedCustomId = id
-                                selectedSlot = slot
-                                scope.launch { navPager.springAnimateToPage(1) }
-                            }
-                        }
+                        pendingCreateSourceKey = scheme.key
+                        pendingCreateSlot = slot
+                        showCreateDialog = true
                     },
                     onOpenCustomSlot = { id, slot ->
                         selectedCustomId = id
                         selectedSlot = slot
                         scope.launch { navPager.springAnimateToPage(1) }
                     },
-                    onAdd = { showCreateDialog = true },
+                    onAdd = {
+                        pendingCreateSourceKey = BATTERY_COLOR_SCHEME_HYPEROS_KEY
+                        pendingCreateSlot = null
+                        showCreateDialog = true
+                    },
                     onRenameCustom = { renameCustomId = it },
                     onCopyCustom = { custom ->
                         val name = nextCustomName
@@ -304,14 +307,27 @@ internal fun BatteryColorBottomSheet(
     BatteryCreateSchemeDialog(
         show = showCreateDialog,
         nextId = nextCustomId,
-        onDismiss = { showCreateDialog = false },
-        onCreate = { name ->
+        onDismiss = {
             showCreateDialog = false
+            pendingCreateSourceKey = BATTERY_COLOR_SCHEME_HYPEROS_KEY
+            pendingCreateSlot = null
+        },
+        onCreate = { name ->
+            val sourceKey = pendingCreateSourceKey
+            val targetSlot = pendingCreateSlot
+            showCreateDialog = false
+            pendingCreateSourceKey = BATTERY_COLOR_SCHEME_HYPEROS_KEY
+            pendingCreateSlot = null
             repository.createCustom(
                 name = name,
-                fromSchemeKey = BATTERY_COLOR_SCHEME_HYPEROS_KEY,
+                fromSchemeKey = sourceKey,
             )?.let { id ->
                 requestedSchemeKey = customSchemeKey(id)
+                if (targetSlot != null) {
+                    selectedCustomId = id
+                    selectedSlot = targetSlot
+                    scope.launch { navPager.springAnimateToPage(1) }
+                }
             }
         },
     )
@@ -424,7 +440,7 @@ private fun BatterySchemeOverview(
                 scope.launch { pagerState.springAnimateToPage(target) }
             },
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         HorizontalPager(
             state = pagerState,
             modifier =
@@ -452,7 +468,13 @@ private fun BatterySchemeOverview(
                         canCreateCustom = canCreateCustom,
                         onApply = { onApplyScheme(page.key) },
                         onSlotClick = { slot ->
-                            onOpenBuiltInSlot(page.scheme, slot)
+                            scope.launch {
+                                val addPage = pages.lastIndex
+                                if (pagerState.currentPage != addPage) {
+                                    pagerState.springAnimateToPage(addPage)
+                                }
+                                onOpenBuiltInSlot(page.scheme, slot)
+                            }
                         },
                         onRename = null,
                         onCopy = null,
@@ -533,11 +555,7 @@ private fun BatterySchemePageContent(
                         null
                     },
             )
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
+            BatterySchemeActionArea {
                 TextButton(
                     text =
                         stringResource(
@@ -557,7 +575,6 @@ private fun BatterySchemePageContent(
                     textStyle = TextStyle(fontSize = 15.sp),
                 )
             }
-            Spacer(Modifier.height(16.dp))
             Card(
                 modifier =
                     Modifier
@@ -640,6 +657,20 @@ private fun BatterySchemeHeader(
 }
 
 @Composable
+private fun BatterySchemeActionArea(
+    content: @Composable () -> Unit,
+) {
+    Spacer(Modifier.height(12.dp))
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        content()
+    }
+    Spacer(Modifier.height(16.dp))
+}
+
+@Composable
 private fun BatteryModeSettingItem(
     slot: CombinedStatusBatteryColorSlot,
     color: Int?,
@@ -692,7 +723,9 @@ private fun BatteryAddSchemePage(
                 name = stringResource(R.string.battery_custom_scheme_add_page_title),
                 previewPage = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
             )
-            Spacer(Modifier.height(16.dp))
+            BatterySchemeActionArea {
+                Spacer(Modifier.height(26.dp))
+            }
             Card(
                 modifier =
                     Modifier
@@ -700,7 +733,7 @@ private fun BatteryAddSchemePage(
                         .heightIn(min = BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT),
                 pressFeedbackType =
                     if (enabled) {
-                        PressFeedbackType.Sink
+                        PressFeedbackType.Tilt
                     } else {
                         PressFeedbackType.None
                     },
@@ -800,36 +833,31 @@ private fun BatterySchemeNavigationButton(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-    ) {
-        Surface(
-            modifier = Modifier.size(32.dp),
-            shape = CircleShape,
-            color =
+    TooltipBox(text = contentDescription) {
+        IconButton(
+            onClick = onClick,
+            enabled = enabled,
+            backgroundColor =
                 if (enabled) {
                     MiuixTheme.colorScheme.secondaryVariant
                 } else {
                     MiuixTheme.colorScheme.disabledSecondaryVariant
                 },
+            cornerRadius = 32.dp,
+            minWidth = 32.dp,
+            minHeight = 32.dp,
         ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = imageVector,
-                    contentDescription = contentDescription,
-                    modifier = Modifier.size(18.dp),
-                    tint =
-                        if (enabled) {
-                            MiuixTheme.colorScheme.onSecondaryVariant
-                        } else {
-                            MiuixTheme.colorScheme.disabledOnSecondaryVariant
-                        },
-                )
-            }
+            Icon(
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(18.dp),
+                tint =
+                    if (enabled) {
+                        MiuixTheme.colorScheme.onSecondaryVariant
+                    } else {
+                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
+                    },
+            )
         }
     }
 }
