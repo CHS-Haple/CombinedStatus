@@ -193,8 +193,8 @@
     <string name="battery_color_source_custom">Custom</string>
     <string name="battery_color_custom_unset">No custom color set</string>
     <string name="battery_mode_normal">Normal</string>
-    <string name="battery_mode_power_save">Power save</string>
-    <string name="battery_mode_performance">Performance</string>
+    <string name="battery_mode_power_save">Power save mode</string>
+    <string name="battery_mode_performance">Performance mode</string>
     <string name="battery_mode_super_power_save">Super power save</string>
     <string name="battery_mode_charging">Charging</string>
     <string name="battery_mode_low">Low battery</string>
@@ -219,6 +219,7 @@
     <string name="battery_custom_mode_title">%1$s · %2$s</string>
     <string name="battery_mode_editor_title">%1$s color</string>
     <string name="battery_custom_scheme_new">New custom style</string>
+    <string name="battery_custom_scheme_add_page_title">New style</string>
     <string name="battery_custom_scheme_limit">Custom style limit reached · %1$d/%1$d</string>
     <string name="battery_custom_scheme_default_name">Custom style %1$d</string>
     <string name="battery_custom_scheme_name">Style name</string>

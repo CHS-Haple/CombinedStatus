@@ -1,3 +1,62 @@
+## 2026-10-01 — Build 574 scheme page becomes a MIUIX settings page
+
+**Type:** App UI hierarchy / MIUIX setting-row semantics  
+**Display version:** 0.0.3  
+**Build:** 574 / `20261001-574`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+
+The battery-color drawer is a **settings page**, not an information-display page. The first Pager page must visibly establish the selected style, then present every battery semantic mode as one setting item. The style title and preview are centered. Drawer swatches should be larger and cleaner than the compact Function-page summary. The Add Pager page should preserve the visual “large + on a circle” concept while using MIUIX rather than project drawing.
+
+### Exact MIUIX basis
+
+Verified against pinned revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`:
+- `ArrowPreference` is implemented on top of `BasicComponent` and provides the standard MIUIX title + summary + native Basic ArrowRight affordance;
+- `BasicComponent` owns the common 56dp minimum row height / 16dp inset / title-summary typography;
+- `FloatingActionButton` is a MIUIX `Surface` with `CircleShape`, default 60x60dp minimum size and 4dp shadow;
+- MIUIX text styles expose `title2 = 24sp`;
+- theme roles provide `primary/onPrimary` and disabled button colors.
+
+### Changes
+
+- Replace the previous small header Card with a centered style header:
+  - style name uses MIUIX `title2` (24sp, Medium);
+  - six style-preview swatches are 28dp with 10dp spacing;
+  - drawer header swatches use MIUIX `Surface` and no outline.
+- Replace the previous mode/color/HEX/action table with six actual setting rows:
+  - custom scheme mode -> `ArrowPreference`;
+  - built-in scheme mode -> the same underlying `BasicComponent` setting geometry without a misleading edit arrow;
+  - title = semantic mode;
+  - summary = current HEX or Follow inversion;
+  - right-side preview = 24dp borderless fixed/checker swatch;
+  - MIUIX owns row height, inset, typography, native arrow and click feedback.
+- Update Chinese row labels to the maintainer wording: 普通 / 省电模式 / 性能模式 / 超级省电 / 充电 / 低电量. English Power save / Performance become Power save mode / Performance mode.
+- Keep the Function-page compact preview unchanged through parameterized defaults (12dp / 6dp / bordered); drawer-only calls request the larger borderless presentation.
+- Replace the Add-page interactive Card with native MIUIX `FloatingActionButton`:
+  - default 60dp circular FAB and 4dp shadow;
+  - theme primary/onPrimary colors;
+  - `MiuixIcons.Add` at 32dp for the maintainer-requested stronger plus;
+  - centered MIUIX title2 “新建样式” and action label;
+  - max-cap state keeps the 60dp circle using a non-clickable MIUIX Surface + disabled button colors.
+- Remove the obsolete Add-card `PressFeedbackType`, `holdDownState` wiring and the previously misused `Forward` icon.
+
+### 审查 / review — pre-commit
+
+- **MIUIX-first:** mode rows are real MIUIX setting components rather than a hand-built Row imitation; the Add action is the native MIUIX FAB.
+- **visual hierarchy:** style identity is the first visual level; settings follow below.
+- **swatch semantics:** Function-page summary stays compact; drawer header and mode rows are explicitly larger. Drawer fixed/checker circles have no outline as requested.
+- **built-in behavior:** built-ins retain normal visual weight and the same setting-row geometry but do not display a false edit arrow.
+- **custom behavior:** only custom scheme rows expose MIUIX ArrowPreference navigation to the existing mode editor.
+- **Runtime / persistence:** untouched.
+- **drawing:** no new project Canvas/draw primitive is introduced; checkerboard remains MIUIX public `drawCheckerboard()`.
+- **scope:** no second-level editor redesign in this build.
+
+### Validation / gate
+
+Run exact-head automated CI. **Do not trigger Canary after CI.** Freeze the green SHA and wait for explicit maintainer instruction.
+
+
 ## 2026-10-01 — Build 573 final MIUIX proportion / optical pass
 
 **Type:** App UI proportion / spacing normalization  

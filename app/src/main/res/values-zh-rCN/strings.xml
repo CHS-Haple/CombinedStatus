@@ -192,8 +192,8 @@
     <string name="battery_color_source_custom">自定义</string>
     <string name="battery_color_custom_unset">尚未设置自定义颜色</string>
     <string name="battery_mode_normal">普通</string>
-    <string name="battery_mode_power_save">省电</string>
-    <string name="battery_mode_performance">性能</string>
+    <string name="battery_mode_power_save">省电模式</string>
+    <string name="battery_mode_performance">性能模式</string>
     <string name="battery_mode_super_power_save">超级省电</string>
     <string name="battery_mode_charging">充电</string>
     <string name="battery_mode_low">低电量</string>
@@ -218,6 +218,7 @@
     <string name="battery_custom_mode_title">%1$s · %2$s</string>
     <string name="battery_mode_editor_title">%1$s颜色</string>
     <string name="battery_custom_scheme_new">新建自定义样式</string>
+    <string name="battery_custom_scheme_add_page_title">新建样式</string>
     <string name="battery_custom_scheme_limit">已达自定义上限 · %1$d/%1$d</string>
     <string name="battery_custom_scheme_default_name">自定义样式%1$d</string>
     <string name="battery_custom_scheme_name">样式名称</string>
