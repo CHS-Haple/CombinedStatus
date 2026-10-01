@@ -140,6 +140,40 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
+    fun leftExitGateCanLeadNormalRetractWithoutChangingItsTailCurve() {
+        val result =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 100,
+                progress = 0.1f,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                minimumExitConsumedSweep = 60f,
+            )
+
+        assertEquals(210f, result.background.single().startDegrees, 0.0001f)
+        assertEquals(180f, result.background.single().sweepDegrees, 0.0001f)
+    }
+
+    @Test
+    fun normalLeftRetractTakesBackAuthorityAfterCatchingGate() {
+        val result =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 100,
+                progress = 0.5f,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                minimumExitConsumedSweep = 60f,
+            )
+
+        assertEquals(270f, result.background.single().startDegrees, 0.0001f)
+        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
+    }
+
+    @Test
     fun completedRetractLeavesNoTransitionRing() {
         val result =
             CombinedStatusBatteryRingTransitionPolicy.resolve(

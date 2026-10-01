@@ -1022,20 +1022,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     .snapshot()
                     .mobilePresentation
                     ?.presentationRootSubscriptionId
-            val centerExitDirection =
+            val centerSpec =
                 specs.firstOrNull {
                     it.component == CombinedStatusPainter.TransitionComponent.CENTER
-                }?.let { centerSpec ->
+                }
+            val centerProbe =
+                centerSpec?.let { spec ->
                     val source =
                         Policy.componentGeometry(
                             parentGeometry = sourceParentGeometry,
                             parentWidth = sourceWidth,
                             parentHeight = sourceHeight,
-                            bounds = centerSpec.sourceBounds,
+                            bounds = spec.sourceBounds,
                         ) ?: return@let null
                     val witness =
                         resolveTarget(
-                            target = centerSpec.target,
+                            target = spec.target,
                             preferredMobileSubId = preferredMobileSubId,
                         ) ?: return@let null
                     val target =
@@ -1043,10 +1045,100 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             witness = witness,
                             root = rootView,
                             sourceGeometry = source,
-                            targetOpticalBounds = centerSpec.targetOpticalBounds,
+                            targetOpticalBounds = spec.targetOpticalBounds,
                         ) ?: return@let null
-                    Policy.horizontalExitDirection(source, target)
+                    val current =
+                        if (model.centerIndicator is CenterIndicator.MobileType) {
+                            projectedExactGeometry(
+                                source = source,
+                                target = target,
+                                progress = motionProgress,
+                                carrierFrames = carrierFrames,
+                            )
+                        } else {
+                            projectedGeometry(
+                                source = source,
+                                target = target,
+                                progress = motionProgress,
+                                scalePolicy = spec.scalePolicy,
+                                carrierFrames = carrierFrames,
+                            )
+                        }
+                    CenterGeometryProbe(
+                        source = source,
+                        target = target,
+                        current = current,
+                    )
+                }
+            val centerExitDirection =
+                centerProbe?.let { probe ->
+                    Policy.horizontalExitDirection(
+                        source = probe.source,
+                        target = probe.target,
+                    )
                 } ?: CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
+            val batteryRingMinimumExitConsumedSweep =
+                if (
+                    centerExitDirection ==
+                        CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT &&
+                    centerProbe != null
+                ) {
+                    val batterySpec =
+                        specs.firstOrNull {
+                            it.component == CombinedStatusPainter.TransitionComponent.BATTERY
+                        }
+                    batterySpec?.let { spec ->
+                        val batterySource =
+                            Policy.componentGeometry(
+                                parentGeometry = sourceParentGeometry,
+                                parentWidth = sourceWidth,
+                                parentHeight = sourceHeight,
+                                bounds = spec.sourceBounds,
+                            ) ?: return@let null
+                        val batteryWitness =
+                            resolveTarget(
+                                target = spec.target,
+                                preferredMobileSubId = preferredMobileSubId,
+                            ) ?: return@let null
+                        val batteryTarget =
+                            resolveTargetGeometry(
+                                witness = batteryWitness,
+                                root = rootView,
+                                sourceGeometry = batterySource,
+                                targetOpticalBounds = spec.targetOpticalBounds,
+                            ) ?: return@let null
+                        val batteryCurrent =
+                            projectedGeometry(
+                                source = batterySource,
+                                target = batteryTarget,
+                                progress = motionProgress,
+                                scalePolicy = spec.scalePolicy,
+                                carrierFrames = carrierFrames,
+                            )
+                        val batteryMatrix =
+                            matrixForBoundsGeometry(
+                                geometry = batteryCurrent,
+                                bounds = spec.sourceBounds,
+                            ) ?: return@let null
+                        val rootToBatteryLocal = Matrix()
+                        if (!batteryMatrix.invert(rootToBatteryLocal)) {
+                            return@let null
+                        }
+                        val localCenterBounds =
+                            geometryBoundsInLocal(
+                                geometry = centerProbe.current,
+                                rootToLocal = rootToBatteryLocal,
+                            ) ?: return@let null
+                        painter.transitionBatteryRingMinimumExitConsumedSweep(
+                            width = sourceWidth,
+                            height = sourceHeight,
+                            centerBounds = localCenterBounds,
+                            exitDirection = centerExitDirection,
+                        )
+                    } ?: 0f
+                } else {
+                    0f
+                }
 
             val transitionColors =
                 cachedNativePeerTint
@@ -1291,6 +1383,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             centerExitDirection
                         } else {
                             CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
+                        },
+                    batteryRingMinimumExitConsumedSweep =
+                        if (spec.component == CombinedStatusPainter.TransitionComponent.BATTERY) {
+                            batteryRingMinimumExitConsumedSweep
+                        } else {
+                            0f
                         },
                 )
                 canvas.restoreToCount(save)
@@ -3253,6 +3351,53 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        private fun geometryBoundsInLocal(
+            geometry: FloatArray,
+            rootToLocal: Matrix,
+        ): CombinedStatusPainter.TransitionBounds? {
+            if (geometry.size != 6) return null
+            val halfWidthX = geometry[2] / 2f
+            val halfWidthY = geometry[3] / 2f
+            val halfHeightX = geometry[4] / 2f
+            val halfHeightY = geometry[5] / 2f
+            val points =
+                floatArrayOf(
+                    geometry[0] - halfWidthX - halfHeightX,
+                    geometry[1] - halfWidthY - halfHeightY,
+                    geometry[0] + halfWidthX - halfHeightX,
+                    geometry[1] + halfWidthY - halfHeightY,
+                    geometry[0] + halfWidthX + halfHeightX,
+                    geometry[1] + halfWidthY + halfHeightY,
+                    geometry[0] - halfWidthX + halfHeightX,
+                    geometry[1] - halfWidthY + halfHeightY,
+                )
+            rootToLocal.mapPoints(points)
+
+            var left = Float.POSITIVE_INFINITY
+            var top = Float.POSITIVE_INFINITY
+            var right = Float.NEGATIVE_INFINITY
+            var bottom = Float.NEGATIVE_INFINITY
+            var index = 0
+            while (index < points.size) {
+                val x = points[index]
+                val y = points[index + 1]
+                if (!x.isFinite() || !y.isFinite()) return null
+                left = min(left, x)
+                top = min(top, y)
+                right = maxOf(right, x)
+                bottom = maxOf(bottom, y)
+                index += 2
+            }
+            return CombinedStatusPainter.TransitionBounds(
+                left = left,
+                top = top,
+                right = right,
+                bottom = bottom,
+            ).takeIf { bounds ->
+                bounds.width > 0f && bounds.height > 0f
+            }
+        }
+
         private fun matrixForBoundsGeometry(
             geometry: FloatArray,
             bounds: CombinedStatusPainter.TransitionBounds,
@@ -3303,6 +3448,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
             values[Matrix.MPERSP_2] = 1f
             return Matrix().apply { setValues(values) }
         }
+
+        private data class CenterGeometryProbe(
+            val source: FloatArray,
+            val target: FloatArray,
+            val current: FloatArray,
+        )
 
         private data class TargetCacheKey(
             val target: CombinedStatusPainter.TransitionTarget,

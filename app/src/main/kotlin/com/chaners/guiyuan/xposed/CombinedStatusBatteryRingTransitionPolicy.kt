@@ -23,6 +23,7 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
         batteryPercent: Int,
         progress: Float,
         exitDirection: ExitDirection = ExitDirection.NONE,
+        minimumExitConsumedSweep: Float = 0f,
     ): Segments {
         val remaining = remainingFraction(progress)
         val totalSweep = drawableArcs.sumOf { it.sweepDegrees.coerceAtLeast(0f).toDouble() }.toFloat()
@@ -38,7 +39,15 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
                 remaining
         return when (exitDirection) {
             ExitDirection.LEFT -> {
-                val retainedStart = totalSweep - retainedSweep
+                val baseConsumedSweep = totalSweep - retainedSweep
+                val retainedStart =
+                    max(
+                        baseConsumedSweep,
+                        minimumExitConsumedSweep
+                            .takeIf(Float::isFinite)
+                            ?.coerceIn(0f, totalSweep)
+                            ?: 0f,
+                    )
                 val retainedEnd = totalSweep
                 val originalActiveEnd =
                     totalSweep *
