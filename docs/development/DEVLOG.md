@@ -14331,6 +14331,8 @@ This is a compile-time integration omission, not device/runtime evidence. The sa
 
 No Build number bump is made because CI #2023 produced no testable APK and the correction belongs to the same feature checkpoint.
 
+Runtime CI #2024 then exposed one follow-up compile-only omission from the same Home preview edit: the new `Modifier.width(...)` call was missing the Compose `width` import. The import is added with no runtime behavior change; Build 537 remains the same checkpoint.
+
 ### Validation gate
 
 Runtime CI is required. Because this checkpoint changes Keyguard render-child ownership, steady source geometry, and Control Center source bounds under the layout swap, an exact-head signed Canary and focused device validation are required before integration.

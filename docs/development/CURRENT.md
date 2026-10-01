@@ -186,7 +186,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 537 Runtime CI retry after CI #2023 exposed one compile-only Home preview call-site omission.
+- Build 537 Runtime CI retry after CI #2023 exposed a missing Home preview VisualSettings argument and CI #2024 exposed the corresponding missing Compose `width` import.
 - if green, one exact-head signed Build-537 Canary.
 - focused device validation:
   - Features page follows MIUIX Global / Network / Battery card hierarchy and every visible control changes the real runtime state without a restart;
