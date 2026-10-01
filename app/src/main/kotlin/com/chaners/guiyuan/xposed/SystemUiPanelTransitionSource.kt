@@ -418,7 +418,7 @@ internal object SystemUiPanelTransitionSource {
                 val methodNames =
                     hierarchy(view.javaClass)
                         .flatMap { owner -> owner.declaredMethods.asList() }
-                        .map(Method::getName)
+                        .map { method -> method.name }
                         .filter { name ->
                             name.contains("island", ignoreCase = true) ||
                                 name.contains("forceAppear", ignoreCase = true) ||
