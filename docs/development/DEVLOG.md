@@ -14337,3 +14337,81 @@ Runtime CI #2024 then exposed one follow-up compile-only omission from the same 
 
 Runtime CI is required. Because this checkpoint changes Keyguard render-child ownership, steady source geometry, and Control Center source bounds under the layout swap, an exact-head signed Canary and focused device validation are required before integration.
 
+
+## 2026-10-01 — Build 538: independent layout profiles and live TopSlot optical avoidance
+
+**Type:** root-cause correction + persisted-profile split + rendering review
+**Display version:** 0.0.3
+**Build / source:** 538 / `20261001-538` / `feat/battery-top-readout` / PR #181
+
+### Evidence / goal
+
+Build 537 exact-head Runtime CI #2025 and Work Branch Canary #602 are green. Maintainer feedback identifies two remaining behavioral defects:
+- Network-centered and Battery-centered reuse the same local settings values instead of remembering two independent configurations.
+- When network content occupies the TopSlot, the battery-ring cutout can remain sized like a larger network semantic (for example 5G) after the visible semantic becomes a smaller one (for example Wi-Fi).
+
+A follow-up requirement sets Battery-centered percentage size and charging-glyph size to 120% defaults, and requires the MIUIX slider default key point to be the same 120% value. Network-centered retains 100% defaults.
+
+### Root cause
+
+Settings persistence still modeled visual values as one flat namespace even though Build 537 introduced two semantic layouts. Layout selection changed source positions, but the underlying values remained shared.
+
+The network TopSlot avoidance path was also not truly render-derived. It reused transition/reference metrics and max geometry that are valid for fitting or transition witnesses but not necessarily identical to the current resource's visible ink. For Wi-Fi especially, a connected/reference resource can intentionally normalize visual scale while the current resource has a narrower optical rect. Reusing the reference/max envelope therefore creates dead cutout space.
+
+### Change
+
+- Keep `content_layout` as the single global selector.
+- Persist local visual values under layout namespaces:
+  - `network_center.<baseKey>`;
+  - `battery_center.<baseKey>`.
+- Existing Build-537 flat keys remain read-only fallback for a profile field that has never been written, preserving explicit old user values without continuing to couple future edits.
+- App repository setters write only the active profile key.
+- The existing shared VisualSettings decoder resolves the active layout profile; the existing shared remote writer sends only that resolved active profile to SystemUI.
+- Battery-centered default percentage size = 120%; Battery-centered default charging-glyph size = 120%. Network-centered keeps 100% for both.
+- MIUIX slider `keyPoints` use the same layout-default functions as persistence defaults, so the visual default marker and actual default are one source of truth.
+- Extract one native optical geometry resolver used by both native center-resource drawing and TopSlot avoidance. It preserves existing reference-fit scale behavior while deriving the avoidance rect from the current resource's actual optical bounds.
+- Wi-Fi fallback uses the union of the actual project fallback Paths instead of `wifiMaxWidth/wifiMaxHeight`.
+- Mobile Type continues to use its current measured text bounds.
+- Airplane/no-SIM use current native drawable optical bounds; if no drawable can be rendered, no synthetic max-sized avoidance rectangle is invented.
+- During the existing 100 ms center semantic transition, the battery-ring cutout uses the union of previous/current bounds after the same enter/exit scale that the renderer applies.
+- Physical overflow remains layout-time capacity and reserves both transition endpoints at full size. It is intentionally not animated per frame.
+
+### 问题执行流程
+
+1. User changes layout selector.
+2. Repository emits the selected layout and resolves that layout's profile values.
+3. If a profile field exists, use it; otherwise fall back to an explicit legacy flat value; if neither exists, use the layout-specific default.
+4. User changes a local visual setting; only the selected layout's namespaced key is written.
+5. App runtime bridge resolves the complete active profile through the shared decoder and mirrors it through the shared writer.
+6. SystemUI resolves that same active profile and updates the existing RenderController; no second runtime owner is created.
+7. Painter resolves whichever semantic currently owns the TopSlot.
+8. For native network assets, fitting scale and actual current optical ink are resolved through one geometry path shared with drawing.
+9. Ring gap solver receives only the current visible TopSlot bounds. During the existing center transition it receives the union of the two appearance-scaled envelopes.
+10. Home/Keyguard physical overflow reserves full endpoint capacity but logical slot geometry and Control Center source/target semantics remain unchanged.
+
+### 审查 / review
+
+- **single source for defaults:** Battery-centered 120% persistence default and MIUIX slider key point call the same helper; Network-centered remains 100%.
+- **backward compatibility:** old flat settings are fallback only; explicit old user values are not silently overwritten by the new 120% default.
+- **profile isolation:** layout selection is global, local visual controls are namespaced; editing one layout cannot mutate the other profile.
+- **runtime single state:** only the active resolved profile reaches SystemUI; no parallel profile state machine or duplicate listener is introduced.
+- **optical ownership:** transition/reference max geometry is no longer accepted as steady avoidance authority.
+- **draw/avoid parity:** native drawable fit computation is shared between actual drawing and avoidance; current-resource optical bounds define visible ink.
+- **animation parity:** ring-gap animation consumes the same previous/current enter/exit amounts as center rendering.
+- **overflow separation:** animated cutout geometry and physical drawing capacity are deliberately separate; transparent overflow cannot become native slot geometry.
+- **transition ownership:** Control Center target identity, native target witnesses, HyperOS motion progress and peer motion remain unchanged.
+- **performance:** no polling, delay, new animator, frame hook or uncached drawable probe is added.
+- **Fail native:** if a native asset cannot be resolved/drawn, avoidance does not invent a large placeholder that leaves a false hole.
+
+### Automated coverage
+
+- Profile key generation and runtime-sync key recognition are locked for both layouts.
+- Battery-centered percentage/charging defaults resolve to 120% in UI scale and raw scale conversion.
+- Network-centered defaults remain 100%.
+- Shared-reference fitting test proves two current resources can share identical draw-fit scale while retaining different avoidance optical widths.
+- Native optical asymmetry remains preserved rather than being recentered into a symmetric max box.
+- Existing battery ring gap tests continue to verify width/height/vertical/asymmetric envelope behavior.
+
+### Validation gate
+
+Runtime CI is required. If green, produce one exact-head signed Build-538 Canary. Device validation must cover profile switching, 120% Battery-centered defaults/key points, 5G <-> Wi-Fi live gap resizing, no-network Wi-Fi, airplane/no-SIM, Keyguard overflow, Control Center semantic trajectories, preview parity and Hot Reload cleanup.

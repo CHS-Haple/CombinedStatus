@@ -167,6 +167,18 @@ Build 536 separates visual drawing capacity from native slot geometry.
 - Physical overflow must never be converted into native slot height, status-bar height, peer padding, target geometry or motion.
 - Build 537 candidate applies the same policy to the separate opt-in Keyguard render child because its verified `mSystemIconsContainer` is also a `MiuiStatusBatteryContainer`. Keyguard session/tint/AOD ownership remains separate and requires device validation.
 
+### TopSlot optical avoidance
+
+The battery-ring top opening is content-driven, not template-driven.
+
+- Whichever semantic currently occupies the TopSlot provides one visible optical envelope to the ring-gap solver.
+- Battery information uses its current measured text / charging-glyph group bounds.
+- Network content uses the current rendered asset or text bounds. A resource used to normalize visual fit may influence draw scale, but it must not replace the current resource's own optical rect as avoidance authority.
+- During the existing center semantic cross-fade, the visible previous/current envelopes are scaled by the same appearance amounts and unioned for the ring opening.
+- Once an old semantic reaches zero appearance, it must contribute zero gap; no historical maximum width/height is retained.
+- Physical overflow is a separate capacity concern. It may reserve both transition endpoints at full size, but that transparent capacity does not change the animated ring gap, logical viewport, native slot size or transition source/target semantics.
+
+
 ## Future size / spacing
 
 Future user scale or gap settings must change shared layout inputs only.

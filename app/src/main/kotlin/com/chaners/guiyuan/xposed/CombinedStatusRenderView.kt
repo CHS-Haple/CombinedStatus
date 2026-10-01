@@ -182,6 +182,13 @@ internal class CombinedStatusRenderView(
             height = logicalHeightPx,
             model = current,
             visualSettings = visualSettings,
+            previousCenterIndicator = previousCenterIndicator,
+            // Physical overflow is layout-time capacity, not animation
+            // geometry. Reserve both transition endpoints at full size so
+            // neither can be clipped later in the 100 ms cross-fade.
+            centerExitAmount = 1f,
+            centerEnterAmount = 1f,
+            scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
         )
     }
 

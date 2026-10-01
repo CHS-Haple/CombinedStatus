@@ -15,7 +15,8 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
-- Build 537 / `20261001-537` candidate;
+- Build 538 / `20261001-538` candidate;
+- Build 537 exact-head Runtime CI #2025 and Work Branch Canary #602 are green at `5c7560769e2ff0926fba6a78eba022151aee1dd0`; maintainer feedback identifies two follow-up defects: layout-local settings are shared instead of independently remembered, and TopSlot network avoidance can retain an over-wide envelope when the visible network semantic becomes smaller;
 - Build 536 / `20261001-536` is maintainer device-accepted: upward offset is visibly continuous, the logical-viewport / physical-overflow split works, and the 40%-160% size ranges are accepted;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
@@ -166,9 +167,20 @@ Build 537 visual-control / layout integration:
 - visual-settings persistence / remote mirroring / SystemUI runtime decoding now share one read/write contract, removing the three-copy key list that caused new settings to be omitted from runtime transport;
 - Features uses one MIUIX page with three Cards: Global / Network / Battery; no custom nested page or hand-built pseudo-MIUIX control is introduced.
 
+Build 538 independent layout profiles + live TopSlot avoidance:
+- **Network centered** and **Battery centered** now own independent local visual profiles. Layout selection itself remains global; local network/battery visual controls are persisted under the active layout namespace.
+- Existing Build-537 flat values are fallback only for a profile key that has never been written, so explicit old user values are preserved without continuing to couple the two layouts.
+- Battery-centered profile defaults percentage size and charging-glyph size to **120%**; Network-centered keeps **100%**. MIUIX slider key points read these same layout-default functions, so the marked default and actual default cannot drift.
+- Ring avoidance uses the same rectangle-to-arc gap solver for battery information and network TopSlot content. Its input is now the current visible optical envelope, not a remembered or maximum network template.
+- Native network drawing and avoidance share one resolved draw geometry. A connected/reference resource may define the visual fit scale, but the **current drawable's** optical rect defines the avoidance envelope.
+- Wi-Fi fallback uses the combined real Path bounds; Mobile Type uses current measured text bounds; airplane/no-SIM use current native drawable optical bounds.
+- During the existing 100 ms center transition, the ring gap unions the previous/current bounds after the same enter/exit scale. Once the old state reaches zero appearance it contributes zero gap, so 5G -> Wi-Fi settles to Wi-Fi-sized avoidance.
+- Physical top overflow is capacity, not animation geometry: it reserves both transition endpoints at full size so later transition frames cannot clip while logical slot geometry remains unchanged.
+- Control Center semantic targets, HyperOS transition progress, Home/Keyguard logical viewport, native peer reservation and motion ownership are unchanged.
 ## Validation state
 
 Confirmed:
+- Build 537 exact-head Runtime CI #2025 and Work Branch Canary #602 are green at `5c7560769e2ff0926fba6a78eba022151aee1dd0`; Build 538 is a follow-up driven by maintainer feedback, not a rollback of the 536 logical-viewport/overflow contract.
 - Build 536 exact-head Runtime CI #2022 and signed Work Branch Canary #599 are green; maintainer device validation accepted the visible upward movement, overflow surface, and 40%-160% sizing.
 - Build 523 focused device evidence reproduced the battery-top vertical ceiling and charging bolt/number Y mismatch.
 - Build 523 device evidence isolates the native-peer endpoint regression to the island + charging combination; island-only behavior is normal.
@@ -186,19 +198,17 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 537 Runtime CI retry after CI #2023 exposed a missing Home preview VisualSettings argument and CI #2024 exposed the corresponding missing Compose `width` import.
-- if green, one exact-head signed Build-537 Canary.
+- Build 538 Runtime CI.
+- if green, one exact-head signed Build-538 Canary.
 - focused device validation:
-  - Features page follows MIUIX Global / Network / Battery card hierarchy and every visible control changes the real runtime state without a restart;
-  - battery number off does not hide the charging glyph; charging glyph off does not hide the battery number;
-  - number / charging-glyph color-follow switches are independent in normal, charging, power-save and performance tint states;
-  - Network centered preserves Build-536 steady geometry;
-  - Battery centered places battery information at the former network center and network status in the top slot without ring overlap;
-  - Home and enabled Keyguard top content remain unclipped at the largest supported relevant visual size/offset;
-  - Home / Keyguard -> Control Center trajectories still terminate at the matching native semantic targets after the source positions are swapped;
-  - Preview Sandbox reflects saved layout, visibility, size, weight, offset and color-link settings immediately, including ordinary and quick/super charging glyphs;
-  - Hot Reload does not duplicate or strand the direct-child renderer.
-
+  - configure noticeably different number size, number weight, vertical offset, charging-glyph size and color-link switches in each layout; switching layouts must restore each profile independently;
+  - an unmodified Battery-centered profile must show 120% percentage size and 120% charging-glyph size, with the slider key point at 120%; Network-centered remains 100%;
+  - explicit 537 persisted size values must be preserved as first-use fallback instead of being overwritten by the new default;
+  - with network in the TopSlot, compare 5G/5G-A, Wi-Fi, no-network Wi-Fi, airplane and no-SIM: the opening must resize to the current visible optical envelope rather than a previous/max template;
+  - during 5G <-> Wi-Fi changes, the opening may follow the existing 100 ms cross-fade but must settle to the new state with no stale excess gap;
+  - battery-information TopSlot avoidance must retain Build-536/537 behavior for size, weight, lightning and vertical offset;
+  - Home and enabled Keyguard remain unclipped; Home/Keyguard -> Control Center semantic targets remain unchanged;
+  - Home preview and Preview Sandbox must display the active profile immediately.
 ## Runtime / rendering contract
 
 - HyperOS remains authoritative for battery state, charging-glyph resource selection, Control Center expansion/motion, and Battery-Island activation.
@@ -223,12 +233,11 @@ Pending:
 
 ## Immediate next step
 
-1. run Build-537 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 537 and produce one signed work-branch Canary;
-3. device-validate the independent battery controls, Network/Battery layout swap, Keyguard overflow, Preview Sandbox parity, Hot Reload cleanup, and Home/Keyguard -> Control Center semantic trajectories;
-4. change runtime again only if focused device evidence identifies a concrete mismatch;
-5. merge to `dev` only after this combined checkpoint is device-accepted.
-
+1. run Build-538 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 538 and produce one signed work-branch Canary;
+3. device-validate independent per-layout memory, 120% Battery-centered defaults, and live TopSlot avoidance across network states;
+4. recheck Control Center trajectories and Hot Reload cleanup;
+5. merge to `dev` only after the combined checkpoint is device-accepted.
 ## Reference priority
 
 1. `CONTRIBUTING.md`;

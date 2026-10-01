@@ -38,7 +38,9 @@ import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.settings.batteryTopChargingIconUiScale
+import com.chaners.guiyuan.settings.batteryTopChargingIconUiScaleDefault
 import com.chaners.guiyuan.settings.batteryTopTextUiScale
+import com.chaners.guiyuan.settings.batteryTopTextUiScaleDefault
 import com.chaners.guiyuan.settings.batteryTopVerticalOffsetUi
 import com.chaners.guiyuan.system.SystemUiScopeController
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
@@ -139,7 +141,12 @@ internal fun FeaturesScreen(
                             BATTERY_TOP_TEXT_UI_SCALE_MAX,
                     steps = 23,
                     showKeyPoints = true,
-                    keyPoints = listOf(1f),
+                    keyPoints =
+                        listOf(
+                            batteryTopTextUiScaleDefault(
+                                visualSettings.contentLayout,
+                            ),
+                        ),
                     magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
@@ -198,7 +205,12 @@ internal fun FeaturesScreen(
                             BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX,
                     steps = 23,
                     showKeyPoints = true,
-                    keyPoints = listOf(1f),
+                    keyPoints =
+                        listOf(
+                            batteryTopChargingIconUiScaleDefault(
+                                visualSettings.contentLayout,
+                            ),
+                        ),
                     magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )

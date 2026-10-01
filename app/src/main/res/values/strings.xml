@@ -13,7 +13,7 @@
     <string name="section_network">Network</string>
     <string name="section_battery">Battery</string>
     <string name="content_layout_title">Content layout</string>
-    <string name="content_layout_summary">Swap the display positions of network status and battery information</string>
+    <string name="content_layout_summary">Swap network and battery positions; each layout remembers its own settings</string>
     <string name="content_layout_network_center">Network centered</string>
     <string name="content_layout_battery_center">Battery centered</string>
     <string name="battery_charging_icon">Show charging icon</string>

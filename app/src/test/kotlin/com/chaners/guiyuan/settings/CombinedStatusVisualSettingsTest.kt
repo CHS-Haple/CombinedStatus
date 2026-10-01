@@ -79,6 +79,50 @@ class CombinedStatusVisualSettingsTest {
         }
     }
 
+
+    @Test
+    fun layoutProfilesUseIndependentPersistedKeys() {
+        assertEquals(
+            "network_center.battery_top_text_scale",
+            combinedStatusProfileKey(
+                CombinedStatusContentLayout.NETWORK_CENTER,
+                BATTERY_TOP_TEXT_SCALE_KEY,
+            ),
+        )
+        assertEquals(
+            "battery_center.battery_top_text_scale",
+            combinedStatusProfileKey(
+                CombinedStatusContentLayout.BATTERY_CENTER,
+                BATTERY_TOP_TEXT_SCALE_KEY,
+            ),
+        )
+    }
+
+    @Test
+    fun profileKeysParticipateInRuntimeSync() {
+        CombinedStatusContentLayout.entries.forEach { layout ->
+            listOf(
+                MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
+                CENTER_FOLLOWS_BATTERY_COLOR_KEY,
+                BATTERY_TOP_READOUT_ENABLED_KEY,
+                BATTERY_TOP_TEXT_FOLLOWS_BATTERY_COLOR_KEY,
+                BATTERY_TOP_CHARGING_ICON_ENABLED_KEY,
+                BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY,
+                BATTERY_TOP_TEXT_SCALE_KEY,
+                BATTERY_TOP_TEXT_WEIGHT_KEY,
+                BATTERY_TOP_VERTICAL_OFFSET_KEY,
+                BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+            ).forEach { baseKey ->
+                assertEquals(
+                    true,
+                    isCombinedStatusVisualPreferenceKey(
+                        combinedStatusProfileKey(layout, baseKey),
+                    ),
+                )
+            }
+        }
+    }
+
     @Test
     fun newBatteryVisualControlsKeepRequestedDefaults() {
         val settings = CombinedStatusVisualSettings()
@@ -98,6 +142,69 @@ class CombinedStatusVisualSettingsTest {
         assertEquals(
             CombinedStatusContentLayout.BATTERY_CENTER,
             CombinedStatusContentLayout.fromPersisted("battery_center"),
+        )
+    }
+
+
+    @Test
+    fun batteryCenteredProfileDefaultsBothBatteryScalesToOneHundredTwentyPercent() {
+        assertEquals(
+            1.2f,
+            batteryTopTextUiScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
+            0.0001f,
+        )
+        assertEquals(
+            1.2f,
+            batteryTopChargingIconUiScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
+            0.0001f,
+        )
+        assertEquals(
+            1.2f,
+            batteryTopTextUiScale(
+                batteryTopTextScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            1.2f,
+            batteryTopChargingIconUiScale(
+                batteryTopChargingIconScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
+            ),
+            0.0001f,
+        )
+    }
+
+
+    @Test
+    fun directBatteryCenteredSettingsConstructionAlsoUsesOneHundredTwentyPercentDefaults() {
+        val settings =
+            CombinedStatusVisualSettings(
+                contentLayout = CombinedStatusContentLayout.BATTERY_CENTER,
+            )
+
+        assertEquals(
+            1.2f,
+            batteryTopTextUiScale(settings.batteryTopTextScale),
+            0.0001f,
+        )
+        assertEquals(
+            1.2f,
+            batteryTopChargingIconUiScale(settings.batteryTopChargingIconScale),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun networkCenteredProfileKeepsOneHundredPercentScaleDefaults() {
+        assertEquals(
+            1f,
+            batteryTopTextUiScaleDefault(CombinedStatusContentLayout.NETWORK_CENTER),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            batteryTopChargingIconUiScaleDefault(CombinedStatusContentLayout.NETWORK_CENTER),
+            0.0001f,
         )
     }
 

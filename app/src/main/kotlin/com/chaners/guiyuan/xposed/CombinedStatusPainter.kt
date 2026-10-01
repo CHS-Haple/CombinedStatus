@@ -47,6 +47,18 @@ internal class CombinedStatusPainter(
         wifiPathMid(),
         wifiPathHigh(),
     )
+    private val wifiFallbackOpticalBounds =
+        RectF().also { combined ->
+            wifiPaths.forEachIndexed { index, path ->
+                val pathBounds = RectF()
+                path.computeBounds(pathBounds, true)
+                if (index == 0) {
+                    combined.set(pathBounds)
+                } else {
+                    combined.union(pathBounds)
+                }
+            }
+        }
 
     fun draw(
         canvas: Canvas,
@@ -102,6 +114,9 @@ internal class CombinedStatusPainter(
             nativeTransform = nativeTransform,
             scale = scale,
             scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
+            previousCenterIndicator = previousCenterIndicator,
+            centerExitAmount = centerExitAmount,
+            centerEnterAmount = centerEnterAmount,
         )
         if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
             resolveBatteryTopReadoutLayout(
@@ -152,6 +167,10 @@ internal class CombinedStatusPainter(
         height: Int,
         model: CombinedStatusRenderModel,
         visualSettings: CombinedStatusVisualSettings,
+        previousCenterIndicator: CenterIndicator? = null,
+        centerExitAmount: Float = 0f,
+        centerEnterAmount: Float = 1f,
+        scaleMobileTypeWithCanvas: Boolean = false,
     ): Int {
         if (width <= 0 || height <= 0) return 0
         val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
@@ -170,14 +189,15 @@ internal class CombinedStatusPainter(
                         sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
                         textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
                     )
-                resolveCenterIndicatorBounds(
-                    indicator = model.centerIndicator,
+                resolveNetworkTopSlotBounds(
+                    current = model.centerIndicator,
+                    previous = previousCenterIndicator,
                     scale = scale,
                     geometry = geometry,
-                    scaleMobileTypeWithCanvas = false,
-                )?.let { bounds ->
-                    shiftBoundsY(bounds, networkTopTranslationY())
-                }
+                    scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
+                    exitAmount = centerExitAmount,
+                    enterAmount = centerEnterAmount,
+                )
             } else {
                 resolveBatteryTopReadoutLayout(
                     model = model,
@@ -1105,6 +1125,94 @@ internal class CombinedStatusPainter(
             bottom = bounds.bottom + deltaY,
         )
 
+    private fun resolveNetworkTopSlotBounds(
+        current: CenterIndicator,
+        previous: CenterIndicator?,
+        scale: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
+        scaleMobileTypeWithCanvas: Boolean,
+        exitAmount: Float,
+        enterAmount: Float,
+    ): TransitionBounds? {
+        val translationY = networkTopTranslationY()
+        if (previous == null || previous == current) {
+            return resolveCenterIndicatorBounds(
+                indicator = current,
+                scale = scale,
+                geometry = geometry,
+                scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
+            )?.let { bounds ->
+                shiftBoundsY(bounds, translationY)
+            }
+        }
+
+        val previousBounds =
+            resolveCenterIndicatorBounds(
+                indicator = previous,
+                scale = scale,
+                geometry = geometry,
+                scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
+            )?.let { bounds ->
+                scaleBoundsAroundPivot(
+                    bounds = bounds,
+                    pivotX = CENTER_TRANSITION_PIVOT_X,
+                    pivotY = CENTER_TRANSITION_PIVOT_Y,
+                    amount = exitAmount,
+                )
+            }?.let { bounds ->
+                shiftBoundsY(bounds, translationY)
+            }
+        val currentBounds =
+            resolveCenterIndicatorBounds(
+                indicator = current,
+                scale = scale,
+                geometry = geometry,
+                scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
+            )?.let { bounds ->
+                scaleBoundsAroundPivot(
+                    bounds = bounds,
+                    pivotX = CENTER_TRANSITION_PIVOT_X,
+                    pivotY = CENTER_TRANSITION_PIVOT_Y,
+                    amount = enterAmount,
+                )
+            }?.let { bounds ->
+                shiftBoundsY(bounds, translationY)
+            }
+        return unionBounds(previousBounds, currentBounds)
+    }
+
+    private fun scaleBoundsAroundPivot(
+        bounds: TransitionBounds,
+        pivotX: Float,
+        pivotY: Float,
+        amount: Float,
+    ): TransitionBounds? {
+        val resolved = amount.coerceIn(0f, 1f)
+        if (resolved <= 0f) return null
+        return TransitionBounds(
+            left = pivotX + (bounds.left - pivotX) * resolved,
+            top = pivotY + (bounds.top - pivotY) * resolved,
+            right = pivotX + (bounds.right - pivotX) * resolved,
+            bottom = pivotY + (bounds.bottom - pivotY) * resolved,
+        )
+    }
+
+    private fun unionBounds(
+        first: TransitionBounds?,
+        second: TransitionBounds?,
+    ): TransitionBounds? =
+        when {
+            first == null -> second
+            second == null -> first
+            else ->
+                TransitionBounds(
+                    left = min(first.left, second.left),
+                    top = min(first.top, second.top),
+                    right = max(first.right, second.right),
+                    bottom = max(first.bottom, second.bottom),
+                )
+        }
+
     private fun resolveCenterIndicatorBounds(
         indicator: CenterIndicator,
         scale: Float,
@@ -1113,17 +1221,24 @@ internal class CombinedStatusPainter(
     ): TransitionBounds? =
         when (indicator) {
             is CenterIndicator.Wifi -> {
-                val metrics =
-                    transitionWifiMetrics(
-                        indicator = indicator,
-                        geometry = geometry,
-                    )
-                centeredBounds(
-                    centerX = WIFI_CENTER_X,
-                    centerY = WIFI_CENTER_Y,
-                    width = metrics?.sourceOpticalWidth ?: geometry.wifiMaxWidth,
-                    height = metrics?.sourceOpticalHeight ?: geometry.wifiMaxHeight,
-                )
+                val resourceId = indicator.nativeResourceId
+                if (resourceId != null) {
+                    val resource =
+                        CombinedStatusPresentationStateStore.NativeIconResource(
+                            packageName = SYSTEM_UI_PACKAGE,
+                            resourceId = resourceId,
+                        )
+                    resolveNativeCenterDrawGeometry(
+                        resource = resource,
+                        opticalReferenceResource = wifiOpticalReferenceResource(resource),
+                        centerX = WIFI_CENTER_X,
+                        centerY = WIFI_CENTER_Y,
+                        maxWidth = geometry.wifiMaxWidth,
+                        maxHeight = geometry.wifiMaxHeight,
+                    )?.opticalBounds
+                } else {
+                    null
+                } ?: resolveWifiFallbackOpticalBounds(geometry)
             }
 
             is CenterIndicator.MobileType ->
@@ -1135,44 +1250,53 @@ internal class CombinedStatusPainter(
                 ).bounds
 
             CenterIndicator.Airplane -> {
-                val metrics =
-                    airplaneResourceId()
-                        ?.let { resourceId ->
-                            transitionNativeCenterMetrics(
-                                resource =
-                                    CombinedStatusPresentationStateStore.NativeIconResource(
-                                        packageName = SYSTEM_UI_PACKAGE,
-                                        resourceId = resourceId,
-                                    ),
-                                maxWidth = geometry.airplaneMaxSize,
-                                maxHeight = geometry.airplaneMaxSize,
-                            )
-                        }
-                centeredBounds(
-                    centerX = AIRPLANE_CENTER_X,
-                    centerY = AIRPLANE_CENTER_Y,
-                    width = metrics?.sourceOpticalWidth ?: geometry.airplaneMaxSize,
-                    height = metrics?.sourceOpticalHeight ?: geometry.airplaneMaxSize,
-                )
+                airplaneResourceId()
+                    ?.let { resourceId ->
+                        resolveNativeCenterDrawGeometry(
+                            resource =
+                                CombinedStatusPresentationStateStore.NativeIconResource(
+                                    packageName = SYSTEM_UI_PACKAGE,
+                                    resourceId = resourceId,
+                                ),
+                            centerX = AIRPLANE_CENTER_X,
+                            centerY = AIRPLANE_CENTER_Y,
+                            maxWidth = geometry.airplaneMaxSize,
+                            maxHeight = geometry.airplaneMaxSize,
+                        )?.opticalBounds
+                    }
             }
 
-            is CenterIndicator.NoSim -> {
-                val metrics =
-                    transitionNativeCenterMetrics(
-                        resource = indicator.nativeResource,
-                        maxWidth = geometry.noSimMaxSize,
-                        maxHeight = geometry.noSimMaxSize,
-                    )
-                centeredBounds(
+            is CenterIndicator.NoSim ->
+                resolveNativeCenterDrawGeometry(
+                    resource = indicator.nativeResource,
                     centerX = CENTER_TRANSITION_PIVOT_X,
                     centerY = CENTER_TRANSITION_PIVOT_Y,
-                    width = metrics?.sourceOpticalWidth ?: geometry.noSimMaxSize,
-                    height = metrics?.sourceOpticalHeight ?: geometry.noSimMaxSize,
-                )
-            }
+                    maxWidth = geometry.noSimMaxSize,
+                    maxHeight = geometry.noSimMaxSize,
+                )?.opticalBounds
 
             CenterIndicator.Empty -> null
         }
+
+    private fun resolveWifiFallbackOpticalBounds(
+        geometry: CombinedStatusCenterGeometry.Resolved,
+    ): TransitionBounds {
+        val scale = 3f * geometry.sizeScale
+        return TransitionBounds(
+            left =
+                WIFI_CENTER_X +
+                    (wifiFallbackOpticalBounds.left - WIFI_FALLBACK_CENTER_X) * scale,
+            top =
+                WIFI_CENTER_Y +
+                    (wifiFallbackOpticalBounds.top - WIFI_FALLBACK_CENTER_Y) * scale,
+            right =
+                WIFI_CENTER_X +
+                    (wifiFallbackOpticalBounds.right - WIFI_FALLBACK_CENTER_X) * scale,
+            bottom =
+                WIFI_CENTER_Y +
+                    (wifiFallbackOpticalBounds.bottom - WIFI_FALLBACK_CENTER_Y) * scale,
+        )
+    }
 
     private fun batteryReadoutPreferredCenterY(
         visualSettings: CombinedStatusVisualSettings,
@@ -1198,6 +1322,9 @@ internal class CombinedStatusPainter(
         nativeTransform: NativeRenderTransform,
         scale: Float,
         scaleMobileTypeWithCanvas: Boolean,
+        previousCenterIndicator: CenterIndicator? = null,
+        centerExitAmount: Float = 0f,
+        centerEnterAmount: Float = 1f,
         drawReadoutText: Boolean = true,
         drawReadoutChargingIcon: Boolean = true,
     ) {
@@ -1209,14 +1336,15 @@ internal class CombinedStatusPainter(
             )
         val topContentBounds =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-                resolveCenterIndicatorBounds(
-                    indicator = model.centerIndicator,
+                resolveNetworkTopSlotBounds(
+                    current = model.centerIndicator,
+                    previous = previousCenterIndicator,
                     scale = scale,
                     geometry = centerGeometry,
                     scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
-                )?.let { bounds ->
-                    shiftBoundsY(bounds, networkTopTranslationY())
-                }
+                    exitAmount = centerExitAmount,
+                    enterAmount = centerEnterAmount,
+                )
             } else {
                 readout?.groupOpticalBounds
             }
@@ -2288,6 +2416,68 @@ internal class CombinedStatusPainter(
         )
     }
 
+    private fun resolveNativeCenterDrawGeometry(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        opticalReferenceResource: CombinedStatusPresentationStateStore.NativeIconResource? = null,
+        centerX: Float,
+        centerY: Float,
+        maxWidth: Float,
+        maxHeight: Float,
+    ): NativeCenterDrawGeometry? {
+        if (maxWidth <= 0f || maxHeight <= 0f) return null
+        val presentationResource = resolveNativeTintVariant(resource) ?: resource
+        val asset = nativeCenterAsset(presentationResource) ?: return null
+        if (asset.intrinsicWidth <= 0 || asset.intrinsicHeight <= 0) return null
+
+        val referenceAsset =
+            opticalReferenceResource
+                ?.let { reference ->
+                    val presentationReference =
+                        resolveNativeTintVariant(reference) ?: reference
+                    nativeCenterAsset(presentationReference)
+                }
+                ?.takeIf { reference ->
+                    NativeWifiOpticalReferencePolicy.canShareReferenceViewport(
+                        currentWidth = asset.intrinsicWidth,
+                        currentHeight = asset.intrinsicHeight,
+                        referenceWidth = reference.intrinsicWidth,
+                        referenceHeight = reference.intrinsicHeight,
+                    )
+                }
+        val fitAsset = referenceAsset ?: asset
+        val resolved =
+            CombinedStatusNativeOpticalGeometry.resolve(
+                currentIntrinsicWidth = asset.intrinsicWidth,
+                currentIntrinsicHeight = asset.intrinsicHeight,
+                currentOpticalLeft = asset.opticalBounds.left,
+                currentOpticalTop = asset.opticalBounds.top,
+                currentOpticalRight = asset.opticalBounds.right,
+                currentOpticalBottom = asset.opticalBounds.bottom,
+                fitIntrinsicWidth = fitAsset.intrinsicWidth,
+                fitIntrinsicHeight = fitAsset.intrinsicHeight,
+                fitOpticalLeft = fitAsset.opticalBounds.left,
+                fitOpticalTop = fitAsset.opticalBounds.top,
+                fitOpticalRight = fitAsset.opticalBounds.right,
+                fitOpticalBottom = fitAsset.opticalBounds.bottom,
+                centerX = centerX,
+                centerY = centerY,
+                maxWidth = maxWidth,
+                maxHeight = maxHeight,
+            ) ?: return null
+        return NativeCenterDrawGeometry(
+            asset = asset,
+            drawWidth = resolved.drawWidth,
+            drawHeight = resolved.drawHeight,
+            opticalBounds =
+                TransitionBounds(
+                    left = resolved.opticalLeft,
+                    top = resolved.opticalTop,
+                    right = resolved.opticalRight,
+                    bottom = resolved.opticalBottom,
+                ),
+        )
+    }
+
     private fun drawNativeCenterResource(
         canvas: Canvas,
         resource: CombinedStatusPresentationStateStore.NativeIconResource,
@@ -2301,47 +2491,22 @@ internal class CombinedStatusPainter(
         nativeTransform: NativeRenderTransform,
         pixelAligned: Boolean,
     ): Boolean {
-        // This renderer always applies an external tint below. Match HyperOS's
-        // useTint=true presentation contract by resolving the native opaque
-        // *_tint mask first, then apply the already-authoritative resolved tint.
-        val presentationResource = resolveNativeTintVariant(resource) ?: resource
-        val asset = nativeCenterAsset(presentationResource) ?: return false
+        // Resolve draw size and actual current-resource optical bounds through
+        // one geometry path shared with top-slot avoidance.
+        val geometry =
+            resolveNativeCenterDrawGeometry(
+                resource = resource,
+                opticalReferenceResource = opticalReferenceResource,
+                centerX = centerX,
+                centerY = centerY,
+                maxWidth = maxWidth,
+                maxHeight = maxHeight,
+            ) ?: return false
+        val asset = geometry.asset
         val intrinsicWidth = asset.intrinsicWidth
         val intrinsicHeight = asset.intrinsicHeight
-        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return false
-        }
-
-        val opticalReferenceAsset =
-            opticalReferenceResource
-                ?.let { reference ->
-                    val presentationReference =
-                        resolveNativeTintVariant(reference) ?: reference
-                    nativeCenterAsset(presentationReference)
-                }
-                ?.takeIf { reference ->
-                    NativeWifiOpticalReferencePolicy.canShareReferenceViewport(
-                        currentWidth = intrinsicWidth,
-                        currentHeight = intrinsicHeight,
-                        referenceWidth = reference.intrinsicWidth,
-                        referenceHeight = reference.intrinsicHeight,
-                    )
-                }
-        val fitAsset = opticalReferenceAsset ?: asset
-        val optical = fitAsset.opticalBounds
-        val opticalWidthRatio =
-            (optical.right - optical.left).coerceAtLeast(MIN_OPTICAL_RATIO)
-        val opticalHeightRatio =
-            (optical.bottom - optical.top).coerceAtLeast(MIN_OPTICAL_RATIO)
-        val opticalIntrinsicWidth = fitAsset.intrinsicWidth * opticalWidthRatio
-        val opticalIntrinsicHeight = fitAsset.intrinsicHeight * opticalHeightRatio
-        val drawableScale =
-            min(
-                maxWidth / opticalIntrinsicWidth,
-                maxHeight / opticalIntrinsicHeight,
-            )
-        val drawWidth = intrinsicWidth * drawableScale
-        val drawHeight = intrinsicHeight * drawableScale
+        val drawWidth = geometry.drawWidth
+        val drawHeight = geometry.drawHeight
 
         val drawable = asset.drawable
         drawable.setTint(tint)
@@ -3169,6 +3334,13 @@ internal class CombinedStatusPainter(
         val bounds: TransitionBounds,
     )
 
+    private data class NativeCenterDrawGeometry(
+        val asset: NativeCenterAsset,
+        val drawWidth: Float,
+        val drawHeight: Float,
+        val opticalBounds: TransitionBounds,
+    )
+
     private data class NativeOpticalSize(
         val width: Float,
         val height: Float,
@@ -3230,6 +3402,87 @@ internal object NativeCenterResourceVariantPolicy {
                 .removeSuffix("_darkmode")
                 .removeSuffix("_tint")
         return base + "_tint"
+    }
+}
+
+
+internal object CombinedStatusNativeOpticalGeometry {
+    private const val MIN_OPTICAL_RATIO = 0.08f
+    internal data class Resolved(
+        val drawWidth: Float,
+        val drawHeight: Float,
+        val opticalLeft: Float,
+        val opticalTop: Float,
+        val opticalRight: Float,
+        val opticalBottom: Float,
+    ) {
+        val opticalWidth: Float
+            get() = (opticalRight - opticalLeft).coerceAtLeast(0f)
+
+        val opticalHeight: Float
+            get() = (opticalBottom - opticalTop).coerceAtLeast(0f)
+    }
+
+    fun resolve(
+        currentIntrinsicWidth: Int,
+        currentIntrinsicHeight: Int,
+        currentOpticalLeft: Float,
+        currentOpticalTop: Float,
+        currentOpticalRight: Float,
+        currentOpticalBottom: Float,
+        fitIntrinsicWidth: Int,
+        fitIntrinsicHeight: Int,
+        fitOpticalLeft: Float,
+        fitOpticalTop: Float,
+        fitOpticalRight: Float,
+        fitOpticalBottom: Float,
+        centerX: Float,
+        centerY: Float,
+        maxWidth: Float,
+        maxHeight: Float,
+    ): Resolved? {
+        if (
+            currentIntrinsicWidth <= 0 ||
+            currentIntrinsicHeight <= 0 ||
+            fitIntrinsicWidth <= 0 ||
+            fitIntrinsicHeight <= 0 ||
+            maxWidth <= 0f ||
+            maxHeight <= 0f
+        ) {
+            return null
+        }
+
+        val fitOpticalWidthRatio =
+            (fitOpticalRight - fitOpticalLeft)
+                .coerceAtLeast(MIN_OPTICAL_RATIO)
+        val fitOpticalHeightRatio =
+            (fitOpticalBottom - fitOpticalTop)
+                .coerceAtLeast(MIN_OPTICAL_RATIO)
+        val fitOpticalWidth =
+            fitIntrinsicWidth * fitOpticalWidthRatio
+        val fitOpticalHeight =
+            fitIntrinsicHeight * fitOpticalHeightRatio
+        if (fitOpticalWidth <= 0f || fitOpticalHeight <= 0f) return null
+
+        val drawableScale =
+            min(
+                maxWidth / fitOpticalWidth,
+                maxHeight / fitOpticalHeight,
+            )
+        if (!drawableScale.isFinite() || drawableScale <= 0f) return null
+
+        val drawWidth = currentIntrinsicWidth * drawableScale
+        val drawHeight = currentIntrinsicHeight * drawableScale
+        val drawLeft = centerX - drawWidth / 2f
+        val drawTop = centerY - drawHeight / 2f
+        return Resolved(
+            drawWidth = drawWidth,
+            drawHeight = drawHeight,
+            opticalLeft = drawLeft + currentOpticalLeft * drawWidth,
+            opticalTop = drawTop + currentOpticalTop * drawHeight,
+            opticalRight = drawLeft + currentOpticalRight * drawWidth,
+            opticalBottom = drawTop + currentOpticalBottom * drawHeight,
+        )
     }
 }
 

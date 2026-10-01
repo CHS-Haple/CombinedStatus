@@ -12,7 +12,7 @@
     <string name="section_network">网络</string>
     <string name="section_battery">电量</string>
     <string name="content_layout_title">内容布局</string>
-    <string name="content_layout_summary">交换网络状态与电量信息的显示位置</string>
+    <string name="content_layout_summary">交换网络状态与电量信息的位置；两种布局分别记忆各自设置</string>
     <string name="content_layout_network_center">网络居中</string>
     <string name="content_layout_battery_center">电量居中</string>
     <string name="battery_charging_icon">显示充电图标</string>
