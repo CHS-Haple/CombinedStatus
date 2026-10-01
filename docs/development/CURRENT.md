@@ -15,6 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
+- Build 544 / `20261001-544` direction-aware battery-ring exit checkpoint; Runtime CI #2054 is green at `2b281befc98c4a20b2967f53b4bfd4dadb1f2a73`. Maintainer feedback accepts Build 543's arc-length retract visual quality but identifies one remaining choreography defect: the CENTER/network semantic can travel through the still-visible battery ring. Build 544 keeps all 543 motion timing and native targets, samples the real CENTER source->target horizontal direction, and only for a leftward exit consumes the ring from the left side first; unresolved CENTER targets Fail-native to Build-543 behavior.
 - Build 543 / `20261001-543` battery-ring retract transition checkpoint; Runtime CI #2051 is green at `6cf21e85219fb2cc16f5da8edd0aa5ec39b24c89`; the runtime replaces the rejected Y-axis Battery fold with a transition-only ordered arc-length retract while preserving the existing native Battery target path, component handoff, reservation ownership, and Build-542 island-boundary projection;
 - Build 542 / `20261001-542` is maintainer device-accepted at frozen head `f280c6c4b1e744843ec5b6e603bb2aa653b5f399`; exact-head Runtime CI #2050 and signed Work Branch Canary #610 are green, and focused real-device validation reports the Super-Island Home -> Control Center peer flow is normal with no extra sequential disappearance;
 - Build 541 exact-head Runtime CI #2038 and signed Work Branch Canary #608 are green at `15cd544ed68d5303c78aa6e433242aee6f6fd4bc`, but maintainer device evidence rejects the peer-`forceAppear` correction: `reservationMode=native-progress-fake-island-freeze`, `islandPeerFreeze=active:3`, and a growing non-negative `nativeReservation` were all present while native peers still disappeared during the island pull; this route is disproven and must not be revived;
@@ -38,6 +39,18 @@ Build-523 device evidence also identified an independent Control Center peer-mot
 - the failure is specifically Super-Island + charging, where surrounding native status icons do not follow the expected endpoint rule;
 - the same Build-523 diagnostic reports `addBatteryIsland=false / batteryWidthDiff=0` during the affected pull while Guiyuan selected `reservationMode=native-peer-motion`.
 
+
+
+Build 544 direction-aware ring exit:
+- Build 543's core arc-length retract is visually accepted by the maintainer ("效果很好"), but the combined decomposition is not yet accepted because the CENTER/network icon can visibly pass through the still-present battery ring while moving toward its native target;
+- the defect is choreography, not CENTER path geometry: changing the network path would break the already-accepted native-like direct motion, and drawing it behind the ring would merely turn "穿过" into "钻过去";
+- Build 544 therefore keeps CENTER/native target geometry, 543 smoothstep, total remaining ring length, Battery target motion, battery-number/lightning handoff, and Build-542 island projection unchanged;
+- each frame performs a read-only CENTER target sample using the existing cached target resolver and computes the real horizontal source->target delta. LEFT / RIGHT / NONE are derived from geometry rather than hardcoded RTL assumptions;
+- LEFT exit changes only which ordered arc-length window remains: the left side is consumed first so the CENTER semantic gets a visual exit opening. RIGHT and NONE preserve Build 543's prefix behavior exactly;
+- active battery color is not reinterpreted. For LEFT exit it is clipped by the intersection between the original battery-fill interval and the retained ring interval; RIGHT/NONE keep Build 543's active-length formula unchanged;
+- missing or unreliable CENTER target resolves to NONE / Build-543 behavior. No speculative direction is used;
+- Runtime CI #2053 correctly failed one existing Build-543 regression test because the first implementation accidentally changed NONE active-fill semantics (75% battery / 50% retract became 120° active instead of the accepted 90°). That implementation was not shipped;
+- commit `2b281befc98c4a20b2967f53b4bfd4dadb1f2a73` restores the accepted NONE/RIGHT semantics and adds explicit regression coverage. Runtime CI #2054: success.
 
 Build 543 StatusBar Duo-inspired battery-ring retract:
 - reference study is based on the maintainer-provided `StatusBar Duo_1.2.0.apk` (SHA-256 `a4e3467e847f7de40b201e1ae607719dfcba007b7f02cc6b424b1b3cbbffee0d`), decompiled with JADX 1.5.6;

@@ -14990,3 +14990,100 @@ Primary checks:
 7. Build-542 peer/island behavior must remain normal.
 
 Video is the primary evidence for this checkpoint. Detailed diagnostics are needed only if ownership, target resolution, or island behavior regresses.
+
+
+## 2026-10-01 — Build 544 direction-aware battery-ring exit
+
+**Type:** device-evidence choreography correction  
+**Display version:** 0.0.3  
+**Build:** 544 / `20261001-544`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Device evidence from Build 543
+
+The maintainer reports that Build 543's new StatusBar-Duo-inspired arc-length retract itself is visually very good. The remaining defect is spatial choreography:
+
+- CENTER/network begins inside the compact battery ring;
+- CENTER follows its already-accepted direct native target path;
+- Battery ring retracts independently;
+- while both remain visible, CENTER can cross the still-visible ring boundary.
+
+The recording confirms this is not primarily a z-order issue. Putting CENTER behind the ring would only change the overlap style, while bending the CENTER path would abandon the native-like target motion that is already working well.
+
+### Root cause
+
+Build 543 always retained the same ordered prefix of the ring path. For the common leftward CENTER target, that retention order keeps the left-side arc visible long enough for the CENTER semantic to pass through it.
+
+The correct single-variable correction is therefore not a new CENTER trajectory. The ring should yield first on the side through which CENTER actually exits.
+
+### Build 544 change
+
+Build 544 derives exit direction from the current CENTER component's real source and resolved native target geometry:
+
+- target center left of source center -> LEFT;
+- target center right of source center -> RIGHT;
+- missing, unreliable, or near-zero horizontal delta -> NONE.
+
+No RTL guess is used.
+
+For LEFT:
+- the same 543 smoothstep determines total remaining arc length;
+- the retained arc window is taken from the opposite end, so the left side is consumed first;
+- active battery color is the intersection of the original battery-fill interval and the retained interval, preserving battery semantics.
+
+For RIGHT and NONE:
+- Build 543's prefix geometry and active-fill length are preserved exactly.
+
+### CI #2053 regression catch
+
+The first implementation used the interval-intersection rule for every direction. That unintentionally changed Build 543's NONE semantics.
+
+Example caught by the existing test:
+- total path: 240°;
+- battery: 75%;
+- retract progress: 0.5 -> 50% remaining;
+- Build 543 expected active length: 240 * 0.75 * 0.5 = 90°;
+- faulty generalized intersection produced 120°.
+
+Runtime CI #2053 failed `retractKeepsGrayPathAndBatteryFillOnSamePrefix`, correctly preventing that semantic drift from reaching a Canary.
+
+The correction at `2b281befc98c4a20b2967f53b4bfd4dadb1f2a73` restores Build-543 behavior for NONE/RIGHT and limits interval intersection to LEFT. Two explicit regression tests now lock NONE and RIGHT semantics.
+
+Runtime CI #2054: **success**.
+
+### 问题执行流程
+
+1. Compact Guiyuan source is sampled from the accepted Home / Keyguard owner.
+2. Existing transition specs are built; CENTER source geometry is known.
+3. CENTER target is resolved read-only through the existing target cache / native witness path.
+4. Horizontal source->target delta selects LEFT / RIGHT / NONE.
+5. Battery target geometry and motion remain unchanged.
+6. Battery local ring still uses Build 543's single motionProgress and smoothstep remaining length.
+7. If CENTER exits left, the left ring side is consumed first, visually opening an exit path before CENTER crosses the ring boundary.
+8. RIGHT/NONE retain Build 543 behavior.
+9. Reverse collapse evaluates the same stateless geometry in reverse.
+10. Missing CENTER target falls back to NONE; no guessed direction or persistent state is introduced.
+
+### 审查 / review
+
+- **single variable:** CENTER trajectory, Battery trajectory, progress curve, final handoff, reservation and island behavior are unchanged.
+- **ownership:** CENTER target sampling is read-only. No View property, native target, monitor, padding or island writer was added.
+- **cache/performance:** `resolveTarget()` already uses `targetCache`; the pre-sample does not re-scan the full target tree on every draw. Only a geometry sample is repeated. No additional optimization commit is made before device validation to avoid expanding change surface.
+- **Fail-native:** unresolved CENTER geometry -> NONE -> accepted Build-543 ring behavior.
+- **battery semantics:** LEFT uses interval intersection only where required for directional yielding; NONE/RIGHT remain byte-for-byte equivalent in behavior to Build 543's length formula.
+- **reverse symmetry:** no Animator, timer, delay or cross-frame direction memory exists.
+- **Build 542 boundary:** island projection and native peer reservation ownership are untouched.
+
+### Device gate
+
+Build 544 requires a signed exact-head Canary.
+
+Primary validation:
+1. normal and slow Home -> Control Center pull;
+2. watch CENTER/network as it leaves the ring: it should no longer visibly cross the left ring stroke;
+3. reverse slowly: the ring should grow back without a new snap or overlap;
+4. confirm the overall 543 arc-retract quality remains unchanged;
+5. check Wi-Fi and mobile-type CENTER states if convenient, because direction comes from their actual native target;
+6. confirm Build-542 Super-Island peer behavior remains normal.
+
+If overlap remains, attach a short recording; the next step would be a dynamic optical-envelope gate, not a CENTER path bend.
