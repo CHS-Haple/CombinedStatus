@@ -394,68 +394,72 @@ private fun BatterySchemeOverview(
         }
     }
 
-    HorizontalPager(
-        state = pagerState,
+    Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(455.dp)
-                .pagerGestureOverride(
-                    pagerState = pagerState,
-                    flingBehavior = flingBehavior,
-                ),
-        userScrollEnabled = false,
-        flingBehavior = flingBehavior,
-        pageNestedScrollConnection = PagerGestureNestedScrollConnection,
-    ) { index ->
-        val onNavigateTo: (Int) -> Unit = { target ->
-            scope.launch { pagerState.springAnimateToPage(target) }
-        }
-        when (val page = pages[index]) {
-            is BatterySchemePage.BuiltIn ->
-                BatterySchemePageContent(
-                    name = batteryBuiltInName(page.scheme),
-                    builtIn = page.scheme,
-                    custom = null,
-                    isActive = library.activeSchemeKey == page.key,
-                    canCreateCustom = canCreateCustom,
-                    pageCount = pages.size,
-                    pageIndex = index,
-                    onNavigateTo = onNavigateTo,
-                    onApply = { onApplyScheme(page.key) },
-                    onSlotClick = { slot ->
-                        onOpenBuiltInSlot(page.scheme, slot)
-                    },
-                    onRename = null,
-                    onCopy = null,
-                    onDelete = null,
-                )
-            is BatterySchemePage.Custom ->
-                BatterySchemePageContent(
-                    name = customSchemeName(page.scheme),
-                    builtIn = null,
-                    custom = page.scheme,
-                    isActive = library.activeSchemeKey == page.key,
-                    canCreateCustom = canCreateCustom,
-                    pageCount = pages.size,
-                    pageIndex = index,
-                    onNavigateTo = onNavigateTo,
-                    onApply = { onApplyScheme(page.key) },
-                    onSlotClick = { slot ->
-                        onOpenCustomSlot(page.scheme.id, slot)
-                    },
-                    onRename = { onRenameCustom(page.scheme.id) },
-                    onCopy = { onCopyCustom(page.scheme) },
-                    onDelete = { onDeleteCustom(page.scheme.id) },
-                )
-            BatterySchemePage.Add ->
-                BatteryAddSchemePage(
-                    enabled = canCreateCustom,
-                    pageCount = pages.size,
-                    pageIndex = index,
-                    onNavigateTo = onNavigateTo,
-                    onClick = onAdd,
-                )
+                .height(455.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        BatterySchemeNavigator(
+            pageCount = pages.size,
+            currentPage = pagerState.currentPage,
+            onNavigateTo = { target ->
+                scope.launch { pagerState.springAnimateToPage(target) }
+            },
+        )
+        Spacer(Modifier.height(12.dp))
+        HorizontalPager(
+            state = pagerState,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .pagerGestureOverride(
+                        pagerState = pagerState,
+                        flingBehavior = flingBehavior,
+                    ),
+            userScrollEnabled = false,
+            flingBehavior = flingBehavior,
+            pageNestedScrollConnection = PagerGestureNestedScrollConnection,
+        ) { index ->
+            when (val page = pages[index]) {
+                is BatterySchemePage.BuiltIn ->
+                    BatterySchemePageContent(
+                        name = batteryBuiltInName(page.scheme),
+                        builtIn = page.scheme,
+                        custom = null,
+                        isActive = library.activeSchemeKey == page.key,
+                        canCreateCustom = canCreateCustom,
+                        onApply = { onApplyScheme(page.key) },
+                        onSlotClick = { slot ->
+                            onOpenBuiltInSlot(page.scheme, slot)
+                        },
+                        onRename = null,
+                        onCopy = null,
+                        onDelete = null,
+                    )
+                is BatterySchemePage.Custom ->
+                    BatterySchemePageContent(
+                        name = customSchemeName(page.scheme),
+                        builtIn = null,
+                        custom = page.scheme,
+                        isActive = library.activeSchemeKey == page.key,
+                        canCreateCustom = canCreateCustom,
+                        onApply = { onApplyScheme(page.key) },
+                        onSlotClick = { slot ->
+                            onOpenCustomSlot(page.scheme.id, slot)
+                        },
+                        onRename = { onRenameCustom(page.scheme.id) },
+                        onCopy = { onCopyCustom(page.scheme) },
+                        onDelete = { onDeleteCustom(page.scheme.id) },
+                    )
+                BatterySchemePage.Add ->
+                    BatteryAddSchemePage(
+                        enabled = canCreateCustom,
+                        onClick = onAdd,
+                    )
+            }
         }
     }
 }
@@ -467,9 +471,6 @@ private fun BatterySchemePageContent(
     custom: BatteryCustomColorScheme?,
     isActive: Boolean,
     canCreateCustom: Boolean,
-    pageCount: Int,
-    pageIndex: Int,
-    onNavigateTo: (Int) -> Unit,
     onApply: () -> Unit,
     onSlotClick: (CombinedStatusBatteryColorSlot) -> Unit,
     onRename: (() -> Unit)?,
@@ -523,13 +524,7 @@ private fun BatterySchemePageContent(
                 size = 28.dp,
                 spacing = 10.dp,
             )
-            Spacer(Modifier.height(8.dp))
-            BatterySchemeNavigator(
-                pageCount = pageCount,
-                currentPage = pageIndex,
-                onNavigateTo = onNavigateTo,
-            )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(12.dp))
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
@@ -619,9 +614,6 @@ private fun BatteryModeSettingItem(
 @Composable
 private fun BatteryAddSchemePage(
     enabled: Boolean,
-    pageCount: Int,
-    pageIndex: Int,
-    onNavigateTo: (Int) -> Unit,
     onClick: () -> Unit,
 ) {
     Column(
@@ -653,12 +645,6 @@ private fun BatteryAddSchemePage(
                 page = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
                 size = 28.dp,
                 spacing = 10.dp,
-            )
-            Spacer(Modifier.height(8.dp))
-            BatterySchemeNavigator(
-                pageCount = pageCount,
-                currentPage = pageIndex,
-                onNavigateTo = onNavigateTo,
             )
             Spacer(Modifier.height(16.dp))
             Card(
