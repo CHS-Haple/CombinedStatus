@@ -505,43 +505,28 @@ private fun BatterySchemePageContent(
                 ),
             insideMargin = PaddingValues(16.dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 40.dp),
-            ) {
-                Text(
-                    text = name,
-                    style = MiuixTheme.textStyles.title2,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-                if (custom != null && onRename != null && onCopy != null && onDelete != null) {
-                    BatterySchemeManageMenu(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        canCopy = canCreateCustom,
-                        onRename = onRename,
-                        onCopy = onCopy,
-                        onDelete = onDelete,
-                    )
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                BatterySchemePreviewStrip(
-                    page =
-                        if (builtIn != null) {
-                            BatterySchemePage.BuiltIn(builtIn)
-                        } else {
-                            custom?.let(BatterySchemePage::Custom)
-                        },
-                    size = 28.dp,
-                    spacing = 10.dp,
-                )
-            }
+            BatterySchemeHeader(
+                name = name,
+                previewPage =
+                    if (builtIn != null) {
+                        BatterySchemePage.BuiltIn(builtIn)
+                    } else {
+                        custom?.let(BatterySchemePage::Custom)
+                    },
+                endAction =
+                    if (custom != null && onRename != null && onCopy != null && onDelete != null) {
+                        {
+                            BatterySchemeManageMenu(
+                                canCopy = canCreateCustom,
+                                onRename = onRename,
+                                onCopy = onCopy,
+                                onDelete = onDelete,
+                            )
+                        }
+                    } else {
+                        null
+                    },
+            )
             Spacer(Modifier.height(12.dp))
             Box(
                 modifier = Modifier.fillMaxWidth(),
@@ -567,7 +552,9 @@ private fun BatterySchemePageContent(
                 )
             }
             Spacer(Modifier.height(16.dp))
-            Card {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 CombinedStatusBatteryColorSlot.entries.forEach { slot ->
                     val color =
                         when {
@@ -595,6 +582,44 @@ private fun BatterySchemePageContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BatterySchemeHeader(
+    name: String,
+    previewPage: BatterySchemePage?,
+    endAction: (@Composable () -> Unit)? = null,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 40.dp),
+    ) {
+        Text(
+            text = name,
+            style = MiuixTheme.textStyles.title2,
+            modifier = Modifier.align(Alignment.Center),
+        )
+        endAction?.let { action ->
+            Box(
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                action()
+            }
+        }
+    }
+    Spacer(Modifier.height(12.dp))
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        BatterySchemePreviewStrip(
+            page = previewPage,
+            size = 28.dp,
+            spacing = 10.dp,
+        )
     }
 }
 
@@ -647,29 +672,10 @@ private fun BatteryAddSchemePage(
                 ),
             insideMargin = PaddingValues(16.dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 40.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.battery_custom_scheme_add_page_title),
-                    style = MiuixTheme.textStyles.title2,
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center,
-            ) {
-                BatterySchemePreviewStrip(
-                    page = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
-                    size = 28.dp,
-                    spacing = 10.dp,
-                )
-            }
+            BatterySchemeHeader(
+                name = stringResource(R.string.battery_custom_scheme_add_page_title),
+                previewPage = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
+            )
             Spacer(Modifier.height(16.dp))
             Card(
                 modifier =
@@ -684,7 +690,6 @@ private fun BatteryAddSchemePage(
                     if (enabled) {
                         FloatingActionButton(
                             onClick = onClick,
-                            shadowElevation = 0.dp,
                         ) {
                             Icon(
                                 imageVector = MiuixIcons.Add,
@@ -1006,7 +1011,9 @@ private fun BatteryCustomModeEditor(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
     ) {
-        Card {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             OverlayDropdownPreference(
             items = sourceLabels,
             selectedIndex = selectedSourceIndex,
@@ -1033,6 +1040,7 @@ private fun BatteryCustomModeEditor(
             textColor = inactiveTitleColor,
         )
         Card(
+            modifier = Modifier.fillMaxWidth(),
             insideMargin = PaddingValues(16.dp),
         ) {
             COMMON_BATTERY_COLORS.chunked(5).forEachIndexed { index, colors ->
@@ -1062,7 +1070,9 @@ private fun BatteryCustomModeEditor(
             text = stringResource(R.string.battery_color_full_adjustment),
             textColor = inactiveTitleColor,
         )
-        Card {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             if (hsv != null) {
                 BatteryHsvAdjustmentRow(
                     title = stringResource(R.string.battery_color_hue),
@@ -1123,6 +1133,7 @@ private fun BatteryCustomModeEditor(
             textColor = inactiveTitleColor,
         )
         Card(
+            modifier = Modifier.fillMaxWidth(),
             insideMargin = PaddingValues(16.dp),
         ) {
             TextField(
