@@ -763,7 +763,7 @@ private fun BatteryCustomModeEditor(
         when {
             resolved != null -> batteryColorHex(resolved)
             entry.source == BatteryColorSchemeSource.CUSTOM ->
-                stringResource(R.string.battery_color_unset)
+                stringResource(R.string.battery_color_custom_unset)
             else -> stringResource(R.string.battery_color_follow_inversion)
         }
 
