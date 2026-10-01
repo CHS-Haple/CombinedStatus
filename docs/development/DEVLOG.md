@@ -1,3 +1,36 @@
+## 2026-10-02 — Build 590 complete MIUIX action-pill Apply control
+
+**Type:** App UI / MIUIX pill conformance  
+**Display version:** 0.0.3  
+**Build:** 590 / `20261002-590`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+Use the complete MIUIX pill specification for the Apply action, including shape, width behavior and internal metrics.
+
+### Pinned MIUIX source
+The Snackbar action pill uses:
+- `TextButton`;
+- `minWidth = 26.dp`;
+- `minHeight = 26.dp`;
+- `SnackbarDefaults.ActionCornerRadius`;
+- `SnackbarDefaults.ActionInsideMargin` = 12dp horizontal / 0dp vertical;
+- `TextStyle(fontSize = 15.sp)`;
+- primary semantic action colors.
+
+Its width is content-driven, not fixed.
+
+### Change
+- Replace the 120dp-width scheme Apply Button with the exact pill geometry above.
+- Remove the project-owned width and generic Button height.
+- Keep Apply/Applied enabled state semantics and native MIUIX interaction.
+
+### Review
+No custom pill width/height/radius remains. No other layout, hierarchy, Runtime/SystemUI, hook, or persistence change.
+
+### Validation
+Run exact-head Runtime CI and Canary; verify the Apply/Applied action reads as a true MIUIX capsule and sizes naturally to its label.
+
 ## 2026-10-02 — Build 589 true MIUIX pill Apply button
 
 **Type:** App UI / MIUIX button geometry  
