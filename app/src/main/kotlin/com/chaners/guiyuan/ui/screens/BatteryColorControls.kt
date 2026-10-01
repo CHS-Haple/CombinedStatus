@@ -550,7 +550,7 @@ private fun BatterySchemePageContent(
                     enabled = !isActive,
                     minWidth = 120.dp,
                     minHeight = ButtonDefaults.MinHeight,
-                    cornerRadius = ButtonDefaults.MinHeight * 0.5f,
+                    cornerRadius = 50.dp,
                     colors = ButtonDefaults.buttonColorsPrimary(),
                 ) {
                     Text(
