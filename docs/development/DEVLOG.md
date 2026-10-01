@@ -1,3 +1,32 @@
+## 2026-10-01 — Build 569 MIUIX management-state compile correction
+
+**Type:** compile-only correction  
+**Display version:** 0.0.3  
+**Build:** 569 / `20261001-569`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### CI evidence
+
+Build 568 Runtime CI run 36908190302 reached `:app:compileDebugKotlin` and reported one error only: the sole `BatterySchemeOverview` invocation did not pass the newly introduced `managedCustomId` parameter used to drive MIUIX `IconButton.holdDownState`.
+
+### Correction
+
+- Pass `manageCustomId` into the existing overview call.
+- Directed scan confirms `BatteryColorControls.kt` has exactly one invocation and one function declaration, so there is no second call site to reconcile.
+
+### 审查 / review
+
+- compile-only wiring change;
+- no layout/proportion adjustment;
+- no new drawing primitive;
+- no Runtime/persistence/data-model change;
+- Build-568 MIUIX component substitutions remain otherwise byte-for-byte unchanged.
+
+### Validation
+
+Run exact-head automated CI. If green, resume the component-first cleanup; final proportion tuning remains deferred until the last editor page is structurally complete.
+
+
 ## 2026-10-01 — Build 568 battery-color MIUIX component-conformance pass
 
 **Type:** App UI component-conformance only  
