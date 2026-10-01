@@ -84,12 +84,12 @@ class CombinedStatusBatteryColorPolicyTest {
     }
 
     @Test
-    fun recommendedPresetUsesMutedChargingAndMonochromeNormal() {
+    fun hyperosPresetUsesPinnedChargingAndMonochromeNormal() {
         val settings = CombinedStatusVisualSettings()
         val preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings)
 
         assertEquals(
-            0xFF3FA760.toInt(),
+            0xFF1DCD3A.toInt(),
             CombinedStatusBatteryColorPolicy.resolve(
                 state = CombinedStatusBatterySemanticState.CHARGING,
                 systemSemanticColor = systemSemantic,
@@ -101,6 +101,25 @@ class CombinedStatusBatteryColorPolicyTest {
             statusTint,
             CombinedStatusBatteryColorPolicy.resolve(
                 state = CombinedStatusBatterySemanticState.NORMAL,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+    }
+
+    @Test
+    fun lowSaturationPresetUsesMutedChargingAndMonochromeNormal() {
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.RECOMMENDED,
+            )
+        val preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings)
+
+        assertEquals(
+            0xFF3FA760.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
                 systemSemanticColor = systemSemantic,
                 statusIconTint = statusTint,
                 preferences = preferences,

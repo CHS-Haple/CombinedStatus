@@ -1,56 +1,93 @@
 package com.chaners.guiyuan.ui.screens
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.guiyuan.R
-import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
-import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
+import com.chaners.guiyuan.settings.BATTERY_COLOR_SCHEME_CUSTOM_MAX
+import com.chaners.guiyuan.settings.BATTERY_COLOR_SCHEME_HYPEROS_KEY
+import com.chaners.guiyuan.settings.BatteryBuiltInColorScheme
+import com.chaners.guiyuan.settings.BatteryColorSchemeEntry
+import com.chaners.guiyuan.settings.BatteryColorSchemeLibrary
+import com.chaners.guiyuan.settings.BatteryColorSchemeLibraryRepository
+import com.chaners.guiyuan.settings.BatteryColorSchemeSource
+import com.chaners.guiyuan.settings.BatteryCustomColorScheme
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
-import com.chaners.guiyuan.settings.CombinedStatusIosStyleBatteryPalette
-import com.chaners.guiyuan.settings.CombinedStatusRecommendedBatteryPalette
-import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.batteryBuiltInColor
+import com.chaners.guiyuan.settings.batterySchemeEntryColor
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
+import top.yukonga.miuix.kmp.basic.BasicComponentColors
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HsvHueSlider
 import top.yukonga.miuix.kmp.basic.HsvSaturationSlider
 import top.yukonga.miuix.kmp.basic.HsvValueSlider
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.color.api.toHsv
+import top.yukonga.miuix.kmp.color.space.Hsv
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
+import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.RadioButtonLocation
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
-import top.yukonga.miuix.kmp.color.api.toHsv
-import top.yukonga.miuix.kmp.color.space.Hsv
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
+import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
+import top.yukonga.miuix.kmp.utils.pagerGestureOverride
+import top.yukonga.miuix.kmp.utils.springAnimateToPage
 
 private val COMMON_BATTERY_COLORS =
     listOf(
@@ -66,18 +103,31 @@ private val COMMON_BATTERY_COLORS =
         0xFF8E8E93.toInt(),
     )
 
-private val BATTERY_COLOR_PREVIEW_SLOTS =
-    listOf(
-        CombinedStatusBatteryColorSlot.POWER_SAVE,
-        CombinedStatusBatteryColorSlot.PERFORMANCE,
-        CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE,
-        CombinedStatusBatteryColorSlot.CHARGING,
-        CombinedStatusBatteryColorSlot.LOW,
-    )
+private val BATTERY_COLOR_PREVIEW_SLOTS = CombinedStatusBatteryColorSlot.entries
+
+private sealed interface BatterySchemePage {
+    val key: String
+
+    data class BuiltIn(
+        val scheme: BatteryBuiltInColorScheme,
+    ) : BatterySchemePage {
+        override val key: String = scheme.key
+    }
+
+    data class Custom(
+        val scheme: BatteryCustomColorScheme,
+    ) : BatterySchemePage {
+        override val key: String = scheme.key
+    }
+
+    data object Add : BatterySchemePage {
+        override val key: String = "add"
+    }
+}
 
 @Composable
 internal fun BatteryColorPreference(
-    settings: CombinedStatusVisualSettings,
+    library: BatteryColorSchemeLibrary,
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
@@ -86,12 +136,14 @@ internal fun BatteryColorPreference(
         summary =
             stringResource(
                 R.string.battery_color_scheme_summary,
-                stringResource(batteryColorPresetLabel(settings.batteryColorPreset)),
+                batterySchemeDisplayName(library, library.activeSchemeKey),
             ),
         enabled = enabled,
         onClick = onClick,
         endActions = {
-            BatteryColorPreviewStrip(settings)
+            BatterySchemePreviewStrip(
+                page = schemePageForKey(library, library.activeSchemeKey),
+            )
         },
     )
 }
@@ -99,41 +151,33 @@ internal fun BatteryColorPreference(
 @Composable
 internal fun BatteryColorBottomSheet(
     show: Boolean,
-    selectedSlot: CombinedStatusBatteryColorSlot?,
-    settings: CombinedStatusVisualSettings,
+    library: BatteryColorSchemeLibrary,
+    repository: BatteryColorSchemeLibraryRepository,
     onDismiss: () -> Unit,
-    onBackToOverview: () -> Unit,
-    onPresetChange: (CombinedStatusBatteryColorPreset) -> Unit,
-    onSlotSelected: (CombinedStatusBatteryColorSlot) -> Unit,
-    onModeChange: (CombinedStatusBatteryColorSlot, CombinedStatusBatteryColorMode) -> Unit,
-    onCustomColorChange: (CombinedStatusBatteryColorSlot, Int) -> Unit,
-    onResetSlot: (CombinedStatusBatteryColorSlot) -> Unit,
 ) {
-    var editingCustom by remember(selectedSlot?.ordinal) { mutableStateOf(false) }
-    val detail = selectedSlot != null
+    val scope = rememberCoroutineScope()
+    val navPager = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    var selectedCustomId by remember { mutableStateOf<Int?>(null) }
+    var selectedSlot by remember { mutableStateOf<CombinedStatusBatteryColorSlot?>(null) }
+    var sourceExpanded by remember { mutableStateOf(false) }
+    var createFromKey by remember { mutableStateOf(BATTERY_COLOR_SCHEME_HYPEROS_KEY) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var manageCustomId by remember { mutableStateOf<Int?>(null) }
+    var renameCustomId by remember { mutableStateOf<Int?>(null) }
+    var deleteCustomId by remember { mutableStateOf<Int?>(null) }
+    val inDetail = navPager.currentPage == 1
+
     OverlayBottomSheet(
         show = show,
-        title =
-            when {
-                selectedSlot == null -> stringResource(R.string.battery_colors)
-                editingCustom ->
-                    stringResource(
-                        R.string.battery_color_custom_title,
-                        stringResource(batteryColorSlotLabel(selectedSlot)),
-                    )
-                else -> stringResource(batteryColorSlotLabel(selectedSlot))
-            },
+        title = stringResource(R.string.battery_colors),
         startAction =
-            if (detail) {
+            if (inDetail) {
                 {
                     TextButton(
                         text = stringResource(R.string.back),
                         onClick = {
-                            if (editingCustom) {
-                                editingCustom = false
-                            } else {
-                                onBackToOverview()
-                            }
+                            sourceExpanded = false
+                            scope.launch { navPager.springAnimateToPage(0) }
                         },
                     )
                 }
@@ -141,199 +185,623 @@ internal fun BatteryColorBottomSheet(
                 null
             },
         onDismissRequest = {
-            when {
-                editingCustom -> editingCustom = false
-                detail -> onBackToOverview()
-                else -> onDismiss()
+            if (inDetail) {
+                sourceExpanded = false
+                scope.launch { navPager.springAnimateToPage(0) }
+            } else {
+                onDismiss()
             }
         },
     ) {
-        if (selectedSlot == null) {
-            BatteryColorOverview(
-                settings = settings,
-                onPresetChange = onPresetChange,
-                onSlotSelected = onSlotSelected,
-            )
-        } else if (editingCustom) {
-            BatteryCustomColorEditor(
-                slot = selectedSlot,
-                settings = settings,
-                onColorChange = onCustomColorChange,
-            )
-        } else {
-            BatteryColorModeDetail(
-                slot = selectedSlot,
-                settings = settings,
-                onModeChange = onModeChange,
-                onEditCustom = {
-                    editingCustom = true
-                },
-                onResetSlot = onResetSlot,
-            )
-        }
-    }
-}
-
-@Composable
-private fun BatteryColorOverview(
-    settings: CombinedStatusVisualSettings,
-    onPresetChange: (CombinedStatusBatteryColorPreset) -> Unit,
-    onSlotSelected: (CombinedStatusBatteryColorSlot) -> Unit,
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SmallTitle(stringResource(R.string.battery_color_scheme))
-        Card {
-            listOf(
-                CombinedStatusBatteryColorPreset.RECOMMENDED,
-                CombinedStatusBatteryColorPreset.HYPEROS,
-                CombinedStatusBatteryColorPreset.IOS_STYLE,
-            ).forEach { preset ->
-                RadioButtonPreference(
-                    title = stringResource(batteryColorPresetLabel(preset)),
-                    summary = stringResource(batteryColorPresetSummary(preset)),
-                    selected = settings.batteryColorPreset == preset,
-                    onClick = { onPresetChange(preset) },
-                    radioButtonLocation = RadioButtonLocation.End,
+        HorizontalPager(
+            state = navPager,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 520.dp, max = 650.dp),
+            userScrollEnabled = false,
+        ) { page ->
+            if (page == 0) {
+                BatterySchemeOverview(
+                    library = library,
+                    onSettledScheme = repository::activateScheme,
+                    onOpenCustomSlot = { id, slot ->
+                        selectedCustomId = id
+                        selectedSlot = slot
+                        sourceExpanded = false
+                        scope.launch { navPager.springAnimateToPage(1) }
+                    },
+                    onAdd = { fromKey ->
+                        createFromKey = fromKey
+                        showCreateDialog = true
+                    },
+                    onManageCustom = { manageCustomId = it },
                 )
+            } else {
+                val custom = selectedCustomId?.let(library::customById)
+                val slot = selectedSlot
+                if (custom != null && slot != null) {
+                    BatteryCustomModeEditor(
+                        custom = custom,
+                        slot = slot,
+                        sourceExpanded = sourceExpanded,
+                        onSourceExpandedChange = { sourceExpanded = it },
+                        onSourceChange = { source ->
+                            repository.setCustomSource(custom.id, slot, source)
+                            sourceExpanded = false
+                        },
+                        onColorChange = { color ->
+                            repository.setCustomColor(custom.id, slot, color)
+                        },
+                        onRestore = {
+                            repository.restoreCustomSlot(custom.id, slot)
+                        },
+                    )
+                }
             }
         }
+    }
 
-        SmallTitle(stringResource(R.string.battery_mode_colors))
-        Card {
-            CombinedStatusBatteryColorSlot.entries.forEach { slot ->
-                ArrowPreference(
-                    title = stringResource(batteryColorSlotLabel(slot)),
-                    summary = batteryColorSourceSummary(settings, slot),
-                    onClick = { onSlotSelected(slot) },
-                    endActions = {
-                        BatteryColorDot(
-                            color = batteryColorPreviewColor(settings, slot),
-                        )
+    BatteryCreateSchemeDialog(
+        show = showCreateDialog,
+        nextId = repository.nextAvailableCustomId(),
+        onDismiss = { showCreateDialog = false },
+        onCreate = { name ->
+            showCreateDialog = false
+            repository.createCustom(name, createFromKey)
+        },
+    )
+
+    val managed = manageCustomId?.let(library::customById)
+    val nextCopyId = repository.nextAvailableCustomId()
+    val nextCopyName =
+        nextCopyId?.let {
+            stringResource(R.string.battery_custom_scheme_default_name, it)
+        }
+    OverlayDialog(
+        title = managed?.let { customSchemeName(it) } ?: "",
+        show = managed != null,
+        onDismissRequest = { manageCustomId = null },
+    ) {
+        if (managed != null) {
+            Column {
+                BasicComponent(
+                    title = stringResource(R.string.battery_custom_scheme_rename),
+                    onClick = {
+                        manageCustomId = null
+                        renameCustomId = managed.id
+                    },
+                )
+                BasicComponent(
+                    title = stringResource(R.string.battery_custom_scheme_copy),
+                    enabled = nextCopyId != null,
+                    onClick = {
+                        nextCopyName?.let { repository.createCustom(it, managed.key) }
+                        manageCustomId = null
+                    },
+                )
+                BasicComponent(
+                    title = stringResource(R.string.battery_custom_scheme_delete),
+                    titleColor =
+                        BasicComponentColors(
+                            color = MiuixTheme.colorScheme.error,
+                            disabledColor = MiuixTheme.colorScheme.error.copy(alpha = 0.4f),
+                        ),
+                    onClick = {
+                        manageCustomId = null
+                        deleteCustomId = managed.id
                     },
                 )
             }
         }
     }
-}
 
-@Composable
-private fun BatteryColorModeDetail(
-    slot: CombinedStatusBatteryColorSlot,
-    settings: CombinedStatusVisualSettings,
-    onModeChange: (CombinedStatusBatteryColorSlot, CombinedStatusBatteryColorMode) -> Unit,
-    onEditCustom: () -> Unit,
-    onResetSlot: (CombinedStatusBatteryColorSlot) -> Unit,
-) {
-    val selected = settings.batteryColorModes.modeFor(slot)
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SmallTitle(stringResource(R.string.battery_color_source))
-        Card {
-            RadioButtonPreference(
-                title = stringResource(R.string.battery_color_source_preset),
-                summary =
-                    stringResource(
-                        R.string.battery_color_source_preset_summary,
-                        stringResource(batteryColorPresetLabel(settings.batteryColorPreset)),
+    BatteryRenameSchemeDialog(
+        scheme = renameCustomId?.let(library::customById),
+        onDismiss = { renameCustomId = null },
+        onRename = { id, name ->
+            renameCustomId = null
+            repository.renameCustom(id, name)
+        },
+    )
+
+    val deleting = deleteCustomId?.let(library::customById)
+    OverlayDialog(
+        title = stringResource(R.string.battery_custom_scheme_delete),
+        summary =
+            deleting?.let {
+                stringResource(
+                    R.string.battery_custom_scheme_delete_summary,
+                    customSchemeName(it),
+                )
+            },
+        show = deleting != null,
+        onDismissRequest = { deleteCustomId = null },
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            TextButton(
+                text = stringResource(R.string.cancel),
+                modifier = Modifier.weight(1f),
+                onClick = { deleteCustomId = null },
+            )
+            Spacer(Modifier.width(20.dp))
+            TextButton(
+                text = stringResource(R.string.battery_custom_scheme_delete),
+                modifier = Modifier.weight(1f),
+                colors =
+                    ButtonDefaults.textButtonColors(
+                        textColor = MiuixTheme.colorScheme.error,
                     ),
-                selected = selected == CombinedStatusBatteryColorMode.PRESET,
                 onClick = {
-                    onModeChange(
-                        slot,
-                        CombinedStatusBatteryColorMode.PRESET,
-                    )
+                    deleting?.let { repository.deleteCustom(it.id) }
+                    deleteCustomId = null
                 },
-                radioButtonLocation = RadioButtonLocation.End,
-            )
-            RadioButtonPreference(
-                title = stringResource(R.string.battery_color_source_system),
-                summary = stringResource(R.string.battery_color_source_system_summary),
-                selected = selected == CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
-                onClick = {
-                    onModeChange(
-                        slot,
-                        CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
-                    )
-                },
-                radioButtonLocation = RadioButtonLocation.End,
-            )
-            RadioButtonPreference(
-                title = stringResource(R.string.battery_color_source_custom),
-                summary =
-                    settings.batteryColorOverrides.colorFor(slot)
-                        ?.let(::batteryColorHex)
-                        ?: stringResource(R.string.battery_color_custom_unset),
-                selected = selected == CombinedStatusBatteryColorMode.CUSTOM,
-                onClick = onEditCustom,
-                radioButtonLocation = RadioButtonLocation.End,
-                endActions = {
-                    BatteryColorDot(
-                        color = settings.batteryColorOverrides.colorFor(slot),
-                    )
-                },
-            )
-        }
-
-        SmallTitle(stringResource(R.string.section_management))
-        Card {
-            BasicComponent(
-                title = stringResource(R.string.battery_color_restore_mode),
-                summary = stringResource(R.string.battery_color_restore_mode_summary),
-                onClick = { onResetSlot(slot) },
             )
         }
     }
 }
 
 @Composable
-private fun BatteryCustomColorEditor(
-    slot: CombinedStatusBatteryColorSlot,
-    settings: CombinedStatusVisualSettings,
-    onColorChange: (CombinedStatusBatteryColorSlot, Int) -> Unit,
+private fun BatterySchemeOverview(
+    library: BatteryColorSchemeLibrary,
+    onSettledScheme: (String) -> Unit,
+    onOpenCustomSlot: (Int, CombinedStatusBatteryColorSlot) -> Unit,
+    onAdd: (String) -> Unit,
+    onManageCustom: (Int) -> Unit,
 ) {
-    val dynamicFallback =
-        CombinedStatusRecommendedBatteryPalette.colorFor(slot)
-            ?: MiuixTheme.colorScheme.onSurface.toArgb()
-    val initialColor =
-        remember(slot.ordinal) {
-            batteryColorEditorInitialColor(
-                settings = settings,
-                slot = slot,
-                dynamicFallback = dynamicFallback,
-            )
+    val pages =
+        buildList {
+            add(BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS))
+            add(BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.IOS))
+            add(BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.LOW_SATURATION))
+            library.customSchemes.forEach { add(BatterySchemePage.Custom(it)) }
+            add(BatterySchemePage.Add)
         }
-    var editingColor by remember(slot.ordinal) { mutableIntStateOf(initialColor) }
-    var hexText by remember(slot.ordinal) {
+    val initial =
+        pages.indexOfFirst { it.key == library.activeSchemeKey }
+            .takeIf { it >= 0 }
+            ?: 0
+    val pagerState =
+        rememberPagerState(
+            initialPage = initial,
+            pageCount = { pages.size },
+        )
+    val flingBehavior = PagerDefaults.flingBehavior(pagerState, PagerNavigationSpringSpec)
+    var lastSchemeKey by remember { mutableStateOf(library.activeSchemeKey) }
+
+    LaunchedEffect(pagerState, pages.map { it.key }) {
+        snapshotFlow { pagerState.settledPage }
+            .distinctUntilChanged()
+            .collect { index ->
+                val page = pages.getOrNull(index)
+                if (page != null && page !is BatterySchemePage.Add) {
+                    lastSchemeKey = page.key
+                    onSettledScheme(page.key)
+                }
+            }
+    }
+
+    LaunchedEffect(library.activeSchemeKey, pages.size) {
+        val target = pages.indexOfFirst { it.key == library.activeSchemeKey }
+        if (target >= 0 && target != pagerState.currentPage) {
+            pagerState.springAnimateToPage(target)
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        HorizontalPager(
+            state = pagerState,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(455.dp)
+                    .pagerGestureOverride(
+                        pagerState = pagerState,
+                        flingBehavior = flingBehavior,
+                    ),
+            userScrollEnabled = false,
+            flingBehavior = flingBehavior,
+            pageNestedScrollConnection = PagerGestureNestedScrollConnection,
+        ) { index ->
+            when (val page = pages[index]) {
+                is BatterySchemePage.BuiltIn ->
+                    BatterySchemePageContent(
+                        name = batteryBuiltInName(page.scheme),
+                        builtIn = page.scheme,
+                        custom = null,
+                        onSlotClick = null,
+                        onManage = null,
+                    )
+                is BatterySchemePage.Custom ->
+                    BatterySchemePageContent(
+                        name = customSchemeName(page.scheme),
+                        builtIn = null,
+                        custom = page.scheme,
+                        onSlotClick = { slot ->
+                            onOpenCustomSlot(page.scheme.id, slot)
+                        },
+                        onManage = { onManageCustom(page.scheme.id) },
+                    )
+                BatterySchemePage.Add ->
+                    BatteryAddSchemePage(
+                        enabled = library.customSchemes.size < BATTERY_COLOR_SCHEME_CUSTOM_MAX,
+                        onClick = { onAdd(lastSchemeKey) },
+                    )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        BatteryPagerIndicator(
+            pageCount = pages.size,
+            currentPage = pagerState.currentPage,
+        )
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun BatterySchemePageContent(
+    name: String,
+    builtIn: BatteryBuiltInColorScheme?,
+    custom: BatteryCustomColorScheme?,
+    onSlotClick: ((CombinedStatusBatteryColorSlot) -> Unit)?,
+    onManage: (() -> Unit)?,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+    ) {
+        Card(
+            insideMargin = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(name)
+                    Spacer(Modifier.height(10.dp))
+                    BatterySchemePreviewStrip(
+                        page =
+                            if (builtIn != null) {
+                                BatterySchemePage.BuiltIn(builtIn)
+                            } else {
+                                custom?.let(BatterySchemePage::Custom)
+                            },
+                    )
+                }
+                if (onManage != null) {
+                    IconButton(
+                        modifier = Modifier.align(Alignment.TopEnd),
+                        onClick = onManage,
+                    ) {
+                        Icon(
+                            imageVector = MiuixIcons.More,
+                            contentDescription =
+                                stringResource(R.string.battery_custom_scheme_manage),
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Card(
+            insideMargin = PaddingValues(vertical = 2.dp),
+        ) {
+            CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+                val color =
+                    when {
+                        builtIn != null -> batteryBuiltInColor(builtIn, slot)
+                        custom != null ->
+                            batterySchemeEntryColor(custom.entries.entryFor(slot), slot)
+                        else -> null
+                    }
+                val followsSystem =
+                    when {
+                        builtIn != null -> color == null
+                        custom != null ->
+                            custom.entries.entryFor(slot).source ==
+                                BatteryColorSchemeSource.FOLLOW_SYSTEM ||
+                                color == null
+                        else -> true
+                    }
+                BatteryModeRow(
+                    slot = slot,
+                    color = color,
+                    followsSystem = followsSystem,
+                    editable = onSlotClick != null,
+                    onClick = onSlotClick?.let { callback -> { callback(slot) } },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatteryModeRow(
+    slot: CombinedStatusBatteryColorSlot,
+    color: Int?,
+    followsSystem: Boolean,
+    editable: Boolean,
+    onClick: (() -> Unit)?,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .then(
+                    if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+                )
+                .padding(horizontal = 16.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(batteryColorSlotLabel(slot)),
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier = Modifier.width(28.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (followsSystem || color == null) {
+                BatteryColorMosaic()
+            } else {
+                BatteryColorDot(color)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text =
+                if (followsSystem || color == null) {
+                    stringResource(R.string.battery_color_follow_inversion)
+                } else {
+                    batteryColorHex(color)
+                },
+            modifier = Modifier.width(92.dp),
+            color = MiuixTheme.colorScheme.onSurfaceSecondary,
+            fontFamily =
+                if (followsSystem || color == null) {
+                    FontFamily.Default
+                } else {
+                    FontFamily.Monospace
+                },
+        )
+        Box(
+            modifier = Modifier.width(22.dp),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            if (editable) {
+                Text(
+                    text = "›",
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatteryAddSchemePage(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Card(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (enabled) Modifier.clickable(onClick = onClick) else Modifier,
+                    ),
+            insideMargin = PaddingValues(vertical = 46.dp),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Icon(
+                    imageVector = MiuixIcons.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(30.dp),
+                    tint =
+                        if (enabled) {
+                            MiuixTheme.colorScheme.onSurface
+                        } else {
+                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        },
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text =
+                        if (enabled) {
+                            stringResource(R.string.battery_custom_scheme_new)
+                        } else {
+                            stringResource(
+                                R.string.battery_custom_scheme_limit,
+                                BATTERY_COLOR_SCHEME_CUSTOM_MAX,
+                            )
+                        },
+                    color =
+                        if (enabled) {
+                            MiuixTheme.colorScheme.onSurface
+                        } else {
+                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                        },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatteryPagerIndicator(
+    pageCount: Int,
+    currentPage: Int,
+) {
+    Card(
+        insideMargin = PaddingValues(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            repeat(pageCount) { index ->
+                val width by
+                    animateDpAsState(
+                        targetValue = if (index == currentPage) 16.dp else 6.dp,
+                        label = "battery-scheme-indicator",
+                    )
+                Box(
+                    modifier =
+                        Modifier
+                            .width(width)
+                            .height(6.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (index == currentPage) {
+                                    MiuixTheme.colorScheme.primary
+                                } else {
+                                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+                                },
+                            ),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatteryCustomModeEditor(
+    custom: BatteryCustomColorScheme,
+    slot: CombinedStatusBatteryColorSlot,
+    sourceExpanded: Boolean,
+    onSourceExpandedChange: (Boolean) -> Unit,
+    onSourceChange: (BatteryColorSchemeSource) -> Unit,
+    onColorChange: (Int) -> Unit,
+    onRestore: () -> Unit,
+) {
+    val entry = custom.entries.entryFor(slot)
+    val resolved = batterySchemeEntryColor(entry, slot)
+    val fallback =
+        entry.customColor
+            ?: batteryBuiltInColor(custom.baseTemplate, slot)
+            ?: MiuixTheme.colorScheme.onSurface.toArgb()
+    var editingColor by remember(custom.id, slot, entry.source, resolved) {
+        mutableIntStateOf((resolved ?: fallback).or(0xFF000000.toInt()))
+    }
+    var hexText by remember(custom.id, slot, editingColor) {
         mutableStateOf(batteryColorHex(editingColor).removePrefix("#"))
     }
-    val initialRgb = batteryColorRgb(editingColor)
-    var redText by remember(slot.ordinal) { mutableStateOf(initialRgb.first.toString()) }
-    var greenText by remember(slot.ordinal) { mutableStateOf(initialRgb.second.toString()) }
-    var blueText by remember(slot.ordinal) { mutableStateOf(initialRgb.third.toString()) }
+    val rgb = batteryColorRgb(editingColor)
+    var redText by remember(custom.id, slot, editingColor) {
+        mutableStateOf(rgb.first.toString())
+    }
+    var greenText by remember(custom.id, slot, editingColor) {
+        mutableStateOf(rgb.second.toString())
+    }
+    var blueText by remember(custom.id, slot, editingColor) {
+        mutableStateOf(rgb.third.toString())
+    }
 
     fun applyColor(color: Int) {
         val opaque = color or 0xFF000000.toInt()
         editingColor = opaque
         hexText = batteryColorHex(opaque).removePrefix("#")
-        val rgb = batteryColorRgb(opaque)
-        redText = rgb.first.toString()
-        greenText = rgb.second.toString()
-        blueText = rgb.third.toString()
-        onColorChange(slot, opaque)
+        val value = batteryColorRgb(opaque)
+        redText = value.first.toString()
+        greenText = value.second.toString()
+        blueText = value.third.toString()
+        onColorChange(opaque)
     }
 
     val hsv = Color(editingColor).toHsv()
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        SmallTitle(stringResource(R.string.battery_color_current))
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, bottom = 24.dp),
+    ) {
+        SmallTitle(
+            stringResource(
+                R.string.battery_custom_mode_title,
+                customSchemeName(custom),
+                stringResource(batteryColorSlotLabel(slot)),
+            ),
+        )
+
+        SmallTitle(stringResource(R.string.battery_color_source))
         Card {
             BasicComponent(
-                title = batteryColorHex(editingColor),
-                summary = stringResource(R.string.battery_color_opaque_summary),
+                title = batterySourceLabel(entry.source),
+                summary = batterySourceValue(entry, slot),
+                onClick = { onSourceExpandedChange(!sourceExpanded) },
                 endActions = {
-                    BatteryColorDot(
-                        color = editingColor,
-                        size = 28.dp,
+                    if (resolved == null) {
+                        BatteryColorMosaic()
+                    } else {
+                        BatteryColorDot(resolved)
+                    }
+                },
+            )
+            if (sourceExpanded) {
+                BatteryColorSchemeSource.entries.forEach { source ->
+                    val candidate = entry.copy(source = source)
+                    RadioButtonPreference(
+                        title = batterySourceLabel(source),
+                        summary = batterySourceValue(candidate, slot),
+                        selected = entry.source == source,
+                        onClick = {
+                            if (
+                                source == BatteryColorSchemeSource.CUSTOM &&
+                                entry.customColor == null
+                            ) {
+                                applyColor(editingColor)
+                                onSourceExpandedChange(false)
+                            } else {
+                                onSourceChange(source)
+                            }
+                        },
+                        radioButtonLocation = RadioButtonLocation.End,
                     )
+                }
+            }
+        }
+
+        SmallTitle(stringResource(R.string.battery_color_settings))
+        Card {
+            BasicComponent(
+                title =
+                    if (resolved == null) {
+                        stringResource(R.string.battery_color_follow_inversion)
+                    } else {
+                        batteryColorHex(resolved)
+                    },
+                summary = stringResource(R.string.battery_color_edit_auto_custom),
+                endActions = {
+                    if (resolved == null) {
+                        BatteryColorMosaic(size = 28.dp)
+                    } else {
+                        BatteryColorDot(resolved, size = 28.dp)
+                    }
                 },
             )
         }
@@ -384,11 +852,7 @@ private fun BatteryCustomColorEditor(
                         currentHue = hsv.h,
                         onHueChanged = { fraction ->
                             applyColor(
-                                Hsv(
-                                    fraction * 360f,
-                                    hsv.s,
-                                    hsv.v,
-                                ).toColor().toArgb(),
+                                Hsv(fraction * 360f, hsv.s, hsv.v).toColor().toArgb(),
                             )
                         },
                     )
@@ -402,11 +866,7 @@ private fun BatteryCustomColorEditor(
                         currentSaturation = hsv.s / 100f,
                         onSaturationChanged = { saturation ->
                             applyColor(
-                                Hsv(
-                                    hsv.h,
-                                    saturation * 100f,
-                                    hsv.v,
-                                ).toColor().toArgb(),
+                                Hsv(hsv.h, saturation * 100f, hsv.v).toColor().toArgb(),
                             )
                         },
                     )
@@ -421,11 +881,7 @@ private fun BatteryCustomColorEditor(
                         currentValue = hsv.v / 100f,
                         onValueChanged = { value ->
                             applyColor(
-                                Hsv(
-                                    hsv.h,
-                                    hsv.s,
-                                    value * 100f,
-                                ).toColor().toArgb(),
+                                Hsv(hsv.h, hsv.s, value * 100f).toColor().toArgb(),
                             )
                         },
                     )
@@ -451,10 +907,7 @@ private fun BatteryCustomColorEditor(
                 },
                 label = stringResource(R.string.battery_color_hex),
                 singleLine = true,
-                keyboardOptions =
-                    KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                    ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             )
             Row(
                 modifier =
@@ -465,14 +918,10 @@ private fun BatteryCustomColorEditor(
             ) {
                 TextField(
                     value = redText,
-                    onValueChange = { value ->
-                        if (value.length <= 3 && value.all(Char::isDigit)) {
-                            redText = value
-                            batteryColorFromRgb(
-                                redText,
-                                greenText,
-                                blueText,
-                            )?.let(::applyColor)
+                    onValueChange = { raw ->
+                        if (raw.length <= 3 && raw.all(Char::isDigit)) {
+                            redText = raw
+                            batteryColorFromRgb(redText, greenText, blueText)?.let(::applyColor)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -482,14 +931,10 @@ private fun BatteryCustomColorEditor(
                 )
                 TextField(
                     value = greenText,
-                    onValueChange = { value ->
-                        if (value.length <= 3 && value.all(Char::isDigit)) {
-                            greenText = value
-                            batteryColorFromRgb(
-                                redText,
-                                greenText,
-                                blueText,
-                            )?.let(::applyColor)
+                    onValueChange = { raw ->
+                        if (raw.length <= 3 && raw.all(Char::isDigit)) {
+                            greenText = raw
+                            batteryColorFromRgb(redText, greenText, blueText)?.let(::applyColor)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -499,14 +944,10 @@ private fun BatteryCustomColorEditor(
                 )
                 TextField(
                     value = blueText,
-                    onValueChange = { value ->
-                        if (value.length <= 3 && value.all(Char::isDigit)) {
-                            blueText = value
-                            batteryColorFromRgb(
-                                redText,
-                                greenText,
-                                blueText,
-                            )?.let(::applyColor)
+                    onValueChange = { raw ->
+                        if (raw.length <= 3 && raw.all(Char::isDigit)) {
+                            blueText = raw
+                            batteryColorFromRgb(redText, greenText, blueText)?.let(::applyColor)
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -516,120 +957,266 @@ private fun BatteryCustomColorEditor(
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun BatteryColorPreviewStrip(
-    settings: CombinedStatusVisualSettings,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        BATTERY_COLOR_PREVIEW_SLOTS.forEach { slot ->
-            BatteryColorDot(
-                color = batteryColorPreviewColor(settings, slot),
+        SmallTitle(stringResource(R.string.section_management))
+        Card {
+            BasicComponent(
+                title = stringResource(R.string.battery_color_restore_mode),
+                summary =
+                    stringResource(
+                        R.string.battery_color_restore_from_scheme,
+                        batteryBuiltInName(custom.baseTemplate),
+                    ),
+                onClick = onRestore,
             )
         }
     }
 }
 
 @Composable
-private fun BatteryColorDot(
-    color: Int?,
-    size: Dp = 14.dp,
+private fun BatteryCreateSchemeDialog(
+    show: Boolean,
+    nextId: Int?,
+    onDismiss: () -> Unit,
+    onCreate: (String) -> Unit,
 ) {
-    val modifier =
-        Modifier
-            .size(size)
-            .then(
-                if (color == null) {
-                    Modifier.border(
-                        width = 1.dp,
-                        color = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        shape = CircleShape,
-                    )
-                } else {
-                    Modifier.background(
-                        color = Color(color),
-                        shape = CircleShape,
-                    )
-                },
+    val defaultName =
+        nextId?.let {
+            stringResource(R.string.battery_custom_scheme_default_name, it)
+        }.orEmpty()
+    var name by remember(show, nextId) { mutableStateOf(defaultName) }
+
+    OverlayDialog(
+        title = stringResource(R.string.battery_custom_scheme_new),
+        show = show && nextId != null,
+        onDismissRequest = onDismiss,
+    ) {
+        Column {
+            TextField(
+                value = name,
+                onValueChange = { name = it.take(28) },
+                label = stringResource(R.string.battery_custom_scheme_name),
+                singleLine = true,
             )
-    Box(modifier = modifier)
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(
+                    text = stringResource(R.string.cancel),
+                    modifier = Modifier.weight(1f),
+                    onClick = onDismiss,
+                )
+                Spacer(Modifier.width(20.dp))
+                TextButton(
+                    text = stringResource(R.string.battery_custom_scheme_create),
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    onClick = {
+                        if (name.isNotBlank()) onCreate(name.trim())
+                    },
+                )
+            }
+        }
+    }
 }
 
 @Composable
-private fun batteryColorSourceSummary(
-    settings: CombinedStatusVisualSettings,
+private fun BatteryRenameSchemeDialog(
+    scheme: BatteryCustomColorScheme?,
+    onDismiss: () -> Unit,
+    onRename: (Int, String) -> Unit,
+) {
+    var name by remember(scheme?.id) { mutableStateOf(scheme?.name.orEmpty()) }
+    OverlayDialog(
+        title = stringResource(R.string.battery_custom_scheme_rename),
+        show = scheme != null,
+        onDismissRequest = onDismiss,
+    ) {
+        if (scheme != null) {
+            Column {
+                TextField(
+                    value = name,
+                    onValueChange = { name = it.take(28) },
+                    label = stringResource(R.string.battery_custom_scheme_name),
+                    singleLine = true,
+                )
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    TextButton(
+                        text = stringResource(R.string.cancel),
+                        modifier = Modifier.weight(1f),
+                        onClick = onDismiss,
+                    )
+                    Spacer(Modifier.width(20.dp))
+                    TextButton(
+                        text = stringResource(R.string.confirm),
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        onClick = {
+                            if (name.isNotBlank()) onRename(scheme.id, name.trim())
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatterySchemePreviewStrip(page: BatterySchemePage?) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BATTERY_COLOR_PREVIEW_SLOTS.forEach { slot ->
+            val color =
+                when (page) {
+                    is BatterySchemePage.BuiltIn ->
+                        batteryBuiltInColor(page.scheme, slot)
+                    is BatterySchemePage.Custom ->
+                        batterySchemeEntryColor(page.scheme.entries.entryFor(slot), slot)
+                    else -> null
+                }
+            if (color == null) {
+                BatteryColorMosaic(size = 11.dp)
+            } else {
+                BatteryColorDot(color, size = 11.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BatteryColorDot(
+    color: Int,
+    size: Dp = 16.dp,
+) {
+    Box(
+        modifier =
+            Modifier
+                .size(size)
+                .background(Color(color), CircleShape)
+                .border(
+                    1.dp,
+                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    CircleShape,
+                ),
+    )
+}
+
+@Composable
+private fun BatteryColorMosaic(
+    size: Dp = 16.dp,
+) {
+    val dark = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.58f)
+    val light = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+    Canvas(
+        modifier =
+            Modifier
+                .size(size)
+                .clip(CircleShape),
+    ) {
+        val half = this.size.width / 2f
+        drawRect(light, size = Size(half, half))
+        drawRect(dark, topLeft = Offset(half, 0f), size = Size(half, half))
+        drawRect(dark, topLeft = Offset(0f, half), size = Size(half, half))
+        drawRect(light, topLeft = Offset(half, half), size = Size(half, half))
+    }
+}
+
+@Composable
+private fun batterySchemeDisplayName(
+    library: BatteryColorSchemeLibrary,
+    key: String,
+): String =
+    BatteryBuiltInColorScheme.fromKey(key)?.let { batteryBuiltInName(it) }
+        ?: library.customByKey(key)?.let { customSchemeName(it) }
+        ?: batteryBuiltInName(BatteryBuiltInColorScheme.HYPEROS)
+
+@Composable
+private fun batteryBuiltInName(scheme: BatteryBuiltInColorScheme): String =
+    when (scheme) {
+        BatteryBuiltInColorScheme.HYPEROS ->
+            stringResource(R.string.battery_color_preset_hyperos)
+        BatteryBuiltInColorScheme.IOS ->
+            stringResource(R.string.battery_color_preset_ios)
+        BatteryBuiltInColorScheme.LOW_SATURATION ->
+            stringResource(R.string.battery_color_preset_recommended)
+    }
+
+@Composable
+private fun customSchemeName(scheme: BatteryCustomColorScheme): String =
+    scheme.name.ifBlank {
+        stringResource(R.string.battery_custom_scheme_default_name, scheme.id)
+    }
+
+@Composable
+private fun batterySourceLabel(source: BatteryColorSchemeSource): String =
+    when (source) {
+        BatteryColorSchemeSource.HYPEROS ->
+            stringResource(R.string.battery_color_preset_hyperos)
+        BatteryColorSchemeSource.IOS ->
+            stringResource(R.string.battery_color_preset_ios)
+        BatteryColorSchemeSource.LOW_SATURATION ->
+            stringResource(R.string.battery_color_preset_recommended)
+        BatteryColorSchemeSource.FOLLOW_SYSTEM ->
+            stringResource(R.string.battery_color_follow_inversion)
+        BatteryColorSchemeSource.CUSTOM ->
+            stringResource(R.string.battery_color_source_custom)
+    }
+
+@Composable
+private fun batterySourceValue(
+    entry: BatteryColorSchemeEntry,
     slot: CombinedStatusBatteryColorSlot,
 ): String =
-    when (settings.batteryColorModes.modeFor(slot)) {
-        CombinedStatusBatteryColorMode.PRESET ->
-            stringResource(
-                R.string.battery_color_source_preset_short,
-                stringResource(batteryColorPresetLabel(settings.batteryColorPreset)),
-            )
-        CombinedStatusBatteryColorMode.FOLLOW_SYSTEM ->
-            stringResource(R.string.battery_color_source_system)
-        CombinedStatusBatteryColorMode.CUSTOM ->
-            settings.batteryColorOverrides.colorFor(slot)
-                ?.let(::batteryColorHex)
-                ?: stringResource(R.string.battery_color_source_custom)
+    batterySchemeEntryColor(entry, slot)?.let(::batteryColorHex)
+        ?: stringResource(R.string.battery_color_follow_inversion)
+
+@StringRes
+private fun batteryColorSlotLabel(slot: CombinedStatusBatteryColorSlot): Int =
+    when (slot) {
+        CombinedStatusBatteryColorSlot.NORMAL -> R.string.battery_mode_normal
+        CombinedStatusBatteryColorSlot.POWER_SAVE -> R.string.battery_mode_power_save
+        CombinedStatusBatteryColorSlot.PERFORMANCE -> R.string.battery_mode_performance
+        CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> R.string.battery_mode_super_power_save
+        CombinedStatusBatteryColorSlot.CHARGING -> R.string.battery_mode_charging
+        CombinedStatusBatteryColorSlot.LOW -> R.string.battery_mode_low
     }
 
-internal fun batteryColorPresetPreviewColor(
-    preset: CombinedStatusBatteryColorPreset,
-    slot: CombinedStatusBatteryColorSlot,
-): Int? =
-    when (preset) {
-        CombinedStatusBatteryColorPreset.RECOMMENDED ->
-            CombinedStatusRecommendedBatteryPalette.colorFor(slot)
-        CombinedStatusBatteryColorPreset.HYPEROS -> null
-        CombinedStatusBatteryColorPreset.IOS_STYLE ->
-            CombinedStatusIosStyleBatteryPalette.colorFor(slot)
-    }
+private fun schemePageForKey(
+    library: BatteryColorSchemeLibrary,
+    key: String,
+): BatterySchemePage? =
+    BatteryBuiltInColorScheme.fromKey(key)?.let { BatterySchemePage.BuiltIn(it) }
+        ?: library.customByKey(key)?.let { BatterySchemePage.Custom(it) }
 
-internal fun batteryColorPreviewColor(
-    settings: CombinedStatusVisualSettings,
-    slot: CombinedStatusBatteryColorSlot,
-): Int? {
-    val presetColor =
-        batteryColorPresetPreviewColor(
-            preset = settings.batteryColorPreset,
-            slot = slot,
-        )
-    return when (settings.batteryColorModes.modeFor(slot)) {
-        CombinedStatusBatteryColorMode.PRESET -> presetColor
-        CombinedStatusBatteryColorMode.FOLLOW_SYSTEM -> null
-        CombinedStatusBatteryColorMode.CUSTOM ->
-            settings.batteryColorOverrides.colorFor(slot) ?: presetColor
-    }
+internal fun batteryColorHex(color: Int): String =
+    "#%06X".format(color and 0x00FFFFFF)
+
+internal fun batteryColorFromHex(value: String): Int? {
+    val normalized = value.removePrefix("#")
+    if (normalized.length != 6) return null
+    return normalized.toLongOrNull(16)
+        ?.toInt()
+        ?.or(0xFF000000.toInt())
 }
 
-internal fun batteryColorEditorInitialColor(
-    settings: CombinedStatusVisualSettings,
-    slot: CombinedStatusBatteryColorSlot,
-    dynamicFallback: Int,
-): Int =
-    (
-        settings.batteryColorOverrides.colorFor(slot)
-            ?: batteryColorPresetPreviewColor(
-                preset = settings.batteryColorPreset,
-                slot = slot,
-            )
-            ?: dynamicFallback
-    ) or 0xFF000000.toInt()
-
-internal fun batteryColorFromHex(input: String): Int? {
-    val hex = input.removePrefix("#")
-    if (hex.length != 6 || !hex.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) {
-        return null
-    }
-    return runCatching {
-        hex.toUInt(16).toInt() or 0xFF000000.toInt()
-    }.getOrNull()
-}
+internal fun batteryColorRgb(color: Int): Triple<Int, Int, Int> =
+    Triple(
+        (color shr 16) and 0xFF,
+        (color shr 8) and 0xFF,
+        color and 0xFF,
+    )
 
 internal fun batteryColorFromRgb(
     red: String,
@@ -641,49 +1228,3 @@ internal fun batteryColorFromRgb(
     val b = blue.toIntOrNull()?.takeIf { it in 0..255 } ?: return null
     return 0xFF000000.toInt() or (r shl 16) or (g shl 8) or b
 }
-
-internal fun batteryColorRgb(color: Int): Triple<Int, Int, Int> =
-    Triple(
-        (color shr 16) and 0xFF,
-        (color shr 8) and 0xFF,
-        color and 0xFF,
-    )
-
-private fun batteryColorHex(color: Int): String =
-    "#%06X".format(color and 0x00FFFFFF)
-
-@StringRes
-private fun batteryColorPresetLabel(
-    preset: CombinedStatusBatteryColorPreset,
-): Int =
-    when (preset) {
-        CombinedStatusBatteryColorPreset.RECOMMENDED -> R.string.battery_color_preset_recommended
-        CombinedStatusBatteryColorPreset.HYPEROS -> R.string.battery_color_preset_hyperos
-        CombinedStatusBatteryColorPreset.IOS_STYLE -> R.string.battery_color_preset_ios
-    }
-
-@StringRes
-private fun batteryColorPresetSummary(
-    preset: CombinedStatusBatteryColorPreset,
-): Int =
-    when (preset) {
-        CombinedStatusBatteryColorPreset.RECOMMENDED ->
-            R.string.battery_color_preset_recommended_summary
-        CombinedStatusBatteryColorPreset.HYPEROS ->
-            R.string.battery_color_preset_hyperos_summary
-        CombinedStatusBatteryColorPreset.IOS_STYLE ->
-            R.string.battery_color_preset_ios_summary
-    }
-
-@StringRes
-private fun batteryColorSlotLabel(
-    slot: CombinedStatusBatteryColorSlot,
-): Int =
-    when (slot) {
-        CombinedStatusBatteryColorSlot.NORMAL -> R.string.battery_mode_normal
-        CombinedStatusBatteryColorSlot.POWER_SAVE -> R.string.battery_mode_power_save
-        CombinedStatusBatteryColorSlot.PERFORMANCE -> R.string.battery_mode_performance
-        CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> R.string.battery_mode_super_power_save
-        CombinedStatusBatteryColorSlot.CHARGING -> R.string.battery_mode_charging
-        CombinedStatusBatteryColorSlot.LOW -> R.string.battery_mode_low
-    }

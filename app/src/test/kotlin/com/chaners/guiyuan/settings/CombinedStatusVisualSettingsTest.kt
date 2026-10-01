@@ -38,25 +38,25 @@ class CombinedStatusVisualSettingsTest {
     }
 
     @Test
-    fun recommendedIsTheNewDefaultPreset() {
+    fun hyperosIsTheDefaultPreset() {
         assertEquals(
-            CombinedStatusBatteryColorPreset.RECOMMENDED,
+            CombinedStatusBatteryColorPreset.HYPEROS,
             CombinedStatusVisualSettings().batteryColorPreset,
         )
         assertEquals(
-            CombinedStatusBatteryColorPreset.RECOMMENDED,
+            CombinedStatusBatteryColorPreset.HYPEROS,
             CombinedStatusBatteryColorPreset.fromPersisted(null),
         )
     }
 
     @Test
-    fun existingInstallWithoutExplicitPresetKeepsHyperos() {
+    fun missingPresetAlwaysDefaultsToHyperos() {
         assertEquals(
             CombinedStatusBatteryColorPreset.HYPEROS,
             batteryColorPresetForMissingKey(hadPreviousVisualSchema = true),
         )
         assertEquals(
-            CombinedStatusBatteryColorPreset.RECOMMENDED,
+            CombinedStatusBatteryColorPreset.HYPEROS,
             batteryColorPresetForMissingKey(hadPreviousVisualSchema = false),
         )
     }
@@ -98,6 +98,19 @@ class CombinedStatusVisualSettingsTest {
             CombinedStatusRecommendedBatteryPalette.colorFor(
                 CombinedStatusBatteryColorSlot.NORMAL,
             ),
+        )
+    }
+
+    @Test
+    fun hyperosPaletteUsesPinnedSystemUiSemanticDefaults() {
+        assertEquals(0xFF1DCD3A.toInt(), CombinedStatusHyperOsBatteryPalette.CHARGING)
+        assertEquals(0xFFFF9F05.toInt(), CombinedStatusHyperOsBatteryPalette.POWER_SAVE)
+        assertEquals(0xFF3482FF.toInt(), CombinedStatusHyperOsBatteryPalette.PERFORMANCE)
+        assertEquals(0xFFFF9F05.toInt(), CombinedStatusHyperOsBatteryPalette.SUPER_POWER_SAVE)
+        assertEquals(0xFFFA382E.toInt(), CombinedStatusHyperOsBatteryPalette.LOW)
+        assertEquals(
+            null,
+            CombinedStatusHyperOsBatteryPalette.colorFor(CombinedStatusBatteryColorSlot.NORMAL),
         )
     }
 

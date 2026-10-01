@@ -29,7 +29,7 @@ internal enum class CombinedStatusBatteryColorPreset(
 
     companion object {
         fun fromPersisted(value: String?): CombinedStatusBatteryColorPreset =
-            entries.firstOrNull { it.persistedValue == value } ?: RECOMMENDED
+            entries.firstOrNull { it.persistedValue == value } ?: HYPEROS
     }
 }
 
@@ -139,6 +139,25 @@ internal object CombinedStatusRecommendedBatteryPalette {
         }
 }
 
+internal object CombinedStatusHyperOsBatteryPalette {
+    // Verified against pinned SystemUI 17.03.260226.r resources/fields.
+    val POWER_SAVE = 0xFFFF9F05.toInt()
+    val PERFORMANCE = 0xFF3482FF.toInt()
+    val SUPER_POWER_SAVE = POWER_SAVE
+    val CHARGING = 0xFF1DCD3A.toInt()
+    val LOW = 0xFFFA382E.toInt()
+
+    fun colorFor(slot: CombinedStatusBatteryColorSlot): Int? =
+        when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> null
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> POWER_SAVE
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> PERFORMANCE
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> SUPER_POWER_SAVE
+            CombinedStatusBatteryColorSlot.CHARGING -> CHARGING
+            CombinedStatusBatteryColorSlot.LOW -> LOW
+        }
+}
+
 internal object CombinedStatusIosStyleBatteryPalette {
     val POWER_SAVE = 0xFFFFCC00.toInt()
     val PERFORMANCE = 0xFF007AFF.toInt()
@@ -176,7 +195,7 @@ internal data class CombinedStatusVisualSettings(
     val mobileTypeSizeScale: Float = MOBILE_TYPE_SIZE_SCALE_DEFAULT,
     val mobileTypeWeight: Int = MOBILE_TYPE_WEIGHT_DEFAULT,
     val batteryColorPreset: CombinedStatusBatteryColorPreset =
-        CombinedStatusBatteryColorPreset.RECOMMENDED,
+        CombinedStatusBatteryColorPreset.HYPEROS,
     val batteryColorModes: CombinedStatusBatteryColorModes =
         CombinedStatusBatteryColorModes(),
     val batteryColorOverrides: CombinedStatusBatteryColorOverrides =
@@ -832,7 +851,7 @@ internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MAX =
     BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE * BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX
 private const val BATTERY_COLOR_PRESET_SCHEMA_KEY =
     "battery_color_preset_schema"
-private const val BATTERY_COLOR_PRESET_SCHEMA_CURRENT = 1
+private const val BATTERY_COLOR_PRESET_SCHEMA_CURRENT = 2
 private const val BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY =
     "battery_top_charging_scale_schema"
 private const val BATTERY_TOP_CHARGING_SCALE_SCHEMA_CURRENT = 2
@@ -840,12 +859,11 @@ private const val BATTERY_TOP_SCALE_EPSILON = 0.0001f
 
 internal fun batteryColorPresetForMissingKey(
     hadPreviousVisualSchema: Boolean,
-): CombinedStatusBatteryColorPreset =
-    if (hadPreviousVisualSchema) {
-        CombinedStatusBatteryColorPreset.HYPEROS
-    } else {
-        CombinedStatusBatteryColorPreset.RECOMMENDED
-    }
+): CombinedStatusBatteryColorPreset {
+    @Suppress("UNUSED_VARIABLE")
+    val compatibilityMarker = hadPreviousVisualSchema
+    return CombinedStatusBatteryColorPreset.HYPEROS
+}
 
 internal fun migrateBatteryColorPresetDefaultIfNeeded(
     preferences: SharedPreferences,
@@ -864,9 +882,7 @@ internal fun migrateBatteryColorPresetDefaultIfNeeded(
                 hadPreviousVisualSchema =
                     preferences.contains(BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY),
             )
-        if (preset != CombinedStatusBatteryColorPreset.RECOMMENDED) {
-            editor.putString(BATTERY_COLOR_PRESET_KEY, preset.persistedValue)
-        }
+        editor.putString(BATTERY_COLOR_PRESET_KEY, preset.persistedValue)
     }
     editor
         .putInt(

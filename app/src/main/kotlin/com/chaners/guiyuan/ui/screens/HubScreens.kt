@@ -49,8 +49,7 @@ import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MIN
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN
-import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
-import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
+import com.chaners.guiyuan.settings.BatteryColorSchemeLibraryRepository
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
@@ -103,6 +102,14 @@ internal fun FeaturesScreen(
         visualRepository.settings.collectAsState(
             initial = visualRepository.current(),
         )
+    val batteryColorSchemeRepository =
+        remember(context.applicationContext) {
+            BatteryColorSchemeLibraryRepository(context.applicationContext)
+        }
+    val batteryColorSchemeLibrary by
+        batteryColorSchemeRepository.library.collectAsState(
+            initial = batteryColorSchemeRepository.current(),
+        )
     val layoutOptions =
         listOf(
             stringResource(R.string.content_layout_network_center),
@@ -110,11 +117,6 @@ internal fun FeaturesScreen(
         )
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     var showBatteryColorSheet by rememberSaveable { mutableStateOf(false) }
-    var batteryColorSlotOrdinal by rememberSaveable { mutableStateOf<Int?>(null) }
-    val selectedBatteryColorSlot =
-        batteryColorSlotOrdinal?.let { ordinal ->
-            CombinedStatusBatteryColorSlot.entries.getOrNull(ordinal)
-        }
 
     HubPage(
         title = stringResource(R.string.features_title),
@@ -192,10 +194,9 @@ internal fun FeaturesScreen(
         tertiarySectionTitle = stringResource(R.string.section_battery),
         tertiaryContent = {
             BatteryColorPreference(
-                settings = visualSettings,
+                library = batteryColorSchemeLibrary,
                 enabled = featureSettings.enabled,
                 onClick = {
-                    batteryColorSlotOrdinal = null
                     showBatteryColorSheet = true
                 },
             )
@@ -347,28 +348,11 @@ internal fun FeaturesScreen(
         overlay = {
             BatteryColorBottomSheet(
                 show = showBatteryColorSheet,
-                selectedSlot = selectedBatteryColorSlot,
-                settings = visualSettings,
+                library = batteryColorSchemeLibrary,
+                repository = batteryColorSchemeRepository,
                 onDismiss = {
                     showBatteryColorSheet = false
-                    batteryColorSlotOrdinal = null
                 },
-                onBackToOverview = {
-                    batteryColorSlotOrdinal = null
-                },
-                onPresetChange = visualRepository::setBatteryColorPreset,
-                onSlotSelected = { slot ->
-                    batteryColorSlotOrdinal = slot.ordinal
-                },
-                onModeChange = visualRepository::setBatteryColorMode,
-                onCustomColorChange = { slot, color ->
-                    visualRepository.setBatteryColorMode(
-                        slot,
-                        CombinedStatusBatteryColorMode.CUSTOM,
-                    )
-                    visualRepository.setBatteryColorOverride(slot, color)
-                },
-                onResetSlot = visualRepository::resetBatteryColorSlot,
             )
             OverlayDialog(
                 title = stringResource(R.string.restore_feature_defaults),

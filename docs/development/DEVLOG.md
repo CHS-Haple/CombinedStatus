@@ -1,3 +1,64 @@
+## 2026-10-01 — Build 564 MIUIX battery-color scheme library
+
+**Type:** App UI / settings schema / Runtime projection  
+**Display version:** 0.0.3  
+**Build:** 564 / `20261001-564`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Goal
+
+Replace the temporary Build-561/562 battery-color selector with the agreed hierarchy: one BottomSheet, whole-scheme horizontal paging, aligned six-mode previews, up to five named custom schemes, and one in-sheet mode editor whose first edit automatically becomes Custom.
+
+### Exact-target color basis
+
+Directed review of `CHS-Haple/SystemUI-Reference` for SystemUI `17.03.260226.r` confirms the status-bar semantic resources:
+- charging `#1DCD3A`;
+- power save `#FF9F05`;
+- performance `#3482FF`;
+- low battery `#FA382E`;
+- no distinct target-proven super-power-save progress color; Guiyuan's HyperOS template reuses power-save for that slot;
+- Normal remains the status-icon tint/inversion path and is represented by the checker/mosaic semantic rather than a fake fixed HEX.
+
+The new HyperOS built-in is intentionally a fixed verified template. `Follow inversion` remains a separate per-mode source.
+
+### Data / migration
+
+- Add an App-side `BatteryColorSchemeLibraryRepository` in the existing visual preferences file.
+- Built-in order/default: HyperOS -> iOS -> Low saturation.
+- Custom scheme cap: five, with stable IDs and smallest-free-ID naming support.
+- Each custom mode stores a source reference: HyperOS / iOS / Low saturation / Follow inversion / Custom.
+- Template references remain references in App metadata; only Custom stores an authored fixed color.
+- Activating a built-in/custom scheme projects to the pre-existing Runtime `batteryColorPreset / mode / override` keys. Scheme names/order/library metadata are not Runtime keys and therefore never cross into SystemUI.
+- Legacy migration keeps the currently effective preset/mode result and retains dormant stored custom colors even when the old slot was currently set back to Preset.
+- Deleting the active custom scheme returns to its recorded base built-in.
+
+### MIUIX UI
+
+- Keep one `OverlayBottomSheet`; detail editing is an internal spring page transition rather than stacked sheets.
+- Scheme card + six mode rows form one `HorizontalPager` page and move together.
+- Pager uses the upstream `PagerNavigationSpringSpec`, `pagerGestureOverride`, and `PagerGestureNestedScrollConnection`.
+- A fixed adaptive MIUIX `Card` capsule below the pager contains dot indicators; the active page stretches to a short pill.
+- Built-in rows are read-only and reserve the same action-column width as custom rows.
+- Custom rows expose the mode editor.
+- Color source is collapsed by default; selecting a source updates the editor, and changing common colors / HSV / HEX / RGB performs copy-on-write to Custom.
+- Create and rename use `OverlayDialog`; Add/More use MIUIX icons from the already-present icons dependency.
+- Delete uses `MiuixTheme.colorScheme.error` in both the management row and confirmation action.
+
+### 审查 / review — pre-commit
+
+- **single writer:** no new SystemUI painter, geometry writer, state observer, hook, or animator; Runtime still consumes the existing flattened color keys.
+- **process boundary:** custom scheme metadata is App-only; `isCombinedStatusVisualPreferenceKey` is intentionally unchanged for library keys.
+- **native-first:** Pager spring/gesture, Card, Dialog, Button, Radio preference, HSV sliders, TextField and icons use MIUIX APIs. Only the checker swatch and compact page dots are project-drawn display primitives because MIUIX 0.9.4 has no PagerIndicator component.
+- **migration:** old active color behavior is representable; dormant custom values are retained instead of silently discarded.
+- **destructive action:** Delete is error-colored and confirmation-gated.
+- **copy-on-write:** a template/follow source remains referenced until the first actual edit; the first edit is applied without a value jump and changes the slot source to Custom.
+- **Fail-native / Runtime:** the fixed HyperOS template is tied to the verified target and documented as target evidence, not a universal Xiaomi constant.
+
+### Validation
+
+Run exact-head CI first. If green, a signed Canary is warranted for visual/interaction review of the new BottomSheet hierarchy; Runtime device testing is only required if observed colors differ from the projected fixed/template result.
+
+
 
 
 ## 2026-10-01 — Build 549 faster continuous retract AB

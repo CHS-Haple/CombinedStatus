@@ -3,6 +3,7 @@ package com.chaners.guiyuan.xposed
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
+import com.chaners.guiyuan.settings.CombinedStatusHyperOsBatteryPalette
 import com.chaners.guiyuan.settings.CombinedStatusIosStyleBatteryPalette
 import com.chaners.guiyuan.settings.CombinedStatusRecommendedBatteryPalette
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
@@ -46,7 +47,9 @@ internal object CombinedStatusBatteryColorPolicy {
                         ?.let(CombinedStatusBatteryColorSource::Custom)
                         ?: CombinedStatusBatteryColorSource.FollowStatusIcon
                 CombinedStatusBatteryColorPreset.HYPEROS ->
-                    CombinedStatusBatteryColorSource.SystemDefault
+                    CombinedStatusHyperOsBatteryPalette.colorFor(slot)
+                        ?.let(CombinedStatusBatteryColorSource::Custom)
+                        ?: CombinedStatusBatteryColorSource.FollowStatusIcon
                 CombinedStatusBatteryColorPreset.IOS_STYLE ->
                     CombinedStatusIosStyleBatteryPalette.colorFor(slot)
                         ?.let(CombinedStatusBatteryColorSource::Custom)

@@ -177,10 +177,10 @@
     <string name="battery_colors">Battery colors</string>
     <string name="battery_color_scheme_summary">Scheme: %1$s</string>
     <string name="battery_color_scheme">Color scheme</string>
-    <string name="battery_color_preset_recommended">Recommended</string>
+    <string name="battery_color_preset_recommended">Low saturation</string>
     <string name="battery_color_preset_hyperos">HyperOS</string>
     <string name="battery_color_preset_ios">iOS</string>
-    <string name="battery_color_preset_recommended_summary">Tuned for the compact status indicator</string>
+    <string name="battery_color_preset_recommended_summary">Low-saturation semantic colors</string>
     <string name="battery_color_preset_hyperos_summary">Use HyperOS semantic battery colors</string>
     <string name="battery_color_preset_ios_summary">Use iOS system colors</string>
     <string name="battery_mode_colors">Mode colors</string>
@@ -212,5 +212,20 @@
     <string name="battery_color_brightness">Brightness</string>
     <string name="battery_color_precise_input">Precise input</string>
     <string name="battery_color_hex">HEX</string>
+    <string name="battery_color_follow_inversion">Follow inversion</string>
+    <string name="battery_color_settings">Color settings</string>
+    <string name="battery_color_edit_auto_custom">Editing any value switches this mode to Custom</string>
+    <string name="battery_color_restore_from_scheme">Restore the %1$s source for this mode</string>
+    <string name="battery_custom_mode_title">%1$s · %2$s</string>
+    <string name="battery_custom_scheme_new">New custom style</string>
+    <string name="battery_custom_scheme_limit">Custom style limit reached · %1$d/%1$d</string>
+    <string name="battery_custom_scheme_default_name">Custom style %1$d</string>
+    <string name="battery_custom_scheme_name">Style name</string>
+    <string name="battery_custom_scheme_create">Create</string>
+    <string name="battery_custom_scheme_manage">Manage custom style</string>
+    <string name="battery_custom_scheme_rename">Rename</string>
+    <string name="battery_custom_scheme_copy">Duplicate</string>
+    <string name="battery_custom_scheme_delete">Delete</string>
+    <string name="battery_custom_scheme_delete_summary">Delete “%1$s”? If it is active, Guiyuan returns to its base built-in scheme.</string>
 
 </resources>
