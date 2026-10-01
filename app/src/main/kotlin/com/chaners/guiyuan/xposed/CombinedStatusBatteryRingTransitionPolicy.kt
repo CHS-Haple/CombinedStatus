@@ -5,6 +5,7 @@ import kotlin.math.min
 
 internal object CombinedStatusBatteryRingTransitionPolicy {
     private const val TRANSITION_COMPLETE_PROGRESS = 0.35f
+    private const val FRONT_LOAD = 0.45f
 
     internal enum class ExitDirection { NONE, LEFT, RIGHT }
 
@@ -25,7 +26,10 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
 
     fun remainingFraction(progress: Float): Float {
         val p = progress.takeIf(Float::isFinite)?.coerceIn(0f, 1f) ?: 0f
-        val eased = p * p * (3f - 2f * p)
+        val warped =
+            (p + FRONT_LOAD * p * (1f - p))
+                .coerceIn(0f, 1f)
+        val eased = warped * warped * (3f - 2f * warped)
         return 1f - eased
     }
 

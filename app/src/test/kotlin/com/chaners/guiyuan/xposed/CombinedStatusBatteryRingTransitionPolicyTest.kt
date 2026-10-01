@@ -35,14 +35,19 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
-    fun remainingFractionUsesSymmetricSmoothstep() {
+    fun remainingFractionFrontLoadsFirstHalfWithSmoothEndpoints() {
         assertEquals(
             1f,
             CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0f),
             0.0001f,
         )
         assertEquals(
-            0.5f,
+            0.7393508f,
+            CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.25f),
+            0.0001f,
+        )
+        assertEquals(
+            0.33409765f,
             CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f),
             0.0001f,
         )
@@ -73,12 +78,13 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 progress = 0.5f,
             )
 
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f)
         assertEquals(1, result.background.size)
         assertEquals(150f, result.background.single().startDegrees, 0.0001f)
-        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
+        assertEquals(240f * remaining, result.background.single().sweepDegrees, 0.0001f)
         assertEquals(1, result.active.size)
         assertEquals(150f, result.active.single().startDegrees, 0.0001f)
-        assertEquals(90f, result.active.single().sweepDegrees, 0.0001f)
+        assertEquals(240f * 0.75f * remaining, result.active.single().sweepDegrees, 0.0001f)
     }
 
     @Test
@@ -100,9 +106,10 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 progress = 0.25f,
             )
 
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.25f)
         assertEquals(2, result.background.size)
         assertEquals(90f, result.background[0].sweepDegrees, 0.0001f)
-        assertEquals(61.875f, result.background[1].sweepDegrees, 0.0001f)
+        assertEquals(180f * remaining - 90f, result.background[1].sweepDegrees, 0.0001f)
         assertEquals(result.background, result.active)
     }
 
@@ -117,8 +124,9 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 progress = 0.5f,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE,
             )
-        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
-        assertEquals(90f, result.active.single().sweepDegrees, 0.0001f)
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f)
+        assertEquals(240f * remaining, result.background.single().sweepDegrees, 0.0001f)
+        assertEquals(240f * 0.75f * remaining, result.active.single().sweepDegrees, 0.0001f)
     }
 
     @Test
@@ -132,10 +140,11 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 progress = 0.5f,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.RIGHT,
             )
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f)
         assertEquals(150f, result.background.single().startDegrees, 0.0001f)
-        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
+        assertEquals(240f * remaining, result.background.single().sweepDegrees, 0.0001f)
         assertEquals(150f, result.active.single().startDegrees, 0.0001f)
-        assertEquals(90f, result.active.single().sweepDegrees, 0.0001f)
+        assertEquals(240f * 0.75f * remaining, result.active.single().sweepDegrees, 0.0001f)
     }
 
     @Test
@@ -149,8 +158,9 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 progress = 0.5f,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
             )
-        assertEquals(270f, result.background.single().startDegrees, 0.0001f)
-        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f)
+        assertEquals(150f + 240f * (1f - remaining), result.background.single().startDegrees, 0.0001f)
+        assertEquals(240f * remaining, result.background.single().sweepDegrees, 0.0001f)
     }
 
     @Test
@@ -164,8 +174,10 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 progress = 0.5f,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
             )
-        assertEquals(270f, result.active.single().startDegrees, 0.0001f)
-        assertEquals(60f, result.active.single().sweepDegrees, 0.0001f)
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f)
+        val retainedStart = 240f * (1f - remaining)
+        assertEquals(150f + retainedStart, result.active.single().startDegrees, 0.0001f)
+        assertEquals((180f - retainedStart).coerceAtLeast(0f), result.active.single().sweepDegrees, 0.0001f)
     }
 
     @Test
