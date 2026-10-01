@@ -196,6 +196,7 @@ internal fun FeaturesScreen(
             BatteryColorPreference(
                 library = batteryColorSchemeLibrary,
                 enabled = featureSettings.enabled,
+                holdDownState = showBatteryColorSheet,
                 onClick = {
                     showBatteryColorSheet = true
                 },

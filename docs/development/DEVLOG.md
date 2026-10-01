@@ -1,3 +1,43 @@
+## 2026-10-01 — Build 570 pre-editor MIUIX interaction-state pass
+
+**Type:** App UI component semantics only  
+**Display version:** 0.0.3  
+**Build:** 570 / `20261001-570`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Goal
+
+Continue the agreed component-first pass through the pages before the final color editor, without changing the approved layout or beginning the final proportion-tuning phase.
+
+### Change
+
+- Feature-page `Battery colors` remains an MIUIX `ArrowPreference`, and now feeds `showBatteryColorSheet` into its built-in `holdDownState`; the originating preference therefore retains the standard MIUIX pressed ownership while its BottomSheet is open.
+- The Add-scheme page keeps the existing centered MIUIX `Card + Add icon + label` composition.
+- Its interactive Card now uses MIUIX `PressFeedbackType.Sink`, native indication, and `holdDownState` while the create-style OverlayDialog is visible.
+- Custom-scheme More already uses MIUIX `IconButton.holdDownState` while the management dialog is open; no change needed.
+- Create/rename/delete dialogs remain `OverlayDialog + TextField/BasicComponent + TextButton`; their two-button/20dp confirmation layout matches the pinned MIUIX 0.9.4 documentation and is intentionally retained.
+
+### Exact-version basis
+
+Verified against pinned MIUIX revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`:
+- `ArrowPreference.holdDownState`;
+- interactive `Card.pressFeedbackType / showIndication / holdDownState`;
+- `PressFeedbackType.Sink`;
+- `IconButton.holdDownState`.
+
+### 审查 / review
+
+- call-chain scan: `BatteryColorPreference`, `BatterySchemeOverview`, and `BatteryAddSchemePage` each have one invocation and one declaration in their owning files;
+- no new project drawing;
+- no layout/proportion tuning;
+- no data/persistence/runtime modification;
+- no change to destructive Delete semantics.
+
+### Validation
+
+Run exact-head automated CI. If green, the entry/scheme/add/custom-management layers are considered component-closed. Continue next with the final custom-mode editor's component semantics, then perform the single global MIUIX ratio/proportion review requested by the maintainer.
+
+
 ## 2026-10-01 — Build 569 MIUIX management-state compile correction
 
 **Type:** compile-only correction  

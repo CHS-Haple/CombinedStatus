@@ -85,6 +85,7 @@ import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
 import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 
@@ -128,6 +129,7 @@ private sealed interface BatterySchemePage {
 internal fun BatteryColorPreference(
     library: BatteryColorSchemeLibrary,
     enabled: Boolean,
+    holdDownState: Boolean,
     onClick: () -> Unit,
 ) {
     ArrowPreference(
@@ -138,6 +140,7 @@ internal fun BatteryColorPreference(
                 batterySchemeDisplayName(library, library.activeSchemeKey),
             ),
         enabled = enabled,
+        holdDownState = holdDownState,
         onClick = onClick,
         endActions = {
             BatterySchemePreviewStrip(
@@ -352,6 +355,7 @@ internal fun BatteryColorBottomSheet(
 private fun BatterySchemeOverview(
     library: BatteryColorSchemeLibrary,
     managedCustomId: Int?,
+    addHeldDown: Boolean,
     onSettledScheme: (String) -> Unit,
     onOpenCustomSlot: (Int, CombinedStatusBatteryColorSlot) -> Unit,
     onAdd: (String) -> Unit,
@@ -442,6 +446,7 @@ private fun BatterySchemeOverview(
                 BatterySchemePage.Add ->
                     BatteryAddSchemePage(
                         enabled = library.customSchemes.size < BATTERY_COLOR_SCHEME_CUSTOM_MAX,
+                        holdDownState = addHeldDown,
                         onClick = { onAdd(lastSchemeKey) },
                     )
             }
@@ -603,6 +608,7 @@ private fun BatteryModeRow(
 @Composable
 private fun BatteryAddSchemePage(
     enabled: Boolean,
+    holdDownState: Boolean,
     onClick: () -> Unit,
 ) {
     Box(
@@ -615,7 +621,9 @@ private fun BatteryAddSchemePage(
         Card(
             modifier = Modifier.fillMaxWidth(),
             insideMargin = PaddingValues(vertical = 46.dp),
+            pressFeedbackType = PressFeedbackType.Sink,
             showIndication = enabled,
+            holdDownState = holdDownState,
             onClick = if (enabled) onClick else null,
         ) {
             Column(
