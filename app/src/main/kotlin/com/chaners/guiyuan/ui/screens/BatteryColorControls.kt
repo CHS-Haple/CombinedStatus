@@ -197,6 +197,12 @@ internal fun BatteryColorBottomSheet(
         show = show,
         modifier = Modifier.fillMaxHeight(0.84f),
         title = sheetTitle,
+        backgroundColor =
+            if (inDetail) {
+                MiuixTheme.colorScheme.surface
+            } else {
+                MiuixTheme.colorScheme.background
+            },
         startAction =
             if (inDetail) {
                 {
@@ -996,17 +1002,9 @@ private fun BatteryCustomModeEditor(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 16.dp),
+                .padding(bottom = 24.dp),
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors =
-                CardDefaults.defaultColors(
-                    color = MiuixTheme.colorScheme.surface,
-                    contentColor = MiuixTheme.colorScheme.onSurface,
-                ),
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        ) {
+        Card {
             OverlayDropdownPreference(
             items = sourceLabels,
             selectedIndex = selectedSourceIndex,
@@ -1032,14 +1030,14 @@ private fun BatteryCustomModeEditor(
             textColor = inactiveTitleColor,
         )
         Card(
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            insideMargin = PaddingValues(16.dp),
         ) {
             COMMON_BATTERY_COLORS.chunked(5).forEachIndexed { index, colors ->
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(bottom = if (index == 0) 8.dp else 0.dp),
+                            .padding(bottom = if (index == 0) 12.dp else 0.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1122,7 +1120,7 @@ private fun BatteryCustomModeEditor(
             textColor = inactiveTitleColor,
         )
         Card(
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            insideMargin = PaddingValues(16.dp),
         ) {
             TextField(
                 value = hexText,
@@ -1196,7 +1194,6 @@ private fun BatteryCustomModeEditor(
                 )
             }
         }
-        }
     }
 }
 
@@ -1210,7 +1207,6 @@ private fun BatteryHsvAdjustmentRow(
     BasicComponent(
         title = title,
         enabled = !visuallyInactive,
-        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         endActions = {
             Text(
                 text = valueText,
