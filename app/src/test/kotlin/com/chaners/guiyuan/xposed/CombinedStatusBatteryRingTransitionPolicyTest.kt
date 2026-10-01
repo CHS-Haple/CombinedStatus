@@ -178,16 +178,17 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
 
     @Test
     fun leftExitPreservesBatterySemanticsByIntersection() {
+        val progress = 0.35f
         val result =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
                 drawableArcs = listOf(
                     CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
                 ),
                 batteryPercent = 75,
-                progress = 0.5f,
+                progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
             )
-        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(0.5f)
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
         val retainedStart = 240f * (1f - remaining)
         assertEquals(150f + retainedStart, result.active.single().startDegrees, 0.0001f)
         assertEquals((180f - retainedStart).coerceAtLeast(0f), result.active.single().sweepDegrees, 0.0001f)
