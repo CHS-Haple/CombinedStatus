@@ -176,6 +176,10 @@ internal object CombinedStatusKeyguardRenderSession {
             }
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
+                logicalLeftPx = 0,
+                logicalTopPx = 0,
+                logicalWidthPx = render.width,
+                logicalHeightPx = render.height,
                 positionHost = systemIcons.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =

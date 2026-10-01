@@ -1,24 +1,8 @@
 package com.chaners.guiyuan.xposed
 
-import kotlin.math.max
+import kotlin.math.ceil
 
 internal object CombinedStatusBatteryTopLayoutPolicy {
-    fun resolveMinimumSafeTopY(
-        transformScale: Float,
-        transformOffsetY: Float,
-        viewTopY: Float = 0f,
-    ): Float {
-        if (
-            !transformScale.isFinite() ||
-            transformScale <= 0f ||
-            !transformOffsetY.isFinite() ||
-            !viewTopY.isFinite()
-        ) {
-            return 0f
-        }
-        return (viewTopY - transformOffsetY) / transformScale
-    }
-
     fun resolveOpticalBaseCenterY(
         preferredCenterY: Float,
         defaultOpticalRise: Float,
@@ -35,48 +19,30 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
     fun resolveCenterY(
         baseCenterY: Float,
         requestedOffset: Float,
-        neutralOffset: Float,
-        positiveLimit: Float,
-        contentTopExtent: Float,
-        minimumSafeTopY: Float,
     ): Float {
-        if (
-            !baseCenterY.isFinite() ||
-            !requestedOffset.isFinite() ||
-            !neutralOffset.isFinite() ||
-            !positiveLimit.isFinite() ||
-            !contentTopExtent.isFinite() ||
-            !minimumSafeTopY.isFinite()
-        ) {
+        if (!baseCenterY.isFinite() || !requestedOffset.isFinite()) {
             return baseCenterY
         }
+        return baseCenterY - requestedOffset
+    }
 
-        val minimumSafeCenterY =
-            minimumSafeTopY +
-                contentTopExtent.coerceAtLeast(0f)
-        val neutralCenterY =
-            max(
-                baseCenterY - neutralOffset,
-                minimumSafeCenterY,
-            )
-
-        if (requestedOffset <= neutralOffset) {
-            return max(
-                baseCenterY - requestedOffset,
-                minimumSafeCenterY,
-            )
+    fun resolveRequiredTopOverflowPx(
+        transformScale: Float,
+        transformOffsetY: Float,
+        contentTopY: Float,
+    ): Int {
+        if (
+            !transformScale.isFinite() ||
+            transformScale <= 0f ||
+            !transformOffsetY.isFinite() ||
+            !contentTopY.isFinite()
+        ) {
+            return 0
         }
-        if (positiveLimit <= neutralOffset) {
-            return neutralCenterY
-        }
-
-        val normalizedPositive =
-            (
-                (requestedOffset - neutralOffset) /
-                    (positiveLimit - neutralOffset)
-            ).coerceIn(0f, 1f)
-        val availableRise =
-            (neutralCenterY - minimumSafeCenterY).coerceAtLeast(0f)
-        return neutralCenterY - availableRise * normalizedPositive
+        val physicalTop =
+            transformOffsetY +
+                contentTopY * transformScale
+        if (physicalTop >= 0f) return 0
+        return ceil(-physicalTop).toInt() + 1
     }
 }

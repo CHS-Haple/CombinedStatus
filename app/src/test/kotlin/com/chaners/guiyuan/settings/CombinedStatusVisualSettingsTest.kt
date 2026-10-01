@@ -62,4 +62,32 @@ class CombinedStatusVisualSettingsTest {
         assertEquals(13f, high.batteryTopVerticalOffset, 0.0001f)
         assertEquals(-7f, low.batteryTopVerticalOffset, 0.0001f)
     }
+    @Test
+    fun batteryTopScaleRangesAreFortyToOneHundredSixtyPercent() {
+        assertEquals(0.4f, BATTERY_TOP_TEXT_UI_SCALE_MIN, 0.0001f)
+        assertEquals(1.6f, BATTERY_TOP_TEXT_UI_SCALE_MAX, 0.0001f)
+        assertEquals(0.4f, BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN, 0.0001f)
+        assertEquals(1.6f, BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX, 0.0001f)
+
+        assertEquals(
+            0.4f,
+            batteryTopTextUiScale(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1.6f,
+            batteryTopTextUiScale(Float.MAX_VALUE),
+            0.0001f,
+        )
+        assertEquals(
+            0.4f,
+            batteryTopChargingIconUiScale(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1.6f,
+            batteryTopChargingIconUiScale(Float.MAX_VALUE),
+            0.0001f,
+        )
+    }
 }

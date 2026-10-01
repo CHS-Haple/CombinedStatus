@@ -302,7 +302,11 @@ internal object CombinedStatusHomeRenderSession {
             overlayHost.addOnLayoutChangeListener(overlayHostLayoutListener)
             carrier.addOnLayoutChangeListener(carrierLayoutListener)
             probeView.visibility = View.GONE
-            overlayHost.overlay.add(probeView)
+            (probeView.parent as? ViewGroup)?.removeView(probeView)
+            overlayHost.addView(
+                probeView,
+                ViewGroup.LayoutParams(0, 0),
+            )
             renderController.updateVisualSettings(
                 RuntimeVisualPreferencesOwner.currentSettings(),
             )
@@ -343,6 +347,10 @@ internal object CombinedStatusHomeRenderSession {
             }
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
+                logicalLeftPx = 0,
+                logicalTopPx = render.currentLogicalViewportTopInsetPx(),
+                logicalWidthPx = render.currentLogicalViewportWidthPx(),
+                logicalHeightPx = render.currentLogicalViewportHeightPx(),
                 positionHost = batteryContainer.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =
@@ -357,7 +365,7 @@ internal object CombinedStatusHomeRenderSession {
             batteryContainer.get()?.removeOnLayoutChangeListener(overlayHostLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             if (removeVisual) {
-                batteryContainer.get()?.overlay?.remove(probeView)
+                (probeView.parent as? ViewGroup)?.removeView(probeView)
             }
         }
 
@@ -428,6 +436,7 @@ internal object CombinedStatusHomeRenderSession {
 
         fun updateVisualSettings(settings: CombinedStatusVisualSettings) {
             renderController.updateVisualSettings(settings)
+            layoutProbe()
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -518,6 +527,9 @@ internal object CombinedStatusHomeRenderSession {
             if (update.candidateComplete && model != null) {
                 modelReady = true
             }
+            if (update.changed) {
+                layoutProbe()
+            }
             if (model != null && !readyLogged) {
                 readyLogged = true
                 emitEvent {
@@ -552,20 +564,30 @@ internal object CombinedStatusHomeRenderSession {
                 }
                 return
             }
-            applyAnchorBounds(anchorRect)
+            val topOverflowPx =
+                probeView.requiredTopOverflowPx(
+                    logicalWidthPx = anchorRect.width(),
+                    logicalHeightPx = anchorRect.height(),
+                )
+            applyAnchorBounds(
+                bounds = anchorRect,
+                topOverflowPx = topOverflowPx,
+            )
             layoutReady = true
 
             if (!layoutLogged) {
                 layoutLogged = true
                 emitEvent {
                     "homeRenderProbe attached " +
-                        "slot=homeSystemIconsOverlay anchor=carrierEnd " +
-                        "carrier=MiuiStatusBatteryContainer.overlay " +
+                        "slot=homeSystemIconsOverflow anchor=carrierEnd " +
+                        "carrier=MiuiStatusBatteryContainer.child " +
                         "carrierAuthority=battery_icon_container " +
                         "motion=system-ui-inherited " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
-                        " size=" + anchorRect.width() + "x" + anchorRect.height() +
+                        " logicalSize=" + anchorRect.width() + "x" + anchorRect.height() +
+                        " physicalSize=" + probeView.width + "x" + probeView.height +
+                        " topOverflowPx=" + probeView.currentLogicalViewportTopInsetPx() +
                         " opacity=" + RENDER_OPACITY +
                         " nativeVisibilityInherited=true nativeAlphaInherited=true " +
                         "originalsHidden=false nativeGeometryWrites=0"
@@ -671,24 +693,38 @@ internal object CombinedStatusHomeRenderSession {
             return out.width() > 0 && out.height() > 0
         }
 
-        private fun applyAnchorBounds(bounds: Rect) {
+        private fun applyAnchorBounds(
+            bounds: Rect,
+            topOverflowPx: Int,
+        ) {
+            val physical =
+                CombinedStatusHomeOverflowPolicy.resolve(
+                    logicalTopPx = bounds.top,
+                    logicalHeightPx = bounds.height(),
+                    requestedTopOverflowPx = topOverflowPx,
+                )
+            probeView.setLogicalViewport(
+                widthPx = bounds.width(),
+                heightPx = bounds.height(),
+                topInsetPx = physical.logicalTopInsetPx,
+            )
             if (
                 probeView.measuredWidth != bounds.width() ||
-                probeView.measuredHeight != bounds.height()
+                probeView.measuredHeight != physical.physicalHeightPx
             ) {
                 val widthSpec = View.MeasureSpec.makeMeasureSpec(
                     bounds.width(),
                     View.MeasureSpec.EXACTLY,
                 )
                 val heightSpec = View.MeasureSpec.makeMeasureSpec(
-                    bounds.height(),
+                    physical.physicalHeightPx,
                     View.MeasureSpec.EXACTLY,
                 )
                 probeView.measure(widthSpec, heightSpec)
             }
             probeView.layout(
                 bounds.left,
-                bounds.top,
+                physical.physicalTopPx,
                 bounds.right,
                 bounds.bottom,
             )
@@ -704,4 +740,27 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     private const val RENDER_OPACITY = 1f
+}
+
+
+internal object CombinedStatusHomeOverflowPolicy {
+    internal data class Resolved(
+        val physicalTopPx: Int,
+        val physicalHeightPx: Int,
+        val logicalTopInsetPx: Int,
+    )
+
+    fun resolve(
+        logicalTopPx: Int,
+        logicalHeightPx: Int,
+        requestedTopOverflowPx: Int,
+    ): Resolved {
+        val logicalHeight = logicalHeightPx.coerceAtLeast(0)
+        val overflow = requestedTopOverflowPx.coerceAtLeast(0)
+        return Resolved(
+            physicalTopPx = logicalTopPx - overflow,
+            physicalHeightPx = logicalHeight + overflow,
+            logicalTopInsetPx = overflow,
+        )
+    }
 }

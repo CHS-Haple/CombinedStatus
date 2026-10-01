@@ -1,23 +1,11 @@
 package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CombinedStatusBatteryTopLayoutPolicyTest {
     @Test
-    fun canonicalZeroIsNotTreatedAsPhysicalViewTop() {
-        val minimumTop =
-            CombinedStatusBatteryTopLayoutPolicy.resolveMinimumSafeTopY(
-                transformScale = 0.875f,
-                transformOffsetY = 32f,
-            )
-
-        assertEquals(-36.57143f, minimumTop, 0.0001f)
-    }
-
-    @Test
-    fun opticalBaseDoesNotConsumeManualPositiveHeadroom() {
+    fun opticalDefaultKeepsDesignPlacementIndependentFromClipping() {
         val base =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
@@ -28,120 +16,60 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun uiZeroKeepsAcceptedNeutralPositionWhenItIsSafe() {
+    fun uiZeroKeepsAcceptedRawPlusThreePosition() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
                 requestedOffset = 3f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
             )
 
         assertEquals(11.5f, center, 0.0001f)
     }
 
     @Test
-    fun positiveUiRangeConsumesAllRemainingPhysicalHeadroom() {
+    fun positiveOffsetRemainsLiteralInsteadOfFlatteningAtOldSafeTop() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
                 requestedOffset = 13f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
             )
 
-        assertEquals(8f, center, 0.0001f)
+        assertEquals(1.5f, center, 0.0001f)
     }
 
     @Test
-    fun positiveUiMidpointMapsToHalfRemainingPhysicalHeadroom() {
-        val center =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = 14.5f,
-                requestedOffset = 8f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
-            )
-
-        assertEquals(9.75f, center, 0.0001f)
-    }
-
-    @Test
-    fun negativeUiRangeKeepsLiteralDownwardTravel() {
+    fun negativeOffsetRemainsLiteralDownwardTravel() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
                 requestedOffset = -7f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
             )
 
         assertEquals(21.5f, center, 0.0001f)
     }
 
     @Test
-    fun oversizedContentMovesNeutralDownToTheRealSafeTop() {
-        val center =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = 14.5f,
-                requestedOffset = 3f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 15f,
-                minimumSafeTopY = 0f,
+    fun overflowIsZeroWhenVisibleInkStaysInsideLogicalViewport() {
+        val overflow =
+            CombinedStatusBatteryTopLayoutPolicy.resolveRequiredTopOverflowPx(
+                transformScale = 0.875f,
+                transformOffsetY = 1.5f,
+                contentTopY = 2f,
             )
 
-        assertEquals(15f, center, 0.0001f)
+        assertEquals(0, overflow)
     }
 
     @Test
-    fun largerChargingTopExtentReducesPositiveTravelInsteadOfClipping() {
-        val compact =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = 20f,
-                requestedOffset = 13f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
-            )
-        val enlargedCharging =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = 20f,
-                requestedOffset = 13f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 14f,
-                minimumSafeTopY = -2f,
+    fun overflowExpandsPhysicalSurfaceInsteadOfClampingRequestedY() {
+        val overflow =
+            CombinedStatusBatteryTopLayoutPolicy.resolveRequiredTopOverflowPx(
+                transformScale = 0.875f,
+                transformOffsetY = 1.5f,
+                contentTopY = -8f,
             )
 
-        assertEquals(8f, compact, 0.0001f)
-        assertEquals(12f, enlargedCharging, 0.0001f)
-        assertTrue(enlargedCharging > compact)
-    }
-
-    @Test
-    fun requestPastPositiveLimitStillStopsAtPhysicalTop() {
-        val center =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = 14.5f,
-                requestedOffset = 100f,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
-            )
-
-        assertEquals(8f, center, 0.0001f)
-        assertTrue(center < 11.5f)
+        assertEquals(7, overflow)
     }
 
     @Test
@@ -150,10 +78,6 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
                 requestedOffset = Float.NaN,
-                neutralOffset = 3f,
-                positiveLimit = 13f,
-                contentTopExtent = 10f,
-                minimumSafeTopY = -2f,
             )
 
         assertEquals(14.5f, center, 0.0001f)

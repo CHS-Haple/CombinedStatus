@@ -114,7 +114,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_TEXT_UI_SCALE_MIN..
                             BATTERY_TOP_TEXT_UI_SCALE_MAX,
-                    steps = 39,
+                    steps = 23,
                     showKeyPoints = true,
                     keyPoints = listOf(1f),
                     magnetThreshold = 0.035f,
@@ -178,7 +178,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN..
                             BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX,
-                    steps = 39,
+                    steps = 23,
                     showKeyPoints = true,
                     keyPoints = listOf(1f),
                     magnetThreshold = 0.035f,

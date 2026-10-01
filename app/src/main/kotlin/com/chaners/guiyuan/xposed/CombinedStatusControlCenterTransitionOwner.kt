@@ -3165,10 +3165,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val frozenSource =
                     steadySourceWitness
                         ?.takeIf { witness ->
-                            witness.renderView.width > 0 &&
-                                witness.renderView.height > 0 &&
+                            witness.logicalWidthPx > 0 &&
+                                witness.logicalHeightPx > 0 &&
                                 witness.renderView.isAttachedToWindow &&
-                                witness.positionHost.width >= witness.renderView.width &&
+                                witness.positionHost.width >= witness.logicalWidthPx &&
                                 witness.positionHost.height > 0 &&
                                 witness.positionHost.isAttachedToWindow &&
                                 witness.motionCarrier.width > 0 &&
@@ -3180,6 +3180,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 sampleGeometry(
                                     view = witness.renderView,
                                     root = root,
+                                    localLeftPx = witness.logicalLeftPx,
+                                    localTopPx = witness.logicalTopPx,
+                                    widthPx = witness.logicalWidthPx,
+                                    heightPx = witness.logicalHeightPx,
                                 ) ?: return@let null
                             val positionHostGeometry =
                                 sampleGeometry(
@@ -3191,7 +3195,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     hostGeometry = positionHostGeometry,
                                     hostWidth = witness.positionHost.width,
                                     hostHeight = witness.positionHost.height,
-                                    slotWidth = witness.renderView.width,
+                                    slotWidth = witness.logicalWidthPx,
                                     isRtl =
                                         witness.positionHost.layoutDirection ==
                                             View.LAYOUT_DIRECTION_RTL,
@@ -3202,8 +3206,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     root = root,
                                 ) ?: return@let null
                             FrozenSourceGeometry(
-                                width = witness.renderView.width,
-                                height = witness.renderView.height,
+                                width = witness.logicalWidthPx,
+                                height = witness.logicalHeightPx,
                                 geometry =
                                     Policy.composeSourceGeometry(
                                         positionAuthority = positionGeometry,
@@ -3241,10 +3245,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
             private fun sampleGeometry(
                 view: View,
                 root: View,
+                localLeftPx: Int = 0,
+                localTopPx: Int = 0,
+                widthPx: Int = view.width,
+                heightPx: Int = view.height,
             ): FloatArray? {
                 if (
-                    view.width <= 0 ||
-                    view.height <= 0 ||
+                    widthPx <= 0 ||
+                    heightPx <= 0 ||
                     !view.isAttachedToWindow ||
                     !root.isAttachedToWindow
                 ) {
@@ -3265,17 +3273,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 root.transformMatrixToLocal(matrix)
                 val values = FloatArray(9)
                 matrix.getValues(values)
+                val centerX = localLeftPx + widthPx / 2f
+                val centerY = localTopPx + heightPx / 2f
                 return floatArrayOf(
-                    ((values[Matrix.MSCALE_X] * view.width) +
-                        (values[Matrix.MSKEW_X] * view.height)) / 2f +
+                    values[Matrix.MSCALE_X] * centerX +
+                        values[Matrix.MSKEW_X] * centerY +
                         values[Matrix.MTRANS_X],
-                    ((values[Matrix.MSKEW_Y] * view.width) +
-                        (values[Matrix.MSCALE_Y] * view.height)) / 2f +
+                    values[Matrix.MSKEW_Y] * centerX +
+                        values[Matrix.MSCALE_Y] * centerY +
                         values[Matrix.MTRANS_Y],
-                    values[Matrix.MSCALE_X] * view.width,
-                    values[Matrix.MSKEW_Y] * view.width,
-                    values[Matrix.MSKEW_X] * view.height,
-                    values[Matrix.MSCALE_Y] * view.height,
+                    values[Matrix.MSCALE_X] * widthPx,
+                    values[Matrix.MSKEW_Y] * widthPx,
+                    values[Matrix.MSKEW_X] * heightPx,
+                    values[Matrix.MSCALE_Y] * heightPx,
                 )
             }
 

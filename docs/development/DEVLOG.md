@@ -14142,3 +14142,88 @@ Focused unit coverage now locks:
 - a larger charging top extent reduces positive travel instead of drawing outside the safe top.
 
 Runtime CI required. Exact-head signed Canary required because the correction changes steady Home Y under device-specific transform/charging-resource geometry.
+
+
+## 2026-10-01 — Build 536: split logical viewport from physical overflow surface
+
+**Type:** device-driven Home render-surface architecture correction  
+**Display version:** 0.0.3  
+**Build / source:** 536 / `20261001-536` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 535 exact-head Runtime CI #2021 and signed Canary #597 are green, but the device video rejects the behavior:
+- changing the upward offset does not change the rendered Y once the readout reaches the top-safe ceiling;
+- lack of clipping is therefore not evidence of success; the adjustment range is being consumed by the clamp.
+
+The maintainer requires genuine upward movement. Safe rendering remains desirable, but not by flattening the user-owned offset.
+
+### Root cause
+
+The previous layout policy conflated two different geometries:
+
+1. **logical Home slot** — the accepted end-side composition box, about 105x108 on the verified target;
+2. **physical draw surface** — the pixels a Guiyuan-owned View may use to render content.
+
+As long as both geometries are the same rectangle, negative logical Y can only be handled in two ways: clip it or clamp it. Build 532 exposed clipping; Builds 534-535 replaced clipping with clamping, which removed the requested motion.
+
+### Change
+
+- Restore literal readout Y: `baseCenterY - requestedOffset`.
+- Remove the positive top-safe clamp from readout placement.
+- Measure the current full top envelope from percentage text plus the selected native HyperOS charging glyph, including the glyph's asymmetric optical/ink center.
+- Convert only the amount that crosses logical y=0 into a physical top-overflow requirement.
+- Keep the accepted Home logical viewport unchanged.
+- Replace the Home `MiuiStatusBatteryContainer.overlay` renderer with one module-owned direct child of the same carrier.
+- The module child uses zero LayoutParams participation; exact target inspection establishes that `MiuiStatusBatteryContainer.onMeasure/onLayout` handles only its three owned native fields.
+- After native layout completes, Guiyuan alone measures/layouts its child to `logicalHeight + topOverflow` and places it at `logicalTop - topOverflow`.
+- RenderView translates its logical viewport down by the same overflow amount. Therefore:
+  `physicalTop + logicalTopInset == originalLogicalTop`.
+- Transition source witness now stores explicit logical left/top/width/height.
+- Home -> Control Center freezes the logical rectangle and ignores the taller transparent physical surface.
+- Keyguard remains 1:1 logical/physical in this checkpoint; no unrelated scene carrier is changed.
+
+### Setting-range correction
+
+At maintainer request:
+- battery percentage size: **40%-160%**;
+- charging lightning size: **40%-160%**;
+- default remains 100%;
+- UI slider, repository write clamp, persisted/runtime normalization, and conversion helpers share the same constants;
+- existing 5% granularity is preserved, so the MIUIX sliders use 23 interior steps over 0.4..1.6;
+- 100% remains the magnetic key point.
+
+### 问题执行流程
+
+1. HyperOS lays out its native Home hierarchy unchanged.
+2. Guiyuan resolves the same logical end slot.
+3. Painter resolves literal user Y and current visible top bounds.
+4. If all ink is inside logical y>=0, the physical renderer is unchanged.
+5. If ink crosses logical y=0, only Guiyuan's physical child grows upward by the required pixels.
+6. The logical viewport is translated by the same amount inside that physical child, keeping ring/center/mobile screen coordinates unchanged.
+7. Parent-native transforms still carry the module child; no follower animator or per-frame geometry writer is added.
+8. Control Center transition samples the explicit logical viewport, not physical overflow bounds.
+9. Size preferences are normalized to 40%-160% before runtime rendering.
+
+### 审查 / review
+
+- **root-cause-first:** resolves the render-surface limitation rather than adding another positional formula.
+- **single writer:** the same `CombinedStatusRenderView` remains the only Guiyuan steady-state pixel writer.
+- **native layout ownership:** no native peer View size, padding, translation, alpha, visibility, status-bar height, or native child LayoutParams are modified.
+- **module-owned geometry only:** only the Guiyuan child receives post-layout measure/layout.
+- **cleanup:** Session detach/Hot Reload removes the module-owned child before replacement generation attaches.
+- **motion isolation:** logical transition geometry is explicitly separated from transparent overflow geometry.
+- **future scaling:** vertical overflow is now independent from the later overall-size/horizontal-reservation feature.
+- **performance:** recomputation occurs only on existing model/settings/layout events and reuses bounded cached optical metrics; no polling, delay, timer, frame logger, or extra animator.
+- **Fail native:** if the new carrier integration fails to attach or layout, existing readiness/presentation ownership must fall back rather than mutate native peers.
+
+### Validation
+
+Automated coverage locks:
+- positive and negative manual Y remain literal;
+- optical overflow is derived only when content crosses the logical top;
+- expanding physical top space preserves the original logical y=0 screen coordinate;
+- zero overflow preserves original 108px physical height;
+- percentage and charging size UI ranges clamp to 40%-160%.
+
+Runtime CI is required. Exact-head signed Canary is required because Home render carrier ownership changes from overlay to a module-owned direct child. Device validation must cover steady placement, +Y movement, 160% charging/number bounds, island motion, Hot Reload, notification-shade/Home ownership, and Home -> Control Center transition continuity.

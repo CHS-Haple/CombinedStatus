@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 535 / `20261001-535`;
+- Build 536 / `20261001-536`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -139,6 +139,19 @@ Build 535 corrected safe-range ownership:
 - UI -10..0 remains literal downward travel;
 - no carrier/overlay lifecycle change, parent clip mutation, second renderer, timer or native geometry writer is introduced.
 
+Build 536 logical-viewport / physical-overflow split:
+- Build 535 exact-head Runtime CI #2021 and signed Work Branch Canary #597 are green, but device video rejects its top-safe clamp: changing the upward slider value does not change visual Y once UI 0 reaches the safe ceiling.
+- Root cause: logical Home slot geometry (about 105x108 on the verified device) was incorrectly treated as the complete physical draw surface; any policy that forbids negative logical Y necessarily consumes the user's upward range.
+- Home keeps the same logical end slot and native status-bar height. No HyperOS peer geometry, parent padding, parent alpha/visibility, island translation, or status-bar height is changed.
+- The Home renderer becomes one module-owned direct child of `MiuiStatusBatteryContainer` with zero LayoutParams participation in native measurement; exact target inspection shows the container measures/layouts only its three owned native fields.
+- After native layout, Guiyuan alone measures/layouts that module child with a dynamic transparent top overflow derived from the current percentage + native charging-glyph optical bounds.
+- The logical viewport is translated inside the larger physical surface by exactly the added top overflow, so logical y=0 retains the same screen coordinate and the ring/center/mobile steady geometry does not move.
+- Manual top-readout Y is literal again; no positive safety clamp is allowed to flatten user input.
+- The transition witness carries explicit logical left/top/width/height and freezes only that logical viewport. The extra transparent physical pixels are excluded from Home -> Control Center component geometry.
+- This split intentionally leaves vertical draw overflow independent from future overall-size support. Later size changes may update visual scale and horizontal reservation without using the expanded physical canvas as slot geometry.
+- Battery-number size and charging-lightning size user ranges are narrowed from 0%-200% to 40%-160%, with 100% unchanged and the existing 5% slider granularity preserved.
+
+
 ## Validation state
 
 Confirmed:
@@ -158,14 +171,15 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 535 Runtime CI.
-- if green, one exact-head signed Build-535 Canary.
+- Build 536 Runtime CI.
+- if green, one exact-head signed Build-536 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
   - island + charging now moves surrounding native icons to the same native endpoint rule indicated by `addBatteryIsland=false / batteryWidthDiff=0` when HyperOS does not activate Battery Island;
   - if HyperOS actually reports `isAddBatteryIsland=true`, native Battery-Island peer motion remains authoritative and Guiyuan does not double-apply semantic reservation;
-  - + battery-top offset continues upward through real View headroom;
+  - battery-top offset produces visible motion throughout -10..+10; upward overflow is drawable rather than flattened by a top clamp;
+  - 40%-160% percentage and charging-lightning size ranges clamp consistently in UI, persistence and runtime;
   - charging lightning visible-ink vertical center matches the percentage visible-text center;
   - Home -> Control Center percentage morph still reaches the native Battery-number target;
   - accepted Build-510/511 Battery-body transition remains unchanged.
@@ -194,9 +208,9 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-535 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 535 and request one signed work-branch Canary;
-3. device-validate: UI 0 equals the previous physical +3 position; -10..+10 moves continuously with no hidden ceiling; ring opening follows live number/bolt size, weight and vertical position with only a small visual clearance; Build-531 typography endpoint behavior remains intact;
+1. finish Build-536 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 536 and request one signed work-branch Canary;
+3. device-validate: UI 0 remains at the accepted position; -10..+10 moves continuously with no hidden ceiling; top overflow remains visible; 40%-160% percentage/lightning sizing works at both ends; Home -> Control Center source geometry and island motion remain unchanged;
 4. change runtime again only if focused device evidence identifies a concrete mismatch;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 

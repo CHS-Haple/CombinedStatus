@@ -10,8 +10,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
-import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import kotlin.math.cos
 import kotlin.math.max
@@ -119,6 +117,35 @@ internal class CombinedStatusPainter(
             geometry = outerGeometry,
         )
         canvas.restoreToCount(save)
+    }
+
+    fun requiredTopOverflowPx(
+        width: Int,
+        height: Int,
+        model: CombinedStatusRenderModel,
+        visualSettings: CombinedStatusVisualSettings,
+    ): Int {
+        if (width <= 0 || height <= 0) return 0
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        if (!scale.isFinite() || scale <= 0f) return 0
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = (width - CANONICAL_SIZE * scale) / 2f,
+                offsetY = offsetY,
+            )
+        val layout =
+            resolveBatteryTopReadoutLayout(
+                model = model,
+                visualSettings = visualSettings,
+                nativeTransform = nativeTransform,
+            ) ?: return 0
+        return CombinedStatusBatteryTopLayoutPolicy.resolveRequiredTopOverflowPx(
+            transformScale = scale,
+            transformOffsetY = offsetY,
+            contentTopY = layout.groupOpticalBounds.top,
+        )
     }
 
     fun drawTransitionComponent(
@@ -1157,12 +1184,6 @@ internal class CombinedStatusPainter(
                 } else {
                     0f
                 }
-        val contentInkHeight =
-            if (chargingInkVisible) {
-                max(textOpticalHeight, chargingOpticalHeight)
-            } else {
-                textOpticalHeight
-            }
         val chargingTopExtent =
             if (chargingInkVisible) {
                 chargingOpticalSize
@@ -1177,20 +1198,31 @@ internal class CombinedStatusPainter(
             } else {
                 0f
             }
-        val safeTopExtent =
+        val chargingBottomExtent =
+            if (chargingInkVisible) {
+                chargingOpticalSize
+                    ?.let { optical ->
+                        (
+                            optical.height / 2f -
+                                optical.inkCenterOffsetY +
+                                optical.centerOffsetY
+                        ).coerceAtLeast(0f)
+                    }
+                    ?: chargingIconSize / 2f
+            } else {
+                0f
+            }
+        val groupTopExtent =
             max(
                 textOpticalHeight / 2f,
                 chargingTopExtent,
             )
-
-        // Keep the optical design baseline independent from clip safety.
-        // Final Y resolution maps only the positive user range onto the real
-        // remaining headroom of the complete visible number + charging group.
-        val minimumSafeTopY =
-            CombinedStatusBatteryTopLayoutPolicy.resolveMinimumSafeTopY(
-                transformScale = nativeTransform.scale,
-                transformOffsetY = nativeTransform.offsetY,
+        val groupBottomExtent =
+            max(
+                textOpticalHeight / 2f,
+                chargingBottomExtent,
             )
+
         val groupBaseCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
@@ -1200,10 +1232,6 @@ internal class CombinedStatusPainter(
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = groupBaseCenterY,
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
-                neutralOffset = BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
-                positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                contentTopExtent = safeTopExtent,
-                minimumSafeTopY = minimumSafeTopY,
             )
         val textBaselineY =
             groupCenterY -
@@ -1218,9 +1246,9 @@ internal class CombinedStatusPainter(
         val groupOpticalBounds =
             TransitionBounds(
                 left = groupLeft,
-                top = groupCenterY - contentInkHeight / 2f,
+                top = groupCenterY - groupTopExtent,
                 right = groupLeft + groupWidth,
-                bottom = groupCenterY + contentInkHeight / 2f,
+                bottom = groupCenterY + groupBottomExtent,
             )
 
         return BatteryTopReadoutLayout(
