@@ -406,3 +406,16 @@ Pre-commit review of the correction confirmed:
 - helper call count and all Build-558 scale semantics remain unchanged.
 
 This correction is compile-only. Build ID, 75%-100% range, default/max 100%, transition geometry, and runtime behavior are unchanged.
+
+
+### Build 558 CI correction 2
+
+Runtime CI #2076 exposed one remaining compile-only residue in `transitionBatteryNumberCurrentBounds()`: after the duplicate local transform was removed, the returned bounds still referenced deleted local `offsetX/offsetY` names.
+
+Pre-commit review of the correction confirmed:
+- the function owns exactly one `nativeTransform`;
+- all four returned bound coordinates use `nativeTransform.offsetX/offsetY` directly;
+- raw canonical scale calculation remains only inside `resolveCanvasTransform()`;
+- helper call count and all Build-558 scale semantics remain unchanged.
+
+No runtime behavior, range, transition timing, or visual default changed.

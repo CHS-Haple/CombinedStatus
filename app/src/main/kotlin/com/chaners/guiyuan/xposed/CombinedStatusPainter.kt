@@ -1920,10 +1920,10 @@ internal class CombinedStatusPainter(
                 layout.groupOpticalBounds
             }
         return TransitionBounds(
-            left = offsetX + local.left * scale,
-            top = offsetY + local.top * scale,
-            right = offsetX + local.right * scale,
-            bottom = offsetY + local.bottom * scale,
+            left = nativeTransform.offsetX + local.left * scale,
+            top = nativeTransform.offsetY + local.top * scale,
+            right = nativeTransform.offsetX + local.right * scale,
+            bottom = nativeTransform.offsetY + local.bottom * scale,
         )
     }
 
