@@ -31,18 +31,39 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
         }
 
         val retainedSweep = totalSweep * remaining
-        val retainedStart =
-            when (exitDirection) {
-                ExitDirection.LEFT -> totalSweep - retainedSweep
-                ExitDirection.NONE, ExitDirection.RIGHT -> 0f
+        val activeSweep =
+            totalSweep *
+                batteryPercent.coerceIn(0, 100) /
+                100f *
+                remaining
+        return when (exitDirection) {
+            ExitDirection.LEFT -> {
+                val retainedStart = totalSweep - retainedSweep
+                val retainedEnd = totalSweep
+                val originalActiveEnd =
+                    totalSweep *
+                        batteryPercent.coerceIn(0, 100) /
+                        100f
+                Segments(
+                    background = slice(drawableArcs, retainedStart, retainedEnd),
+                    active =
+                        slice(
+                            drawableArcs,
+                            max(retainedStart, 0f),
+                            min(retainedEnd, originalActiveEnd),
+                        ),
+                    remainingFraction = remaining,
+                )
             }
-        val retainedEnd = retainedStart + retainedSweep
-        val activeEnd = totalSweep * batteryPercent.coerceIn(0, 100) / 100f
-        return Segments(
-            background = slice(drawableArcs, retainedStart, retainedEnd),
-            active = slice(drawableArcs, max(retainedStart, 0f), min(retainedEnd, activeEnd)),
-            remainingFraction = remaining,
-        )
+
+            ExitDirection.NONE,
+            ExitDirection.RIGHT,
+            -> Segments(
+                background = slice(drawableArcs, 0f, retainedSweep),
+                active = slice(drawableArcs, 0f, activeSweep),
+                remainingFraction = remaining,
+            )
+        }
     }
 
     private fun slice(

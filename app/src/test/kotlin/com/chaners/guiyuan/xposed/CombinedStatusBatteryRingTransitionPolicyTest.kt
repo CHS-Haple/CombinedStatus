@@ -78,6 +78,38 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
+    fun nonePreservesBuild543ActiveLengthSemantics() {
+        val result =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 75,
+                progress = 0.5f,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE,
+            )
+        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
+        assertEquals(90f, result.active.single().sweepDegrees, 0.0001f)
+    }
+
+    @Test
+    fun rightExitPreservesBuild543ActiveLengthSemantics() {
+        val result =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 75,
+                progress = 0.5f,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.RIGHT,
+            )
+        assertEquals(150f, result.background.single().startDegrees, 0.0001f)
+        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
+        assertEquals(150f, result.active.single().startDegrees, 0.0001f)
+        assertEquals(90f, result.active.single().sweepDegrees, 0.0001f)
+    }
+
+    @Test
     fun leftExitClearsLeftSideFirst() {
         val result =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
