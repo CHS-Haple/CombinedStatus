@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 532 / `20261001-532`;
+- Build 533 / `20261001-533`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -115,6 +115,12 @@ Build 532 battery-top offset/root-gap correction:
 - therefore larger/bolder digits or a larger charging bolt widen the opening only as needed, moving the readout upward shrinks the opening, and asymmetric visible width can shift the gap center rather than adding dead symmetric padding.
 - no native layout writer, timer, animator, polling path, or extra visual probe is added; existing cached glyph/drawable optical measurements are reused.
 
+Build 533 companion-UI spacing correction:
+- exact MIUIX revision review shows `BasicComponent` already inserts 8.dp between `startAction` and center content;
+- the diagnostics leading-icon wrapper was adding a second 16.dp end padding on top of that MIUIX spacing;
+- remove only the project-local 16.dp padding and retain the MIUIX-owned 8.dp spacing for diagnostics level / export / share;
+- SystemUI/runtime rendering is unchanged by this checkpoint.
+
 ## Validation state
 
 Confirmed:
@@ -134,7 +140,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 532 Runtime CI.
+- Build 533 Runtime CI.
 - if green, one exact-head signed Build-532 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;

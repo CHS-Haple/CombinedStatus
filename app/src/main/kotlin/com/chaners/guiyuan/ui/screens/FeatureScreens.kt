@@ -1038,7 +1038,6 @@ private fun DiagnosticsLeadingIcon(
     Box(
         modifier =
             Modifier
-                .padding(end = 16.dp)
                 .size(24.dp),
         contentAlignment = Alignment.Center,
     ) {
