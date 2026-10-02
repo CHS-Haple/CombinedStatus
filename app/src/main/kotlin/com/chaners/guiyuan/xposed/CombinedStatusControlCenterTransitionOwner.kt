@@ -1249,6 +1249,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 CombinedStatusPainter.TransitionComponent.CENTER &&
                                 model.centerIndicator is CenterIndicator.MobileType
                         )
+                val chargingSourceOpacity =
+                    if (
+                        spec.component ==
+                        CombinedStatusPainter.TransitionComponent.CHARGING_ICON
+                    ) {
+                        CombinedStatusPainter.BatteryNumberFollowerPolicy
+                            .chargingSourceOpacity(motionProgress)
+                    } else {
+                        0f
+                    }
+                val chargingSourceLocked =
+                    spec.component ==
+                        CombinedStatusPainter.TransitionComponent.CHARGING_ICON &&
+                        chargingSourceOpacity > 0f
                 val componentMotionProgress =
                     if (
                         spec.component ==
@@ -1260,28 +1274,34 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         motionProgress
                     }
                 val geometry =
-                    if (targetGeometry != null) {
-                        if (exactTextGeometry) {
-                            projectedExactGeometry(
-                                source = sourceGeometry,
-                                target = targetGeometry,
-                                progress = componentMotionProgress,
-                                carrierFrames = carrierFrames,
-                            )
-                        } else {
-                            projectedGeometry(
-                                source = sourceGeometry,
-                                target = targetGeometry,
-                                progress = componentMotionProgress,
-                                scalePolicy = spec.scalePolicy,
-                                carrierFrames = carrierFrames,
-                            )
+                    when {
+                        chargingSourceLocked ->
+                            sourceGeometry.copyOf()
+
+                        targetGeometry != null -> {
+                            if (exactTextGeometry) {
+                                projectedExactGeometry(
+                                    source = sourceGeometry,
+                                    target = targetGeometry,
+                                    progress = componentMotionProgress,
+                                    carrierFrames = carrierFrames,
+                                )
+                            } else {
+                                projectedGeometry(
+                                    source = sourceGeometry,
+                                    target = targetGeometry,
+                                    progress = componentMotionProgress,
+                                    scalePolicy = spec.scalePolicy,
+                                    carrierFrames = carrierFrames,
+                                )
+                            }
                         }
-                    } else {
-                        carriedSourceGeometry(
-                            source = sourceGeometry,
-                            carrierFrames = carrierFrames,
-                        )
+
+                        else ->
+                            carriedSourceGeometry(
+                                source = sourceGeometry,
+                                carrierFrames = carrierFrames,
+                            )
                     }
                 val componentOpacity =
                     if (
