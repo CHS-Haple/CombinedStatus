@@ -171,8 +171,6 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
-                keyguardPresentationOwned = false,
-                aodPresentationOwned = true,
             ),
         )
         assertEquals(
@@ -186,8 +184,6 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
-                keyguardPresentationOwned = true,
-                aodPresentationOwned = false,
             ),
         )
         assertEquals(
@@ -201,8 +197,6 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
-                keyguardPresentationOwned = true,
-                aodPresentationOwned = false,
             ),
         )
         assertEquals(
@@ -216,8 +210,6 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
-                keyguardPresentationOwned = false,
-                aodPresentationOwned = true,
             ),
         )
     }
@@ -320,8 +312,6 @@ class CombinedStatusScenePolicyTest {
                 toAod = false,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                keyguardPresentationOwned = false,
-                aodPresentationOwned = false,
             ),
         )
         assertEquals(
@@ -334,7 +324,6 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = false,
-                aodPresentationOwned = true,
             ),
         )
         assertEquals(
@@ -347,7 +336,6 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = true,
-                aodPresentationOwned = true,
             ),
         )
     }
@@ -364,8 +352,6 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = false,
-                keyguardPresentationOwned = false,
-                aodPresentationOwned = false,
             ),
         )
         assertEquals(
@@ -378,8 +364,6 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = false,
-                keyguardPresentationOwned = false,
-                aodPresentationOwned = true,
             ),
         )
     }
