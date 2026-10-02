@@ -175,6 +175,19 @@ internal object CombinedStatusScenePolicy {
             }
         }
         if (
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            !keyguardEnabled &&
+            aodEnabled &&
+            homePresentationOwned
+        ) {
+            // Home -> AOD crosses a short native KEYGUARD source interval on the
+            // pinned HyperOS target. When Keyguard projection is intentionally
+            // disabled, keep the still-owned Home presentation continuous by
+            // prearming the enabled AOD family owner instead of exposing native
+            // represented icons until the AOD animation callback catches up.
+            return KeyguardAodProjection.AOD
+        }
+        if (
             SystemUiKeyguardAodStateSource.blocksKeyguardProjection(
                 toAod = toAod,
                 isAodAnimate = isAodAnimate,
@@ -204,6 +217,30 @@ internal object CombinedStatusScenePolicy {
         keyguardPresentationOwned: Boolean,
         aodPresentationOwned: Boolean,
     ): KeyguardAodProjection {
+        val singleKeyguard =
+            keyguardEnabled && !aodEnabled
+        val singleAod =
+            aodEnabled && !keyguardEnabled
+
+        if (
+            singleKeyguard &&
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD
+        ) {
+            // The steady scene callback is the verified Keyguard boundary. Do
+            // not wait for the later AOD-animation teardown callback before
+            // acquiring the only enabled family child.
+            return KeyguardAodProjection.KEYGUARD
+        }
+        if (
+            singleAod &&
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            aodPresentationOwned
+        ) {
+            // Symmetric edge: once the verified steady source has returned to
+            // Keyguard, release the only enabled AOD child even if HyperOS keeps
+            // isAodAnimate=true for a few more callbacks.
+            return KeyguardAodProjection.NATIVE
+        }
         if (aodPresentationOwned) {
             return if (aodEnabled) {
                 KeyguardAodProjection.AOD
