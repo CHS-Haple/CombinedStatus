@@ -15,41 +15,43 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 621 device evidence rejects the direction-guessing continuity rule. The exact-target trace shows AOD transitions can report combinations such as `toAod=true`, `isAodAnimate=true`, `animToAod=false`, followed later by `toggleAodMode(false)`. The Build-621 policy used `toAod` to decide which Guiyuan scene should remain eligible, so it could drop the actually owned AOD/Keyguard presentation and restore native represented icons during the transition.
+Build 623 device evidence rejects the remaining restore/reacquire handoff. Direction inference was already removed, but Keyguard and AOD still owned separate presentation/render sessions. At a scene boundary the outgoing session restored its ignored-slot delta, clip masks and end reservation before the target session reached compact-layout readiness; the target then stayed `prepared` with native fallback until the next native status-icon layout. That deliberate native interval is the observed flash in both Home <-> AOD and Keyguard <-> AOD.
 
-Build 623 removes direction guessing:
-- the global Guiyuan switch remains the parent runtime gate and Keyguard/AOD child preferences remain independently persisted;
-- a native steady-scene callback records the currently visible Home/Keyguard source before Keyguard/AOD routing;
-- AOD animation routing uses actual presentation ownership, not `toAod` or diagnostic-only `mAnimToAod`;
-- an already-owned AOD presentation remains owned through the native AOD animation while the AOD feature remains enabled;
-- a visible Keyguard presentation remains owned through Keyguard -> AOD animation only when the AOD feature is enabled;
-- Home -> AOD may prearm the AOD render/presentation session during the native animation when Home is the actual source and AOD is enabled;
-- AOD -> Home defers AOD cleanup until the native AOD state boundary instead of dropping it as soon as Home is observed;
-- stable Home, Keyguard and AOD ownership is still mutually resolved, and AOD remains ineligible as a Control Center source;
-- HyperOS continues to own AOD animation timing, alpha, visibility and translation. Guiyuan adds no timer, delay, polling loop or duplicate animator.
+Build 625 changes the ownership boundary instead of adding timing:
+- Keyguard and AOD share one Keyguard-family presentation Session on the verified native host; same-host scene changes retarget that owner instead of stop/restore/reacquire;
+- Keyguard and AOD share one render Session / one module RenderView; same-host scene changes retarget scene semantics without detach/re-add;
+- role-specific cleanup is guarded by the currently active family surface, so cleanup from the outgoing role cannot tear down a successfully retargeted target;
+- prepared presentation claim and compact-layout readiness are separate facts: routing can retain an already-acquired presentation claim while renderer cutover still waits for verified native layout;
+- Home -> AOD may apply the existing reversible represented-view mask during explicit AOD prearm so raw native represented icons are not exposed while the AOD host waits for compact layout; this does not mark layout ready early or create a second layout owner;
+- AOD child alpha follows native Battery alpha only while the family scene is AOD and resets to 1 when retargeted to Keyguard;
+- Keyguard/AOD child preferences remain independent and the global Guiyuan switch remains their parent gate;
+- AOD remains ineligible as a Control Center source;
+- HyperOS remains the only native AOD motion/timing/translation/visibility owner. Build 625 adds no timer, delay, polling loop or duplicate animator.
 
 Diagnostics copy remains: `设备型号（设备代号）`, `Android 版本（API 等级）`, `HyperOS 版本`, `SystemUI 版本`, and compatibility baseline `SystemUI 17.03.260226.r（HyperOS 4）`.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261002423` / Build `20261002-623`.
-- Build 621 steady Keyguard/AOD projection works, but device video/log evidence still shows native represented icons flashing during Home <-> AOD and Keyguard <-> AOD handoff.
-- The retained trace shows transition-time readiness loss and presentation cleanup on the outgoing owner; this invalidates Build-621 `toAod`-direction routing.
-- Build 623 Runtime CI #2257 succeeded on exact head `393a0e659564239f31aa8f935c57758d137331a7`.
-- Runtime is frozen pending one signed Work Branch Canary and focused device evidence.
+- Candidate identity: `0.0.5` / versionCode `261003625` / Build `20261003-625`.
+- Build 623 is device-rejected for native represented-icon flashing in Home <-> AOD and Keyguard <-> AOD.
+- The retained Build-623 trace shows the structural gap: outgoing presentation cleanup restores native state, then the target reports `prepared` / `native-until-native-layout`, and only the next native layout reaches `active`.
+- Build 625 removes that same-host restore/reacquire cycle and separates presentation claim from compact readiness.
+- Runtime CI #2278 succeeded on exact runtime head `5aa8752197ce8328496d3ca68c8ee5875e98ef91`.
+- Final ownership/writer/lifecycle review found one Keyguard-family presentation owner, one Keyguard-family RenderView, no stale Keyguard/AOD dual-session state, no new delay/timer/polling path, and no new native translation/visibility writer.
+- Runtime is frozen at the reviewed Build-625 code pending one signed Work Branch Canary and focused device evidence.
 
 ## Device gate
 
-Validate Build 623 with emphasis on:
-- repeated Home -> AOD -> Home switching: no native Wi-Fi/mobile/battery represented-icon flash;
-- repeated Keyguard -> AOD -> Keyguard switching with both child switches enabled: no native represented-icon flash or blank interval;
-- AOD on / Keyguard off and Keyguard on / AOD off retain independent child behavior;
-- no duplicate Guiyuan/native set, stuck outgoing frame, endpoint snap, or AOD leakage into Control Center;
-- global Guiyuan off immediately restores Home, Keyguard and AOD native presentation while preserving both child preference values.
+Validate Build 625 with emphasis on:
+- repeated Home -> AOD -> Home switching: no native Wi-Fi/mobile/battery represented-icon flash, blank interval or duplicate set;
+- repeated Keyguard -> AOD -> Keyguard switching with both child switches enabled: no native flash, blank interval, duplicate set or endpoint snap;
+- AOD on / Keyguard off and Keyguard on / AOD off preserve independent child behavior;
+- global Guiyuan off immediately restores native Home/Keyguard/AOD presentation while preserving both child preference values;
+- no stuck outgoing frame, stale AOD alpha on Keyguard, or AOD leakage into Control Center.
 
 ## Immediate next step
 
-Build one signed Work Branch Canary from the reviewed Build 623 head, then keep runtime frozen until focused device evidence returns. Do not merge PR #196 before that evidence is reviewed.
+Produce one signed Work Branch Canary from the reviewed Build-625 runtime checkpoint plus documentation-only closure. Keep runtime frozen until focused device evidence returns; do not merge PR #196 before that evidence is reviewed.
 
 ## Reference priority
 
