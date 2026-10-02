@@ -2222,6 +2222,13 @@ class CombinedStatusModule : XposedModule() {
             deactivateKeyguardRuntime("resolver-not-ready")
             return
         }
+        if (
+            resolveCurrentKeyguardAodProjection(resolved.host) !=
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
+        ) {
+            deactivateKeyguardRuntime("projection-ineligible")
+            return
+        }
 
         when (
             val result =
@@ -2297,8 +2304,15 @@ class CombinedStatusModule : XposedModule() {
         source: String,
     ) {
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
-        if (!settings.enabled || !settings.keyguardEnabled) {
-            deactivateKeyguardRuntime("cutover-feature-ineligible")
+        val resolved = SystemUiKeyguardHostResolver.current()
+        if (
+            !settings.enabled ||
+            !settings.keyguardEnabled ||
+            resolved !is SystemUiKeyguardHostResolver.ResolveResult.Ready ||
+            resolveCurrentKeyguardAodProjection(resolved.host) !=
+                CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
+        ) {
+            deactivateKeyguardRuntime("cutover-projection-ineligible")
             return
         }
         keyguardRuntimeReady = true
@@ -2373,21 +2387,19 @@ class CombinedStatusModule : XposedModule() {
                     deactivateAodRuntime("aod-state-unavailable")
                     return
                 }
-        val stableAod =
-            SystemUiKeyguardAodStateSource.isStableAod(
-                toAod = aodState.toAod,
-                isAodAnimate = aodState.isAodAnimate,
-            )
+        if (
+            resolveCurrentKeyguardAodProjection(resolved.host) !=
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD
+        ) {
+            deactivateAodRuntime("projection-ineligible")
+            return
+        }
         val homeTransitionPrearm =
             aodState.isAodAnimate &&
                 steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
                 SystemUiHomePresentationOwner
                     .currentHomeRepresentedSlotOwnership()
                     .isNotEmpty()
-        if (!stableAod && !homeTransitionPrearm) {
-            deactivateAodRuntime("aod-not-eligible")
-            return
-        }
 
         when (
             val result =
@@ -2465,31 +2477,14 @@ class CombinedStatusModule : XposedModule() {
     ) {
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
         val resolved = SystemUiKeyguardHostResolver.current()
-        val aodState =
-            (resolved as? SystemUiKeyguardHostResolver.ResolveResult.Ready)
-                ?.let { ready -> SystemUiKeyguardAodStateSource.currentState(ready.host.battery) }
-        val stableAod =
-            aodState?.let { state ->
-                SystemUiKeyguardAodStateSource.isStableAod(
-                    toAod = state.toAod,
-                    isAodAnimate = state.isAodAnimate,
-                )
-            } == true
-        val homeTransitionPrearm =
-            aodState?.isAodAnimate == true &&
-                steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
-                SystemUiHomePresentationOwner
-                    .currentHomeRepresentedSlotOwnership()
-                    .isNotEmpty()
         if (
-            !CombinedStatusScenePolicy.aodProjectionEligible(
-                featureEnabled = settings.enabled,
-                aodEnabled = settings.aodEnabled,
-                stableAod = stableAod,
-                homeTransitionPrearm = homeTransitionPrearm,
-            )
+            !settings.enabled ||
+            !settings.aodEnabled ||
+            resolved !is SystemUiKeyguardHostResolver.ResolveResult.Ready ||
+            resolveCurrentKeyguardAodProjection(resolved.host) !=
+                CombinedStatusScenePolicy.KeyguardAodProjection.AOD
         ) {
-            deactivateAodRuntime("cutover-feature-ineligible")
+            deactivateAodRuntime("cutover-projection-ineligible")
             return
         }
 
