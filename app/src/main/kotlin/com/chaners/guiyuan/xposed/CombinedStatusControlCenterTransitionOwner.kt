@@ -856,7 +856,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val usableWidth =
                     (group.width - group.paddingStart - group.paddingEnd)
                         .coerceAtLeast(0)
-                return group.width +
+                return "width=" + group.width +
                     "/start=" + group.paddingStart +
                     "/end=" + group.paddingEnd +
                     "/usable=" + usableWidth
