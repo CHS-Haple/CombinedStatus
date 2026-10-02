@@ -295,6 +295,31 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
         }
 
+        fun expandedClipBounds(
+            bounds: CombinedStatusPainter.TransitionBounds,
+            widthScale: Float,
+            heightScale: Float,
+        ): CombinedStatusPainter.TransitionBounds {
+            val resolvedWidthScale =
+                widthScale
+                    .takeIf { it.isFinite() && it > 0f }
+                    ?.coerceAtLeast(1f)
+                    ?: 1f
+            val resolvedHeightScale =
+                heightScale
+                    .takeIf { it.isFinite() && it > 0f }
+                    ?.coerceAtLeast(1f)
+                    ?: 1f
+            val halfWidth = bounds.width * resolvedWidthScale / 2f
+            val halfHeight = bounds.height * resolvedHeightScale / 2f
+            return CombinedStatusPainter.TransitionBounds(
+                left = bounds.centerX - halfWidth,
+                top = bounds.centerY - halfHeight,
+                right = bounds.centerX + halfWidth,
+                bottom = bounds.centerY + halfHeight,
+            )
+        }
+
         fun selectNativeTransitionTint(
             statusIconPeerTint: Int?,
             finalBatteryTint: Int?,
@@ -421,8 +446,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             transitionEnabled: Boolean,
         ): Int =
             when {
-                !tinted -> target
-                !transitionEnabled -> source
+                tinted && !transitionEnabled -> source
                 else ->
                     interpolateColor(
                         source = source,
@@ -1874,6 +1898,37 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         targetOpticalBounds = mobileSpec.targetOpticalBounds,
                     ) ?: return@forEach
                 val targetBars = mobileTargetBars(witness)
+                val targetWidthRatio =
+                    Policy.relativeGeometryWidth(
+                        target = targetGeometry,
+                        current = sourceGeometry,
+                    )
+                val targetHeightRatio =
+                    Policy.relativeGeometryHeight(
+                        target = targetGeometry,
+                        current = sourceGeometry,
+                    )
+                val outerSimilarityScale =
+                    CombinedStatusPainter.MobileSignalMorphPolicy.outerSimilarityScale(
+                        targetWidthRatio = targetWidthRatio,
+                        targetHeightRatio = targetHeightRatio,
+                    )
+                val clipBounds =
+                    Policy.expandedClipBounds(
+                        bounds = mobileSpec.sourceBounds,
+                        widthScale =
+                            CombinedStatusPainter.MobileSignalMorphPolicy
+                                .exactTargetAxisCompensation(
+                                    targetAxisRatio = targetWidthRatio,
+                                    outerScale = outerSimilarityScale,
+                                ),
+                        heightScale =
+                            CombinedStatusPainter.MobileSignalMorphPolicy
+                                .exactTargetAxisCompensation(
+                                    targetAxisRatio = targetHeightRatio,
+                                    outerScale = outerSimilarityScale,
+                                ),
+                    )
                 val pathGeometry =
                     projectedGeometry(
                         source = sourceGeometry,
@@ -1903,10 +1958,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 canvas.concat(matrix)
                 val clip =
                     Policy.horizontalClipBounds(
-                        left = mobileSpec.sourceBounds.left,
-                        top = mobileSpec.sourceBounds.top,
-                        right = mobileSpec.sourceBounds.right,
-                        bottom = mobileSpec.sourceBounds.bottom,
+                        left = clipBounds.left,
+                        top = clipBounds.top,
+                        right = clipBounds.right,
+                        bottom = clipBounds.bottom,
                         visibleFraction = revealVisibleFraction,
                         anchorRight =
                             (sourceViewRef.get()?.layoutDirection
@@ -1933,16 +1988,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     opacity = 1f,
                     motionProgress = motionProgress,
                     shapeProgress = shapeProgress,
-                    mobileTargetWidthRatio =
-                        Policy.relativeGeometryWidth(
-                            target = targetGeometry,
-                            current = sourceGeometry,
-                        ),
-                    mobileTargetHeightRatio =
-                        Policy.relativeGeometryHeight(
-                            target = targetGeometry,
-                            current = sourceGeometry,
-                        ),
+                    mobileTargetWidthRatio = targetWidthRatio,
+                    mobileTargetHeightRatio = targetHeightRatio,
                     mobileTargetBars = targetBars,
                 )
                 canvas.restoreToCount(save)
