@@ -263,6 +263,7 @@ class CombinedStatusModule : XposedModule() {
             steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
+            aodRuntimeAttached = false
             keyguardPresentationReadyObserved = false
             keyguardControlCenterLeaseActive = false
             controlCenterGeometryProbeBucket = -1
@@ -1889,10 +1890,22 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
         }
-        val retainKeyguardLease =
-            sourceScene == CombinedStatusSourceScene.HOME &&
-                shouldRetainKeyguardControlCenterLease()
         if (sourceScene == CombinedStatusSourceScene.HOME) {
+            // UNLOCKED_STATUS_BAR + Home ancestry is the authoritative unlock
+            // boundary. A Keyguard Control Center lease must never outlive it:
+            // otherwise a fast first pull-down can consume stale KEYGUARD
+            // source state and temporarily fall back to native QS icons.
+            if (keyguardControlCenterLeaseActive) {
+                releaseKeyguardControlCenterLease(
+                    source = "authoritative-home",
+                    reconcileReadiness = false,
+                )
+            }
+            updateControlCenterSourceSceneEligibility(
+                sourceScene = CombinedStatusSourceScene.HOME,
+                authority = "steady-source-view",
+            )
+
             if (aodRuntimeAttached) {
                 val retainAodHandoff =
                     SystemUiHomePresentationOwner.currentAodPresentationClaimed()
@@ -1911,27 +1924,12 @@ class CombinedStatusModule : XposedModule() {
                     )
                 }
             }
-            if (retainKeyguardLease) {
-                logDiagnostic(
-                    level = Log.INFO,
-                    event = "scene.defer",
-                    component = "keyguardControlCenter",
-                    state = "retained",
-                    "source" to "steady-source-view",
-                    "observedScene" to sourceScene.name,
-                    "leasedScene" to controlCenterSourceScene.name,
-                    "nativeFraction" to controlCenterExpansionFraction,
-                    "reason" to "control-center-keyguard-lease",
-                    "nativeGeometryWrites" to 0,
-                )
-            } else {
-                deactivateKeyguardRuntime("home-source-active")
-            }
-        }
-        if (
-            sourceScene != CombinedStatusSourceScene.UNKNOWN &&
-            !retainKeyguardLease
-        ) {
+            // Clear the old Keyguard renderer only after Control Center source
+            // ownership has already moved to Home. Any readiness callback caused
+            // by teardown therefore refreshes HOME eligibility, never stale
+            // KEYGUARD eligibility.
+            deactivateKeyguardRuntime("home-source-active")
+        } else if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
             updateControlCenterSourceSceneEligibility(
                 sourceScene = sourceScene,
                 authority = "steady-source-view",
@@ -2454,6 +2452,7 @@ class CombinedStatusModule : XposedModule() {
             }
 
             is SystemUiHomePresentationOwner.StateResult.Failure -> {
+                aodRuntimeAttached = false
                 CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
                 SystemUiHomePresentationOwner.deactivateAod("activation-failed")
                 logDiagnostic(
@@ -2472,6 +2471,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun applyAodPresentationReadinessLost(source: String) {
+        aodRuntimeAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod("readiness-lost:" + source)
     }
@@ -2508,6 +2508,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onAodPresentationRuntimeFailure(reason: String) {
+        aodRuntimeAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         logDiagnostic(
             level = Log.WARN,
