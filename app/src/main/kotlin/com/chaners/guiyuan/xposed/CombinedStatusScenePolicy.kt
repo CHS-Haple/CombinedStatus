@@ -205,20 +205,10 @@ internal object CombinedStatusScenePolicy {
         aodPresentationOwned: Boolean,
     ): KeyguardAodProjection {
         if (aodPresentationOwned) {
-            return when (steadySourceScene) {
-                CombinedStatusSourceScene.HOME -> KeyguardAodProjection.AOD
-                CombinedStatusSourceScene.KEYGUARD ->
-                    if (keyguardEnabled) {
-                        KeyguardAodProjection.AOD
-                    } else {
-                        KeyguardAodProjection.NATIVE
-                    }
-                CombinedStatusSourceScene.UNKNOWN ->
-                    if (keyguardEnabled) {
-                        KeyguardAodProjection.AOD
-                    } else {
-                        KeyguardAodProjection.NATIVE
-                    }
+            return if (aodEnabled) {
+                KeyguardAodProjection.AOD
+            } else {
+                KeyguardAodProjection.NATIVE
             }
         }
         if (
