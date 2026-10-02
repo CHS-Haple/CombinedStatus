@@ -187,10 +187,10 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         val source = 0xffff6600.toInt()
         val target = 0xe6ffffff.toInt()
 
-        assertEquals(0f, policy.transitionTintProgress(0.44f), 0.0001f)
-        assertEquals(0f, policy.transitionTintProgress(0.45f), 0.0001f)
-        assertEquals(0.5f, policy.transitionTintProgress(0.625f), 0.0001f)
-        assertEquals(1f, policy.transitionTintProgress(0.80f), 0.0001f)
+        assertEquals(0f, policy.transitionTintProgress(0f), 0.0001f)
+        assertTrue(policy.transitionTintProgress(0.01f) > 0f)
+        assertEquals(0.5f, policy.transitionTintProgress(0.225f), 0.0001f)
+        assertEquals(1f, policy.transitionTintProgress(0.45f), 0.0001f)
         assertEquals(1f, policy.transitionTintProgress(0.90f), 0.0001f)
 
         assertEquals(
@@ -206,7 +206,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             policy.interpolateColor(
                 source = source,
                 target = target,
-                progress = 0.625f,
+                progress = 0.225f,
             ),
         )
         assertEquals(
