@@ -409,19 +409,14 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
-        private const val CHARGING_HIDE_START_REMAINING = 1.00f
-        private const val CHARGING_HIDE_END_REMAINING = 0.50f
+        private const val CHARGING_HIDE_COMPLETE_RING_LIFETIME = 0.50f
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
         private const val CHARGING_TARGET_REVEAL_START = 0.85f
         private const val CHARGING_TARGET_REVEAL_COMPLETE = 0.90f
 
-        private val chargingHideStartProgress =
-            firstProgressAtOrBelowRemaining(CHARGING_HIDE_START_REMAINING)
+        private const val chargingHideStartProgress = 0f
         private val chargingHideEndProgress =
-            firstProgressAtOrBelowRemaining(CHARGING_HIDE_END_REMAINING)
-        private val chargingHideProgressSpan =
-            (chargingHideEndProgress - chargingHideStartProgress)
-                .coerceAtLeast(0.001f)
+            firstProgressAtOrAboveRingLifetime(CHARGING_HIDE_COMPLETE_RING_LIFETIME)
         private val chargingTargetRevealComplete =
             CHARGING_TARGET_REVEAL_COMPLETE
 
@@ -441,18 +436,18 @@ internal class CombinedStatusPainter(
         }
 
         internal fun chargingSourceVisibleFraction(progress: Float): Float {
-            val retained =
-                (
-                    (chargingHideEndProgress - progress.coerceIn(0f, 1f)) /
-                        chargingHideProgressSpan
-                ).coerceIn(0f, 1f)
-            return smooth(retained)
+            val ringLifetime = chargingRingLifetimeProgress(progress)
+            return (
+                1f -
+                    ringLifetime /
+                        CHARGING_HIDE_COMPLETE_RING_LIFETIME
+            ).coerceIn(0f, 1f)
         }
 
         fun chargingMotionProgress(progress: Float): Float {
             // Source and number remain one visual group while the charging glyph
-            // is clipped in lockstep with the retracting ring. Clipping starts when
-            // retract begins and completes exactly when 50% of the ring remains.
+            // is clipped directly against the ring-retract lifetime. Clipping starts
+            // with retract and completes exactly halfway through that lifetime.
             // Target travel begins only after that boundary.
             if (chargingSourceVisibleFraction(progress) > 0f) return 0f
             val hiddenTravel =
@@ -463,11 +458,13 @@ internal class CombinedStatusPainter(
             return smooth(hiddenTravel)
         }
 
-        internal fun chargingRingRemaining(progress: Float): Float {
-            val ringProgress =
-                CombinedStatusBatteryRingTransitionPolicy.transitionProgress(progress)
-            return CombinedStatusBatteryRingTransitionPolicy.remainingFraction(ringProgress)
-        }
+        internal fun chargingRingLifetimeProgress(progress: Float): Float =
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(progress)
+
+        internal fun chargingRingRemaining(progress: Float): Float =
+            CombinedStatusBatteryRingTransitionPolicy.remainingFraction(
+                chargingRingLifetimeProgress(progress),
+            )
 
         internal fun sourceHideWindow(): Pair<Float, Float> =
             Pair(chargingHideStartProgress, chargingHideEndProgress)
@@ -475,12 +472,12 @@ internal class CombinedStatusPainter(
         internal fun targetRevealWindow(): Pair<Float, Float> =
             Pair(CHARGING_TARGET_REVEAL_START, chargingTargetRevealComplete)
 
-        private fun firstProgressAtOrBelowRemaining(threshold: Float): Float {
+        private fun firstProgressAtOrAboveRingLifetime(threshold: Float): Float {
             var low = 0f
             var high = 1f
             repeat(12) {
                 val mid = (low + high) / 2f
-                if (chargingRingRemaining(mid) <= threshold) {
+                if (chargingRingLifetimeProgress(mid) >= threshold) {
                     high = mid
                 } else {
                     low = mid
