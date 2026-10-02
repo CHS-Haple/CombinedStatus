@@ -37,63 +37,79 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 624 remains the accepted battery-ring/fill retract baseline. Build 629 was device-rejected because the charging glyph was frozen in root coordinates, remained visible beyond the 50% retained-ring point, and reappeared too early. Build 631 corrected the source-side contract by keeping the visible/fading glyph fixed relative to the battery percentage, hiding it fully by 50% retained ring, moving it only while hidden, and revealing it only near the end. Build 632 moves the final reveal slightly earlier from 92% to 88%.
+Build 624 remains the accepted ring/fill retract baseline.
 
-Build 633 adds the requested Control Center color handoff:
-- only elements that are **actually colorized** by the current battery semantic color source participate;
-- elements already following the system/status-icon tint do not get a second artificial color animation;
-- when enabled, colorized participants keep their source color through the first 35% of handoff, transition quickly with smoothstep from 35% -> 65%, then hold the final native status-icon tint through the last 35%;
-- the target tint comes from the real final `statusIcons` native peer tint and is refreshed read-only during the transition;
-- when no reliable final tint is available, source color is retained rather than guessing black/white;
-- the behavior is controlled by the new global **Pull-down tint transition / 下拉反色过渡** switch, default ON;
-- when the switch is OFF, colorized participants keep their source color throughout the pull-down; this switch does not alter steady-state color policy.
+Build 633 established:
+- charging glyph remains number-relative while visible;
+- source hide boundary is tied to retained ring 60% -> 50%;
+- hidden target travel begins only after complete source hide;
+- final reveal started at 88%;
+- selective pull-down reverse-tint transition was added behind a default-ON global switch.
 
-Colorized participants are selected semantically:
-- battery ring whenever the active battery color source resolves to a preset/custom color;
-- mobile dots/unavailable mark only when Mobile follows battery color;
-- center Wi-Fi/mobile type/airplane/no-SIM/hotspot only when Center follows battery color;
-- battery number only when Battery number follows battery color;
-- charging glyph only when Charging icon follows battery color.
+Device feedback on Build 633 identified two follow-ups:
+1. charging-glyph reappearance still looked too much like an alpha flash;
+2. the pull-down reverse-tint transition was effectively not visible.
 
-Charging geometry/alpha contract remains unchanged:
-- source glyph fades over retained ring 60% -> 50% and is fully invisible by 50%;
-- while visible/fading it follows the percentage-number affine transform;
-- independent target motion starts only after source alpha reaches zero;
-- target travel remains invisible;
-- final target reveal starts at overall handoff progress 88%;
-- fade-in reuses the same progress duration and smoothstep as fade-out;
-- exact native `mBatteryChargingView` geometry and no-target fail-native behavior remain unchanged.
+Build 635 changes the transition language without changing the accepted geometry/path contracts.
+
+### Opaque clip transition
+
+- Charging glyph no longer changes alpha for its semantic hide/reveal.
+- Source remains fully opaque and number-relative while a horizontal clip consumes it over the existing retained-ring 60% -> 50% window.
+- After complete clipping, independent target travel remains hidden.
+- Target reveal now begins at 85% rather than 88%, but the **fully visible completion time remains the same as Build 633**, producing a longer/slower reveal.
+- The reveal is an inverse clip, not a fade.
+
+The same opaque visual language now applies to generic transition participants:
+- source exists, no target: fast clip-out replaces cubic alpha fade;
+- no source, target appears later (second mobile, airplane, no-SIM): existing space-separation and target-distance gates remain, but reveal uses clip-in rather than alpha fade;
+- alpha remains reserved for the transition layer/global fail-native opacity, not semantic participant disappearance.
+
+### Reverse-tint correction
+
+Build 633 depended only on the final `statusIcons` peer-tint cache. Device video showed native peers reaching the correct reverse tint while Guiyuan's colorized ring/readout remained colored, consistent with that cache being unavailable on the active path.
+
+Build 635 resolves the target tint from:
+1. live final status-icons peer tint;
+2. final native battery's current `SystemUiTintStateSource` status/applied tint;
+3. last valid cached native tint.
+
+Transparent/invalid candidates are rejected. No black/white tint is guessed.
+
+The existing **下拉反色过渡 / Pull-down tint transition** switch remains default ON:
+- ON: only currently colorized participants hold source color through 35%, smoothstep to the native target tint over 35%-65%, then hold target tint;
+- OFF: colorized participants keep their source color throughout the pull-down;
+- participants already following native tint remain on the native tint path.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003633` / Build `20261003-633`.
-- Unit coverage locks:
-  - 60% -> 50% charging source fade and 50% full invisibility;
-  - battery-number-relative charging-glyph geometry;
-  - hidden-only target travel and 88% late reveal;
-  - equal fade-out/fade-in duration;
-  - ARGB transition endpoints and 35% / 50% / 65% middle-only tint curve;
-  - actual tinted-state semantics versus FOLLOW_SYSTEM;
-  - switch OFF keeps colorized participants at source color;
-  - non-colorized participants stay on the native tint path;
-  - switch default is true and participates in visual-runtime sync.
-- Build-624 main ring/fill curve remains unchanged; terminal ROUND-cap cleanup remains intact.
+- Candidate identity: `0.0.5` / versionCode `261003635` / Build `20261003-635`.
+- Existing Build-624 ring/fill motion remains untouched.
+- Charging exact-target geometry and number-relative follower transform remain unchanged.
+- Tests cover:
+  - opaque charging clip hide/reveal;
+  - 85% reveal start with Build-633 completion time retained;
+  - hidden-only target travel;
+  - generic unmatched clip-out;
+  - clip edge anchoring;
+  - latent reveal gating;
+  - final-battery tint fallback selection;
+  - selective tint switch and 35%-65% color curve.
+- The runtime source before final identity/docs closure already passed Runtime CI #2355.
 
 ## Device gate
 
-Focused Build-633 validation:
-- charging glyph remains relative to the percentage number before full hide;
-- glyph is fully hidden by 50% retained ring;
-- glyph does not reappear immediately after ring completion and starts final reveal around 88% handoff;
-- fade-in/fade-out speed remains symmetric;
-- with **下拉反色过渡 ON**, colorized elements hold their color initially, change mainly through the middle 35%-65%, then remain on system reverse tint;
-- with the switch OFF, the same colorized elements remain in their source color during pull-down;
-- elements already following system tint should not show a second visible color transition;
-- no color jump, guessed black/white, geometry regression, percentage jump, or target mismatch.
+Focused Build-635 validation:
+- charging glyph should look physically clipped/ revealed rather than faded;
+- final charging reveal should begin slightly earlier but finish at the same time as 633;
+- unmatched and latent participants should stay visually opaque while being clipped, with no obvious scale collapse;
+- **下拉反色过渡 ON** must visibly transition colorized ring/dots/center/readout/charging participants to the actual native reverse tint;
+- switch OFF must preserve their source color;
+- no wrong-side wipe, clipping of matched target participants, color jump, guessed tint, or geometry regression.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 633 after final review. If clean, freeze runtime and produce one signed Work Branch Canary for combined charging/tint validation.
+Run final exact-HEAD Runtime CI for Build 635 after docs/version closure. If clean, produce one signed Canary for device validation.
 
 ## Reference priority
 
