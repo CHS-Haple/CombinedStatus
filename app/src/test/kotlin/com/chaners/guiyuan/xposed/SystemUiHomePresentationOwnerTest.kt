@@ -156,6 +156,50 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun keyguardFamilyReleaseIgnoresOldSceneAfterSuccessfulRetarget() {
+        assertFalse(
+            SystemUiHomePresentationOwner.KeyguardFamilyHandoffPolicy.shouldRelease(
+                activeSurface = SystemUiHomePresentationOwner.KeyguardFamilySurface.AOD,
+                requestedSurface = SystemUiHomePresentationOwner.KeyguardFamilySurface.KEYGUARD,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.KeyguardFamilyHandoffPolicy.shouldRelease(
+                activeSurface = SystemUiHomePresentationOwner.KeyguardFamilySurface.KEYGUARD,
+                requestedSurface = SystemUiHomePresentationOwner.KeyguardFamilySurface.AOD,
+            ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.KeyguardFamilyHandoffPolicy.shouldRelease(
+                activeSurface = SystemUiHomePresentationOwner.KeyguardFamilySurface.AOD,
+                requestedSurface = SystemUiHomePresentationOwner.KeyguardFamilySurface.AOD,
+            ),
+        )
+    }
+
+    @Test
+    fun aodPreMaskRequiresDeferredLayoutAndExplicitHandoffRequest() {
+        assertTrue(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldPreMaskBeforeCompactCutover(
+                deferVisualMaskUntilLayout = true,
+                preMaskBeforeLayout = true,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldPreMaskBeforeCompactCutover(
+                deferVisualMaskUntilLayout = true,
+                preMaskBeforeLayout = false,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldPreMaskBeforeCompactCutover(
+                deferVisualMaskUntilLayout = false,
+                preMaskBeforeLayout = true,
+            ),
+        )
+    }
+
+    @Test
     fun lateEligibleControlCenterCanAdoptAlreadyCompletedNativeLayout() {
         assertTrue(
             SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
