@@ -698,9 +698,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             )
 
         assertEquals(0f, expanded.left, 0.0001f)
-        assertEquals(10f, expanded.top, 0.0001f)
+        assertEquals(15f, expanded.top, 0.0001f)
         assertEquals(60f, expanded.right, 0.0001f)
-        assertEquals(70f, expanded.bottom, 0.0001f)
+        assertEquals(65f, expanded.bottom, 0.0001f)
 
         val unchanged =
             CombinedStatusControlCenterTransitionOwner.Policy.expandedClipBounds(
