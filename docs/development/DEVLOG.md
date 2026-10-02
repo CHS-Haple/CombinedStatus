@@ -2300,3 +2300,19 @@ No timer, extra animator, guessed pixel offset, native target mutation or second
 - Charging handoff tests verify later source visibility, full disappearance before target travel, short hidden travel and no-target no-reveal behavior.
 - Runtime CI passes the source correction before final Build identity/docs closure.
 - Signed Canary/device evidence remains mandatory before integration.
+
+
+### Source-position lock clarification
+
+Maintainer clarification after the first Build-629 timing pass: the charging glyph must not move at all while any source-side alpha remains visible.
+
+Review found that `chargingMotionProgress()` was numerically zero during fade, but the shared geometry path still rebased the source component to the current carrier before interpolation. That could produce visible movement even with zero target progress.
+
+Build 629 therefore makes the phase boundary explicit:
+- `chargingSourceOpacity(progress) > 0` hard-forces `chargingMotionProgress(progress) == 0`;
+- while that source opacity remains non-zero, Control Center rendering uses the frozen `sourceGeometry` directly;
+- carrier rebase and target interpolation are both bypassed during source fade;
+- only after source opacity reaches exactly zero may hidden target travel begin;
+- target-side reappearance near the destination remains unchanged.
+
+A dense unit sample across the fade interval protects the no-motion invariant independently of the exact fade constants.
