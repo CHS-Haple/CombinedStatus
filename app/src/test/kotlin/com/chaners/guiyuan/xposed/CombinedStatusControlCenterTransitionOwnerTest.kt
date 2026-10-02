@@ -58,8 +58,8 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(previous633RevealComplete, revealEnd, 0.001f)
         assertTrue(revealEnd - revealStart > hideEnd - hideStart)
 
-        assertEquals(0.26f, policy.chargingRingRemaining(hideStart), 0.01f)
-        assertEquals(0.20f, policy.chargingRingRemaining(hideEnd), 0.01f)
+        assertEquals(1.00f, policy.chargingRingRemaining(hideStart), 0.01f)
+        assertEquals(0.50f, policy.chargingRingRemaining(hideEnd), 0.01f)
         assertEquals(
             1f,
             policy.chargingVisibleFraction(
@@ -218,7 +218,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun pullDownTintSwitchOnlyFreezesColorizedParticipants() {
+    fun followSystemParticipantsUseLiveNativeTintWhileCustomTintUsesOptionalTransition() {
         val policy = CombinedStatusControlCenterTransitionOwner.Policy
         val source = 0xff202020.toInt()
         val target = 0xffeeeeee.toInt()
@@ -234,7 +234,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             ),
         )
         assertEquals(
-            policy.interpolateColor(source, target, 0.50f),
+            target,
             policy.resolveTransitionTint(
                 source = source,
                 target = target,
@@ -254,7 +254,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             ),
         )
         assertEquals(
-            source,
+            target,
             policy.resolveTransitionTint(
                 source = source,
                 target = target,
@@ -712,16 +712,14 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun finalBatteryTintBacksUpMissingStatusIconPeerTint() {
+    fun nativePeerTintNeverFallsBackToBatteryTintAuthority() {
         val policy = CombinedStatusControlCenterTransitionOwner.Policy
-        val peer = 0xffffffff.toInt()
-        val battery = 0xffeeeeee.toInt()
+        val peer = 0xffe0e0e0.toInt()
         val cached = 0xffdddddd.toInt()
 
-        assertEquals(peer, policy.selectNativeTransitionTint(peer, battery, cached))
-        assertEquals(battery, policy.selectNativeTransitionTint(null, battery, cached))
-        assertEquals(cached, policy.selectNativeTransitionTint(null, null, cached))
-        assertNull(policy.selectNativeTransitionTint(null, 0x00000000, null))
+        assertEquals(peer, policy.selectNativeTransitionTint(peer, cached))
+        assertEquals(cached, policy.selectNativeTransitionTint(null, cached))
+        assertNull(policy.selectNativeTransitionTint(null, null))
     }
 
     @Test
