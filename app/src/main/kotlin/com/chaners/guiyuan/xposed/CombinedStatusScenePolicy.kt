@@ -149,6 +149,12 @@ internal object CombinedStatusScenePolicy {
         AOD,
     }
 
+    enum class StableKeyguardAodScene {
+        UNKNOWN,
+        KEYGUARD,
+        AOD,
+    }
+
     fun resolveKeyguardAodProjection(
         featureEnabled: Boolean,
         keyguardEnabled: Boolean,
@@ -156,6 +162,7 @@ internal object CombinedStatusScenePolicy {
         toAod: Boolean,
         isAodAnimate: Boolean,
         steadySourceScene: CombinedStatusSourceScene = CombinedStatusSourceScene.UNKNOWN,
+        lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
         homePresentationOwned: Boolean = false,
         keyguardPresentationOwned: Boolean = false,
         aodPresentationOwned: Boolean = false,
@@ -166,9 +173,8 @@ internal object CombinedStatusScenePolicy {
                 keyguardEnabled = keyguardEnabled,
                 aodEnabled = aodEnabled,
                 steadySourceScene = steadySourceScene,
+                lastStableFamilyScene = lastStableFamilyScene,
                 homePresentationOwned = homePresentationOwned,
-                keyguardPresentationOwned = keyguardPresentationOwned,
-                aodPresentationOwned = aodPresentationOwned,
             )
         }
         if (
@@ -222,68 +228,65 @@ internal object CombinedStatusScenePolicy {
         keyguardEnabled: Boolean,
         aodEnabled: Boolean,
         steadySourceScene: CombinedStatusSourceScene,
+        lastStableFamilyScene: StableKeyguardAodScene,
         homePresentationOwned: Boolean,
-        keyguardPresentationOwned: Boolean,
-        aodPresentationOwned: Boolean,
     ): KeyguardAodProjection {
         if (steadySourceScene == CombinedStatusSourceScene.HOME) {
             return if (homePresentationOwned && aodEnabled) {
-                // Home -> AOD prearm: Home still owns the visible source while
-                // HyperOS briefly reports an animating Keyguard-family host.
+                // Home -> AOD is the only transition without a prior stable
+                // Keyguard/AOD child. Keep the verified Home presentation as
+                // the source while prearming the enabled AOD child.
                 KeyguardAodProjection.AOD
             } else {
                 KeyguardAodProjection.NATIVE
             }
         }
 
-        if (steadySourceScene == CombinedStatusSourceScene.KEYGUARD) {
-            if (homePresentationOwned && aodEnabled) {
-                // The transient KEYGUARD source on Home -> AOD must not steal
-                // ownership from the still-visible Home source.
-                return KeyguardAodProjection.AOD
-            }
+        if (
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            homePresentationOwned &&
+            aodEnabled
+        ) {
+            // HyperOS briefly exposes KEYGUARD ancestry while Home still owns
+            // the visible source on Home -> AOD. Home ownership is stronger
+            // evidence than family history for this one boundary.
+            return KeyguardAodProjection.AOD
+        }
 
-            if (keyguardPresentationOwned) {
-                // Keyguard is the outgoing child. During an AOD animation the
-                // next visible owner is AOD when enabled, otherwise native AOD.
-                return if (aodEnabled) {
+        // Do not derive AOD animation direction from current presentation
+        // ownership. Attach/cleanup mutates ownership itself and Build 645
+        // proved that doing so creates KEYGUARD -> NATIVE -> KEYGUARD
+        // oscillation on repeated callbacks. Direction is instead derived from
+        // the last non-animating, runtime-observed family scene and remains
+        // frozen for the whole animation.
+        return when (lastStableFamilyScene) {
+            StableKeyguardAodScene.KEYGUARD ->
+                if (aodEnabled) {
                     KeyguardAodProjection.AOD
                 } else {
                     KeyguardAodProjection.NATIVE
                 }
-            }
 
-            if (aodPresentationOwned) {
-                // AOD is the outgoing child. Once steady KEYGUARD is verified,
-                // hand off immediately to the enabled Keyguard child; if that
-                // child is disabled, release to native instead. An old AOD
-                // presentation claim must never override the child switch.
-                return if (keyguardEnabled) {
+            StableKeyguardAodScene.AOD ->
+                if (keyguardEnabled) {
                     KeyguardAodProjection.KEYGUARD
                 } else {
                     KeyguardAodProjection.NATIVE
                 }
-            }
 
-            // No family child owns the host yet (notably native AOD -> Keyguard
-            // with AOD projection disabled). Acquire Keyguard immediately when
-            // enabled rather than waiting for the animation-tail callback.
-            return if (keyguardEnabled) {
-                KeyguardAodProjection.KEYGUARD
-            } else {
-                KeyguardAodProjection.NATIVE
-            }
+            StableKeyguardAodScene.UNKNOWN ->
+                if (
+                    steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+                    keyguardEnabled
+                ) {
+                    // Cold-start / late-install fallback: an authoritative
+                    // Keyguard source may acquire only the enabled Keyguard
+                    // child. No cross-child inference is made.
+                    KeyguardAodProjection.KEYGUARD
+                } else {
+                    KeyguardAodProjection.NATIVE
+                }
         }
-
-        // UNKNOWN is not authoritative enough to change children. Preserve only
-        // an actually-owned enabled family surface; otherwise fail native.
-        if (aodPresentationOwned && aodEnabled) {
-            return KeyguardAodProjection.AOD
-        }
-        if (keyguardPresentationOwned && keyguardEnabled) {
-            return KeyguardAodProjection.KEYGUARD
-        }
-        return KeyguardAodProjection.NATIVE
     }
 
     fun controlCenterProjectionEligible(
