@@ -246,6 +246,20 @@ class CombinedStatusScenePolicyTest {
                 toAod = false,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                homePresentationOwned = false,
+                aodPresentationOwned = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                homePresentationOwned = true,
                 aodPresentationOwned = true,
             ),
         )
