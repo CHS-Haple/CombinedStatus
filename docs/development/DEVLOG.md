@@ -2532,3 +2532,30 @@ No visual behavior or ownership semantics are changed.
 - Latent additional-mobile target Clip-envelope correction from Build 638 remains.
 
 No new animator, timer, guessed tint, per-icon size multiplier, or native writer is introduced.
+
+
+## 2026-10-03 — Build 646: accelerate charging target reveal and delay custom tint
+
+**Type:** device feedback / timing polish  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 644 -> 646
+
+### Build-644 feedback
+
+- Charging target glyph still takes too long from first reappearance to fully visible.
+- Custom-color pull-down tint begins too early and completes too quickly.
+
+### Root cause
+
+- Charging target reveal was a fixed global `0.85 -> 0.98` smooth window. This is not the same cadence as latent resources, whose local reveal completes after only the first 35% of their unlocked reveal progress.
+- Custom-color interpolation still used the earlier `0.35 -> 0.65` phase.
+
+### Build-646 correction
+
+- Charging target reveal still begins at global progress 0.85, but completes after 35% of the previous 0.85 -> 0.98 local reveal span, matching the accelerated latent-resource cadence.
+- Source charging Clip remains unchanged: ring retract start = Clip start; retained ring 50% = source fully hidden.
+- Hidden travel, target geometry, and fail-native behavior remain unchanged.
+- Custom-color interpolation moves to `0.45 -> 0.80`: later start and longer transition.
+- `FOLLOW_SYSTEM` participants remain outside this custom interpolation and continue to use live QS_FAKE applied tint directly.
+
+No new animator, timer, target geometry change, native writer, or additional transition clock is introduced.
