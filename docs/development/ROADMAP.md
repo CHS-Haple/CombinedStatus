@@ -26,15 +26,24 @@ Remaining:
 - preserve accepted steady Home/Keyguard geometry and Build-473 Wi-Fi optical behavior;
 - avoid project-owned gesture timing, duplicate translation writers, endpoint snaps, or duplicate occupancy.
 
-## Phase 3 — Keyguard / AOD ownership — steady scene complete; shared transition polish remains
+## Phase 3 — Keyguard / AOD ownership — steady Keyguard complete; optional AOD planned
 
 Established:
 - optional steady Keyguard Guiyuan with independent host/session;
-- AOD remains native-only;
+- AOD remains native-only in the accepted runtime baseline;
 - Keyguard-originated QS_FAKE uses the same verified transition boundary;
 - session-owned slot exclusions are reversible and fail native on ambiguity.
 
-Remaining work is limited to the shared Control Center transition presentation from the Keyguard source scene.
+Planned AOD control contract:
+- add a dedicated AOD display toggle; AOD must remain disabled when this toggle is off;
+- the global combined-status enable switch is the parent gate for Home, Keyguard, and AOD, so disabling Guiyuan must also release any AOD replacement and restore native AOD;
+- Keyguard display and AOD display are independent child preferences: enabling/disabling either one must not change the other;
+- AOD must use its own bounded scene/host/session ownership and lifecycle cleanup rather than reusing Keyguard visibility as a proxy;
+- unsupported or ambiguous AOD topology fails native without affecting Home or Keyguard.
+
+Remaining:
+- shared Control Center transition presentation from the Keyguard source scene;
+- exact-target AOD host/lifecycle evidence before implementing the optional AOD scene.
 
 ## Phase 4 — Companion app and customization — product polish
 
@@ -69,8 +78,8 @@ Before 1.0.0:
 
 Preserve:
 - authoritative native state -> domain state -> scene/presentation policy -> renderer;
-- independent Home and Keyguard ownership;
-- native final Control Center and AOD ownership;
+- independent Home, Keyguard, and optional AOD scene ownership;
+- native final Control Center ownership; AOD remains native unless the dedicated AOD scene safely acquires its own bounded replacement contract;
 - native resource identity/tint authority where available;
 - custom colors/sizing as presentation policy, not duplicate platform state;
 - bounded diagnostics outside hot paths.
