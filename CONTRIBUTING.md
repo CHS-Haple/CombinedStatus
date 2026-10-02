@@ -8,6 +8,8 @@ These rules apply to app code, SystemUI integration, compatibility, diagnostics,
 
 English is canonical for source code, engineering documentation, contribution governance, pull requests, and repository templates. User-facing documentation may also provide Simplified Chinese.
 
+Unless explicitly stated otherwise, contributions intentionally submitted for inclusion in Guiyuan are licensed under `GPL-3.0-or-later`, matching the project license.
+
 Local baseline: JDK 21, Android SDK 37 / Build Tools 37.0.0, Modern Xposed API 102, the checked-in Gradle Wrapper, and the MIUIX revision pinned by project build files.
 
 For an ordinary code checkpoint:
