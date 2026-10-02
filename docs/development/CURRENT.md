@@ -4,41 +4,40 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Accepted baseline
 
-- Product / display version candidate: Guiyuan 0.0.5.
-- `dev` contains the accepted Build 617 runtime/product line from PR #192.
-- Version identity on this bump branch: `0.0.5` / versionCode `261002418` / Build `20261002-618`.
+- Product / display version: Guiyuan 0.0.5.
+- `dev` is promotion-ready on the integrated 0.0.5 / Build 618 state.
+- Version identity: `0.0.5` / versionCode `261002418` / Build `20261002-618`.
 - Build 617 / `20261002-617` is the latest runtime-affecting checkpoint.
-- Build 618 is version/public-documentation metadata only and introduces no runtime behavior change.
+- Build 618 changes only version/public-documentation identity; runtime behavior remains Build 617.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
 - GPL-3.0-or-later remains the project license.
 
-## Build 617 accepted runtime scope
+## Integrated Build 617 scope
 
-The integrated runtime line includes:
 - component-aware Wi-Fi ring avoidance, including off-center hotspot/no-internet badge geometry;
 - overall-size range 60%-100% and Wi-Fi/mobile-type ranges 40%-125%;
-- 5G/5GA following user overall scale while host viewport scale remains compensated;
+- 5G/5GA follows user overall scale while host viewport scale remains compensated;
 - SystemUI-main-thread visual-settings commits with stale slider snapshots coalesced;
-- layout-profile defaults: Network centered battery number 120%; Battery centered battery number 140% and mobile type 80%;
-- profile-scoped Top information vertical offset in the Global UI section, targeting number+charging glyph for Network centered and network content for Battery centered.
+- profile defaults: Network centered battery number 120%; Battery centered battery number 140% and mobile type 80%;
+- profile-scoped Top information vertical offset in Global settings, targeting number+charging glyph for Network centered and network content for Battery centered.
 
-Validation evidence for the runtime head:
+## Validation evidence
+
+Runtime/product line:
 - PR #192 merged to `dev` as `fee0361e34b7e55722f4cbddf70415fe8966bca5`;
 - exact-head Runtime CI #2215 succeeded for Build 617;
 - signed Work Branch Canary #649 succeeded for Build 617, including trusted-source checkout, target profile, unit tests/build, Modern Xposed metadata, Haple signature and non-debuggable verification.
 
+Version/promotion line:
+- PR #193 advanced the development line to 0.0.5 / Build 618;
+- exact-head Full CI #2217 succeeded on the 0.0.5 bump;
+- trusted `dev` integration CI #2218 succeeded on `9e2611f9140f74046dd7ec409a4d74a87c151b35`, including Haple signing, signed APK verification, target profile, tests/build, Modern Xposed metadata and non-debuggable verification.
+
 ## Promotion objective
 
-Current branch: `feat/version-0.0.5`.
+The exact validated `dev` state is ready for direct `dev -> main` promotion. The promotion must preserve history with a merge commit. If GitHub auto-deletes `dev` after the promotion, recreate `dev` immediately at the promoted `main` SHA and verify both branches are synchronized.
 
-Required next:
-1. validate exact Build-618 version/documentation identity with Full CI;
-2. merge the 0.0.5 bump into `dev`;
-3. require trusted `dev` integration CI on the merged 0.0.5 state;
-4. promote the exact validated `dev` state to `main`;
-5. recreate/synchronize `dev` immediately if GitHub auto-deletes it after dev-to-main promotion.
-
-No additional device validation is required for Build 618 because the delta is metadata/documentation-only relative to accepted Build 617 runtime behavior.
+No additional device validation is required for Build 618 because its delta from accepted Build 617 is metadata/documentation-only.
 
 ## Reference priority
 
