@@ -2428,3 +2428,40 @@ Build 632's 88% final charging-glyph reveal start remains. The 60% -> 50% source
 - Tests lock the 35%/65% middle-only phase.
 - Tests lock switch OFF -> source color for tinted participants and non-tinted -> native target tint.
 - Visual-settings tests lock default ON and runtime-sync key coverage.
+
+
+## 2026-10-03 — Build 633 device rejection; Build 635 opaque clip transitions and tint fallback
+
+**Type:** device visual feedback / transition semantics / tint authority  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 633 -> 635
+
+### Device feedback
+
+Build 633 exposed two visual issues:
+- charging-glyph target reappearance still reads as a fade/flash even after moving reveal earlier;
+- selective pull-down reverse-tint transition is effectively absent: native status peers reach reverse tint while Guiyuan's colorized ring/readout remain at their semantic color.
+
+### Root cause and design correction
+
+Semantic visibility should not be represented by alpha when the rest of the transition keeps icons physically opaque. The existing unmatched-exit and latent-reveal policies already supply timing/progress; they can drive visible clip fraction instead of opacity without changing motion or space-reservation rules.
+
+For tint, final status-icons peer tint is not guaranteed to be available from the suppression-owner cache on every active transition path. The final native Battery participates in the same SystemUI tint authority and provides a live read-only fallback.
+
+### Build 635 implementation
+
+- Replace charging source/target opacity semantics with visible-fraction semantics.
+- Keep the charging source fully opaque and clip it over retained ring 60% -> 50%.
+- Keep hidden-only target travel.
+- Begin target clip reveal at 85% while preserving the old Build-633 reveal completion time.
+- Replace generic no-target cubic alpha exit with cubic clip-out.
+- Replace latent second-mobile / airplane / no-SIM alpha reveal with clip reveal while preserving existing spatial and target-distance gates.
+- Add reusable horizontal clip bounds with LTR/RTL-aware edge anchoring; charging chooses the edge facing the battery-ring side.
+- Resolve native reverse tint from live final status-icons peer first, live final Battery tint second, and last valid cached tint third.
+- Log native tint value and authority for detailed transition diagnostics.
+
+No new animator, timer, independent geometry path, scale animation, guessed tint, or native writer is introduced.
+
+### Review / tests
+
+Coverage locks clip fractions and edge anchoring, charging reveal timing, latent reveal policy, and final-Battery tint fallback. The pre-identity runtime source passed Runtime CI #2355; final exact-HEAD CI remains required after docs/build closure.
