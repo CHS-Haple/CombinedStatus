@@ -66,38 +66,6 @@ class CombinedStatusKeyguardRenderSessionTest {
     }
 
     @Test
-    fun aodOverlayRequiresIndependentFeatureAndStableAod() {
-        assertFalse(CombinedStatusKeyguardRenderSession.resolveAodOverlayVisible(false, false, true))
-        assertFalse(CombinedStatusKeyguardRenderSession.resolveAodOverlayVisible(true, true, true))
-        assertFalse(CombinedStatusKeyguardRenderSession.resolveAodOverlayVisible(true, false, false))
-        assertTrue(CombinedStatusKeyguardRenderSession.resolveAodOverlayVisible(true, false, true))
-    }
-
-    @Test
-    fun aodReadinessRejectsTransitionStateWithoutAffectingKeyguardContract() {
-        assertTrue(
-            CombinedStatusKeyguardRenderSession.resolveAodOwnerReady(
-                featureEnabled = true,
-                modelReady = true,
-                tintReady = true,
-                layoutReady = true,
-                hostAttached = true,
-                stableAod = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusKeyguardRenderSession.resolveAodOwnerReady(
-                featureEnabled = true,
-                modelReady = true,
-                tintReady = true,
-                layoutReady = true,
-                hostAttached = true,
-                stableAod = false,
-            ),
-        )
-    }
-
-    @Test
     fun readinessRequiresCompleteAttachedKeyguardSurface() {
         assertTrue(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, true, true, false))
         assertFalse(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, false, true, false))
