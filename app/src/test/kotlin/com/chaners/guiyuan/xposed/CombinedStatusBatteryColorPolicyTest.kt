@@ -266,4 +266,36 @@ class CombinedStatusBatteryColorPolicyTest {
             CombinedStatusBatterySemanticState.LOW ->
                 CombinedStatusBatteryColorPreferences(low = source)
         }
+
+    @Test
+    fun tintedStateTracksActualCustomOrPresetColorSource() {
+        val defaultSettings = CombinedStatusVisualSettings()
+        assertTrue(
+            CombinedStatusBatteryColorPolicy.isTinted(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                settings = defaultSettings,
+            ),
+        )
+        assertFalse(
+            CombinedStatusBatteryColorPolicy.isTinted(
+                state = CombinedStatusBatterySemanticState.NORMAL,
+                settings = defaultSettings,
+            ),
+        )
+
+        val followSystemCharging =
+            defaultSettings.copy(
+                batteryColorModes =
+                    defaultSettings.batteryColorModes.withMode(
+                        CombinedStatusBatteryColorSlot.CHARGING,
+                        CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
+                    ),
+            )
+        assertFalse(
+            CombinedStatusBatteryColorPolicy.isTinted(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                settings = followSystemCharging,
+            ),
+        )
+    }
 }
