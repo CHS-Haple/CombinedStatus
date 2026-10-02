@@ -5,27 +5,32 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.4.
-- `main` and `dev` are synchronized on the promoted 0.0.4 / Build 613 development baseline.
-- Version identity: `0.0.4` / versionCode `261002413` / Build `20261002-613`.
+- `main` and `dev` are synchronized at the promoted Build 613 repository baseline before this work branch.
+- Latest accepted Runtime/SystemUI behavior: Build 612, maintainer device-accepted with no reported anomaly.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- Build 612 is the latest runtime-affecting checkpoint and is maintainer device-accepted with no reported anomaly.
-- Build 613 changes only version/build metadata and documentation; Runtime/SystemUI behavior remains Build 612.
-- GPL-3.0-or-later is the project license; third-party components retain their upstream licenses.
+- GPL-3.0-or-later remains the project license.
 
-## Current state
+## Active objective
 
-The 0.0.4 promotion is complete.
+Branch: `fix/wifi-ring-shape-avoidance`.
 
-Promotion / validation evidence:
-- PR #181 integrated the accepted product/runtime line into `dev`.
-- PR #190 advanced the development line to 0.0.4 / Build 613.
-- PR #191 promoted the exact validated `dev` state to `main`.
-- Build 612 exact-head Runtime validation and focused maintainer device validation passed.
-- 0.0.4 version PR Full validation passed.
-- `dev` integration Run #2205 passed target-profile, unit/build, Modern Xposed metadata, Haple signature, Canary non-debuggable, and artifact checks.
-- stable-boundary PR Run #2207 passed.
-- promoted `main` Run #2208 and recreated `dev` Run #2209 both passed the trusted signed Full path.
-- repository consistency review aligned current version/public docs, GPL metadata, package/Xposed identity, MIUIX notice metadata, and Phase-4 roadmap state.
+Build 614 / `20261002-614` corrects the oversized battery-ring opening around Wi-Fi when the network is placed above the battery ring.
+
+Root cause:
+- the native Wi-Fi drawable was already probed into disconnected visible optical components;
+- the painter discarded those components and kept only their union envelope;
+- the ring avoidance policy therefore treated the empty corners between Wi-Fi arcs as occupied content;
+- numeric readout avoidance looks correct because text is naturally close to a rectangular optical envelope.
+
+Build-614 correction:
+- preserve read-only drawable component geometry through the existing native optical probe/cache;
+- map each component through the exact same draw geometry used by the rendered native resource;
+- carry component geometry through top-slot translation and appearance scaling;
+- resolve one gap per visible component and merge only the angular intervals that are actually required;
+- use the three real fallback Wi-Fi path bounds when the native resource cannot be resolved;
+- keep non-Wi-Fi and numeric/readout content on the existing single-envelope path.
+
+No fixed shrink ratio, device-width constant, new animation, state source, native writer, timing path, or visual-clearance change is introduced.
 
 ## Current transition contract
 
@@ -34,47 +39,28 @@ Promotion / validation evidence:
 - Notification Shade and AOD remain native-only on the pinned target.
 - Guiyuan does not write native peer translation, alpha, visibility, visibleState, or a second gesture animator.
 - `statusIcons.paddingEnd` remains the only progress-driven peer-layout property.
-- QS_FAKE may acquire one fixed, reversible session capacity lease only from verified unused end-anchored parent capacity.
-- Lease-only capacity is measurement-only and is excluded from transition motion by the Build 612 logical-carrier projection.
-- Carrier-width conflicts fail native instead of racing HyperOS.
-- Mobile exact four-bar geometry remains shape-local; composite/dual-row/unknown topology uses conservative fallback.
-- Latent participant reveal remains spatial/reservation-gated without timer or delayed animation ownership.
-- Home and Keyguard retain independent host/session ownership and cleanup.
-- Build-channel diagnostics are observation-only; Release and Canary share functional control flow.
+- QS_FAKE capacity remains measurement-only and excluded from transition motion by the accepted Build-612 logical-carrier projection.
+- Compatibility uncertainty fails native.
 
 ## Validation state
 
-Confirmed:
-- `gradle.properties`, README, CHANGELOG and CURRENT agree on 0.0.4 / Build 613.
-- public/contributor license metadata agrees on GPL-3.0-or-later while dependency notices retain upstream licenses.
-- Android namespace/applicationId is `com.chaners.guiyuan`.
-- Modern Xposed metadata remains API 102, static scope `com.android.systemui`, one Java entry, and Hot Reload enabled.
-- MIUIX dependency notice now matches the pinned project snapshot/revision.
-- ROADMAP no longer lists delivered Phase-4 color/weight controls as future work.
-- no new runtime delta exists after the accepted Build 612 device checkpoint.
+Static review before commit:
+- numeric/readout avoidance remains a single component and is behaviorally unchanged;
+- native and fallback Wi-Fi paths both provide component geometry;
+- top-slot transition scale/translation is applied to each component using the existing appearance contract;
+- no duplicate helper or stale envelope-only call remains;
+- focused unit coverage verifies component-aware gaps remove empty-envelope corner reservation and single-component merging preserves prior geometry.
 
-Independent maintenance remains:
-- Dependabot PRs #157, #182 and #183 remain separate build/dependency proposals and are not part of the 0.0.4 baseline.
-- obsolete historical branch cleanup is repository hygiene only and does not block development.
-
-## Non-negotiable boundaries
-
-- Root-cause first; no screenshot-fitted geometry/timing compensation.
-- One mutable runtime property has one writer.
-- Cleanup / Hot Reload restores only Guiyuan-owned state.
-- No polling, delayed lifecycle repair, duplicate gesture animator, or high-frequency diagnostics.
-- Compatibility uncertainty fails native.
-- HyperOS/MIUIX/native resources, state, layout semantics, and motion remain preferred over project-local imitation.
-- Do not revive rejected Battery-Island `batteryWidthDiff`, peer-`forceAppear`, or generic-island proxy routes without new exact-target evidence.
-
-## Immediate next step
-
-Start the next bounded feature/fix branch from current `dev`. Preserve the accepted Build 612 runtime contract unless new contradictory device evidence appears.
+Required next:
+1. exact-head Runtime CI;
+2. signed Work Branch Canary;
+3. focused device check of battery-center Wi-Fi at default size: opening should visibly tighten while retaining a small clear gap and never touching the glyph;
+4. quick regression check that the already-accepted numeric top avoidance is unchanged.
 
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
 2. this file;
-3. task-specific architecture / reference docs;
-4. current source and exact-target SystemUI evidence;
-5. relevant `DEVLOG.md` history when needed.
+3. current source / exact-target SystemUI evidence;
+4. task-specific architecture/reference docs;
+5. relevant `DEVLOG.md` history.

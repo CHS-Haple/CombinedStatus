@@ -1,3 +1,27 @@
+## 2026-10-02 — Build 614 component-aware Wi-Fi ring avoidance
+
+**Type:** Runtime visual geometry / battery-ring avoidance  
+**Display version:** 0.0.4  
+**Build:** 614 / `20261002-614`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Root cause
+Battery-center Wi-Fi already used the actual native drawable for rendering and optical sizing, but top-ring avoidance kept only the union optical envelope. A Wi-Fi glyph is layered/disconnected: the wide upper arc, narrower middle arc, and compact lower arc leave large empty envelope corners. Treating that entire rectangle as occupied made the ring opening visibly wider than necessary. Numeric readout avoidance did not show the defect because text is close to rectangular.
+
+### Change
+- Preserve the drawable probe's disconnected optical components in the native center-asset cache.
+- Map components through the same resolved draw width/height and center as the actual native glyph.
+- Carry those components through top-slot appearance scaling and vertical translation.
+- Compute the required top-ring gap per component and merge the resulting angular intervals.
+- Use individual fallback Wi-Fi path bounds when a native resource is unavailable.
+- Keep the existing 2f visual clearance, ring-stroke clearance, Wi-Fi size, and single-envelope path for text/non-Wi-Fi content.
+
+### Boundaries
+No screenshot-derived shrink factor, hard-coded Wi-Fi gap angle, new state source, SystemUI writer, animation/timing change, or numeric-readout geometry change.
+
+### Validation
+Focused unit coverage compares a layered Wi-Fi-like shape against its union envelope and verifies that component-aware avoidance reduces only empty-corner reservation. Exact-head Runtime CI and signed Canary are required before the focused device check.
+
 ## 2026-10-02 — Build 612 device acceptance and transition-capacity closure
 
 **Type:** runtime acceptance / transition geometry ownership  

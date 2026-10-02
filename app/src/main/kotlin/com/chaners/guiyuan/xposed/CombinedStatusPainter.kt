@@ -50,11 +50,15 @@ internal class CombinedStatusPainter(
         wifiPathMid(),
         wifiPathHigh(),
     )
+    private val wifiFallbackOpticalComponents =
+        wifiPaths.map { path ->
+            RectF().also { bounds ->
+                path.computeBounds(bounds, true)
+            }
+        }
     private val wifiFallbackOpticalBounds =
         RectF().also { combined ->
-            wifiPaths.forEachIndexed { index, path ->
-                val pathBounds = RectF()
-                path.computeBounds(pathBounds, true)
+            wifiFallbackOpticalComponents.forEachIndexed { index, pathBounds ->
                 if (index == 0) {
                     combined.set(pathBounds)
                 } else {
@@ -180,7 +184,7 @@ internal class CombinedStatusPainter(
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
                 val geometry =
                     resolveCenterGeometry(visualSettings)
-                resolveNetworkTopSlotBounds(
+                resolveNetworkTopSlotAvoidance(
                     current = model.centerIndicator,
                     previous = previousCenterIndicator,
                     scale = scale,
@@ -188,7 +192,7 @@ internal class CombinedStatusPainter(
                     scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
                     exitAmount = centerExitAmount,
                     enterAmount = centerEnterAmount,
-                )
+                )?.bounds
             } else {
                 resolveBatteryTopReadoutLayout(
                     model = model,
@@ -1130,7 +1134,7 @@ internal class CombinedStatusPainter(
             bottom = bounds.bottom + deltaY,
         )
 
-    private fun resolveNetworkTopSlotBounds(
+    private fun resolveNetworkTopSlotAvoidance(
         current: CenterIndicator,
         previous: CenterIndicator?,
         scale: Float,
@@ -1138,53 +1142,107 @@ internal class CombinedStatusPainter(
         scaleMobileTypeWithCanvas: Boolean,
         exitAmount: Float,
         enterAmount: Float,
-    ): TransitionBounds? {
+    ): TopSlotAvoidance? {
         val translationY = networkTopTranslationY()
         if (previous == null || previous == current) {
-            return resolveCenterIndicatorBounds(
+            return resolveCenterIndicatorAvoidance(
                 indicator = current,
                 scale = scale,
                 geometry = geometry,
                 scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
-            )?.let { bounds ->
-                shiftBoundsY(bounds, translationY)
+            )?.let { avoidance ->
+                shiftAvoidanceY(avoidance, translationY)
             }
         }
 
-        val previousBounds =
-            resolveCenterIndicatorBounds(
+        val previousAvoidance =
+            resolveCenterIndicatorAvoidance(
                 indicator = previous,
                 scale = scale,
                 geometry = geometry,
                 scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
-            )?.let { bounds ->
-                scaleBoundsAroundPivot(
-                    bounds = bounds,
+            )?.let { avoidance ->
+                scaleAvoidanceAroundPivot(
+                    avoidance = avoidance,
                     pivotX = CENTER_TRANSITION_PIVOT_X,
                     pivotY = CENTER_TRANSITION_PIVOT_Y,
                     amount = exitAmount,
                 )
-            }?.let { bounds ->
-                shiftBoundsY(bounds, translationY)
+            }?.let { avoidance ->
+                shiftAvoidanceY(avoidance, translationY)
             }
-        val currentBounds =
-            resolveCenterIndicatorBounds(
+        val currentAvoidance =
+            resolveCenterIndicatorAvoidance(
                 indicator = current,
                 scale = scale,
                 geometry = geometry,
                 scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
-            )?.let { bounds ->
-                scaleBoundsAroundPivot(
-                    bounds = bounds,
+            )?.let { avoidance ->
+                scaleAvoidanceAroundPivot(
+                    avoidance = avoidance,
                     pivotX = CENTER_TRANSITION_PIVOT_X,
                     pivotY = CENTER_TRANSITION_PIVOT_Y,
                     amount = enterAmount,
                 )
-            }?.let { bounds ->
-                shiftBoundsY(bounds, translationY)
+            }?.let { avoidance ->
+                shiftAvoidanceY(avoidance, translationY)
             }
-        return unionBounds(previousBounds, currentBounds)
+        return unionAvoidance(previousAvoidance, currentAvoidance)
     }
+
+    private fun shiftAvoidanceY(
+        avoidance: TopSlotAvoidance,
+        deltaY: Float,
+    ): TopSlotAvoidance =
+        TopSlotAvoidance(
+            bounds = shiftBoundsY(avoidance.bounds, deltaY),
+            components =
+                avoidance.components.map { component ->
+                    shiftBoundsY(component, deltaY)
+                },
+        )
+
+    private fun scaleAvoidanceAroundPivot(
+        avoidance: TopSlotAvoidance,
+        pivotX: Float,
+        pivotY: Float,
+        amount: Float,
+    ): TopSlotAvoidance? {
+        val bounds =
+            scaleBoundsAroundPivot(
+                bounds = avoidance.bounds,
+                pivotX = pivotX,
+                pivotY = pivotY,
+                amount = amount,
+            ) ?: return null
+        val components =
+            avoidance.components.mapNotNull { component ->
+                scaleBoundsAroundPivot(
+                    bounds = component,
+                    pivotX = pivotX,
+                    pivotY = pivotY,
+                    amount = amount,
+                )
+            }
+        return TopSlotAvoidance(
+            bounds = bounds,
+            components = components.ifEmpty { listOf(bounds) },
+        )
+    }
+
+    private fun unionAvoidance(
+        first: TopSlotAvoidance?,
+        second: TopSlotAvoidance?,
+    ): TopSlotAvoidance? =
+        when {
+            first == null -> second
+            second == null -> first
+            else ->
+                TopSlotAvoidance(
+                    bounds = unionBounds(first.bounds, second.bounds)!!,
+                    components = first.components + second.components,
+                )
+        }
 
     private fun scaleBoundsAroundPivot(
         bounds: TransitionBounds,
@@ -1218,43 +1276,54 @@ internal class CombinedStatusPainter(
                 )
         }
 
-    private fun resolveCenterIndicatorBounds(
+    private fun resolveCenterIndicatorAvoidance(
         indicator: CenterIndicator,
         scale: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         scaleMobileTypeWithCanvas: Boolean,
-    ): TransitionBounds? =
+    ): TopSlotAvoidance? =
         when (indicator) {
             is CenterIndicator.Wifi -> {
                 val resourceId = indicator.nativeResourceId
-                if (resourceId != null) {
-                    val resource =
-                        CombinedStatusPresentationStateStore.NativeIconResource(
-                            packageName = SYSTEM_UI_PACKAGE,
-                            resourceId = resourceId,
+                val drawGeometry =
+                    if (resourceId != null) {
+                        val resource =
+                            CombinedStatusPresentationStateStore.NativeIconResource(
+                                packageName = SYSTEM_UI_PACKAGE,
+                                resourceId = resourceId,
+                            )
+                        resolveNativeCenterDrawGeometry(
+                            resource = resource,
+                            opticalReferenceResource = wifiOpticalReferenceResource(resource),
+                            centerX = WIFI_CENTER_X,
+                            centerY = WIFI_CENTER_Y,
+                            maxWidth = geometry.wifiMaxWidth,
+                            maxHeight = geometry.wifiMaxHeight,
                         )
-                    resolveNativeCenterDrawGeometry(
-                        resource = resource,
-                        opticalReferenceResource = wifiOpticalReferenceResource(resource),
-                        centerX = WIFI_CENTER_X,
-                        centerY = WIFI_CENTER_Y,
-                        maxWidth = geometry.wifiMaxWidth,
-                        maxHeight = geometry.wifiMaxHeight,
-                    )?.opticalBounds
-                } else {
-                    null
-                } ?: resolveWifiFallbackOpticalBounds(geometry)
+                    } else {
+                        null
+                    }
+                drawGeometry?.let { resolved ->
+                    TopSlotAvoidance(
+                        bounds = resolved.opticalBounds,
+                        components =
+                            resolved.opticalComponents
+                                .ifEmpty { listOf(resolved.opticalBounds) },
+                    )
+                } ?: resolveWifiFallbackAvoidance(geometry)
             }
 
             is CenterIndicator.MobileType ->
-                resolveMobileTypeLayout(
-                    indicator = indicator,
-                    scale = scale,
-                    geometry = geometry,
-                    scaleWithCanvas = scaleMobileTypeWithCanvas,
-                ).bounds
+                singleTopSlotAvoidance(
+                    resolveMobileTypeLayout(
+                        indicator = indicator,
+                        scale = scale,
+                        geometry = geometry,
+                        scaleWithCanvas = scaleMobileTypeWithCanvas,
+                    ).bounds,
+                )
 
-            CenterIndicator.Airplane -> {
+            CenterIndicator.Airplane ->
                 airplaneResourceId()
                     ?.let { resourceId ->
                         resolveNativeCenterDrawGeometry(
@@ -1268,8 +1337,7 @@ internal class CombinedStatusPainter(
                             maxWidth = geometry.airplaneMaxSize,
                             maxHeight = geometry.airplaneMaxSize,
                         )?.opticalBounds
-                    }
-            }
+                    }?.let(::singleTopSlotAvoidance)
 
             is CenterIndicator.NoSim ->
                 resolveNativeCenterDrawGeometry(
@@ -1279,28 +1347,74 @@ internal class CombinedStatusPainter(
                     maxWidth = geometry.noSimMaxSize,
                     maxHeight = geometry.noSimMaxSize,
                 )?.opticalBounds
+                    ?.let(::singleTopSlotAvoidance)
 
             CenterIndicator.Empty -> null
         }
 
-    private fun resolveWifiFallbackOpticalBounds(
-        geometry: CombinedStatusCenterGeometry.Resolved,
-    ): TransitionBounds {
-        val scale = 3f * geometry.wifiSizeScale
-        return TransitionBounds(
-            left =
-                WIFI_CENTER_X +
-                    (wifiFallbackOpticalBounds.left - WIFI_FALLBACK_CENTER_X) * scale,
-            top =
-                WIFI_CENTER_Y +
-                    (wifiFallbackOpticalBounds.top - WIFI_FALLBACK_CENTER_Y) * scale,
-            right =
-                WIFI_CENTER_X +
-                    (wifiFallbackOpticalBounds.right - WIFI_FALLBACK_CENTER_X) * scale,
-            bottom =
-                WIFI_CENTER_Y +
-                    (wifiFallbackOpticalBounds.bottom - WIFI_FALLBACK_CENTER_Y) * scale,
+    private fun singleTopSlotAvoidance(
+        bounds: TransitionBounds,
+    ): TopSlotAvoidance =
+        TopSlotAvoidance(
+            bounds = bounds,
+            components = listOf(bounds),
         )
+
+    private fun resolveWifiFallbackAvoidance(
+        geometry: CombinedStatusCenterGeometry.Resolved,
+    ): TopSlotAvoidance {
+        val scale = 3f * geometry.wifiSizeScale
+
+        fun map(bounds: RectF): TransitionBounds =
+            TransitionBounds(
+                left =
+                    WIFI_CENTER_X +
+                        (bounds.left - WIFI_FALLBACK_CENTER_X) * scale,
+                top =
+                    WIFI_CENTER_Y +
+                        (bounds.top - WIFI_FALLBACK_CENTER_Y) * scale,
+                right =
+                    WIFI_CENTER_X +
+                        (bounds.right - WIFI_FALLBACK_CENTER_X) * scale,
+                bottom =
+                    WIFI_CENTER_Y +
+                        (bounds.bottom - WIFI_FALLBACK_CENTER_Y) * scale,
+            )
+
+        val bounds = map(wifiFallbackOpticalBounds)
+        val components =
+            wifiFallbackOpticalComponents.map(::map)
+        return TopSlotAvoidance(
+            bounds = bounds,
+            components = components.ifEmpty { listOf(bounds) },
+        )
+    }
+
+    private fun resolveBatteryTopGap(
+        avoidance: TopSlotAvoidance,
+        ringStroke: Float,
+    ): CombinedStatusBatteryTopArcPolicy.Gap {
+        // Preserve disconnected visible shapes (notably Wi-Fi arcs) instead of
+        // reserving the empty corners of their union rectangle.
+        val gaps =
+            avoidance.components
+                .ifEmpty { listOf(avoidance.bounds) }
+                .map { component ->
+                    CombinedStatusBatteryTopArcPolicy.resolveGap(
+                        contentLeft = component.left,
+                        contentTop = component.top,
+                        contentRight = component.right,
+                        contentBottom = component.bottom,
+                        ringCenterX = batteryRing.centerX(),
+                        ringCenterY = batteryRing.centerY(),
+                        ringRadius = batteryRing.width() / 2f,
+                        ringStroke = ringStroke,
+                        visualClearance = BATTERY_TOP_RING_VISUAL_CLEARANCE,
+                        startDegrees = BATTERY_START_DEGREES,
+                        maxSweep = BATTERY_MAX_SWEEP,
+                    )
+                }
+        return CombinedStatusBatteryTopArcPolicy.mergeGaps(gaps)
     }
 
     private fun batteryReadoutPreferredCenterY(
@@ -1342,9 +1456,9 @@ internal class CombinedStatusPainter(
                 visualSettings = visualSettings,
                 nativeTransform = nativeTransform,
             )
-        val topContentBounds =
+        val topContentAvoidance =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-                resolveNetworkTopSlotBounds(
+                resolveNetworkTopSlotAvoidance(
                     current = model.centerIndicator,
                     previous = previousCenterIndicator,
                     scale = scale,
@@ -1355,11 +1469,12 @@ internal class CombinedStatusPainter(
                 )
             } else {
                 readout?.groupOpticalBounds
+                    ?.let(::singleTopSlotAvoidance)
             }
 
         if (ringRetractProgress != null) {
             val drawableArcs =
-                if (topContentBounds == null) {
+                if (topContentAvoidance == null) {
                     listOf(
                         CombinedStatusBatteryTopArcPolicy.Arc(
                             startDegrees = BATTERY_START_DEGREES,
@@ -1368,18 +1483,9 @@ internal class CombinedStatusPainter(
                     )
                 } else {
                     val gap =
-                        CombinedStatusBatteryTopArcPolicy.resolveGap(
-                            contentLeft = topContentBounds.left,
-                            contentTop = topContentBounds.top,
-                            contentRight = topContentBounds.right,
-                            contentBottom = topContentBounds.bottom,
-                            ringCenterX = batteryRing.centerX(),
-                            ringCenterY = batteryRing.centerY(),
-                            ringRadius = batteryRing.width() / 2f,
+                        resolveBatteryTopGap(
+                            avoidance = topContentAvoidance,
                             ringStroke = geometry.ringStroke,
-                            visualClearance = BATTERY_TOP_RING_VISUAL_CLEARANCE,
-                            startDegrees = BATTERY_START_DEGREES,
-                            maxSweep = BATTERY_MAX_SWEEP,
                         )
                     CombinedStatusBatteryTopArcPolicy.drawableArcs(
                         startDegrees = BATTERY_START_DEGREES,
@@ -1420,7 +1526,7 @@ internal class CombinedStatusPainter(
                     )
                 }
             }
-        } else if (topContentBounds == null) {
+        } else if (topContentAvoidance == null) {
             val segments =
                 CombinedStatusBatteryArcPolicy.resolve(
                     batteryPercent = model.batteryPercent,
@@ -1450,18 +1556,9 @@ internal class CombinedStatusPainter(
             }
         } else {
             val gap =
-                CombinedStatusBatteryTopArcPolicy.resolveGap(
-                    contentLeft = topContentBounds.left,
-                    contentTop = topContentBounds.top,
-                    contentRight = topContentBounds.right,
-                    contentBottom = topContentBounds.bottom,
-                    ringCenterX = batteryRing.centerX(),
-                    ringCenterY = batteryRing.centerY(),
-                    ringRadius = batteryRing.width() / 2f,
+                resolveBatteryTopGap(
+                    avoidance = topContentAvoidance,
                     ringStroke = geometry.ringStroke,
-                    visualClearance = BATTERY_TOP_RING_VISUAL_CLEARANCE,
-                    startDegrees = BATTERY_START_DEGREES,
-                    maxSweep = BATTERY_MAX_SWEEP,
                 )
             val segments =
                 CombinedStatusBatteryTopArcPolicy.resolve(
@@ -2412,6 +2509,7 @@ internal class CombinedStatusPainter(
                     intrinsicWidth = drawable.intrinsicWidth,
                     intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
+                    opticalComponents = visualProbe.opticalComponents,
                     inkCenterY = visualProbe.inkCenterY,
                 )
             }.getOrNull()
@@ -2435,6 +2533,15 @@ internal class CombinedStatusPainter(
                 resources = resources,
             ) ?: return null
         val optical = visual.envelope
+        val components =
+            visual.components.map { component ->
+                OpticalBounds(
+                    left = component.left,
+                    top = component.top,
+                    right = component.right,
+                    bottom = component.bottom,
+                )
+            }
         return NativeVisualProbe(
             opticalBounds =
                 OpticalBounds(
@@ -2443,6 +2550,7 @@ internal class CombinedStatusPainter(
                     right = optical.right,
                     bottom = optical.bottom,
                 ),
+            opticalComponents = components,
             inkCenterY = visual.inkCenterY ?: optical.centerY,
         )
     }
@@ -2534,6 +2642,8 @@ internal class CombinedStatusPainter(
                 maxWidth = maxWidth,
                 maxHeight = maxHeight,
             ) ?: return null
+        val drawLeft = centerX - resolved.drawWidth / 2f
+        val drawTop = centerY - resolved.drawHeight / 2f
         return NativeCenterDrawGeometry(
             asset = asset,
             drawWidth = resolved.drawWidth,
@@ -2545,6 +2655,15 @@ internal class CombinedStatusPainter(
                     right = resolved.opticalRight,
                     bottom = resolved.opticalBottom,
                 ),
+            opticalComponents =
+                asset.opticalComponents.map { component ->
+                    TransitionBounds(
+                        left = drawLeft + component.left * resolved.drawWidth,
+                        top = drawTop + component.top * resolved.drawHeight,
+                        right = drawLeft + component.right * resolved.drawWidth,
+                        bottom = drawTop + component.bottom * resolved.drawHeight,
+                    )
+                },
         )
     }
 
@@ -3358,6 +3477,11 @@ internal class CombinedStatusPainter(
 
     }
 
+    private data class TopSlotAvoidance(
+        val bounds: TransitionBounds,
+        val components: List<TransitionBounds>,
+    )
+
     private data class BatteryTopReadoutLayout(
         val textVisible: Boolean,
         val text: String,
@@ -3408,6 +3532,7 @@ internal class CombinedStatusPainter(
         val drawWidth: Float,
         val drawHeight: Float,
         val opticalBounds: TransitionBounds,
+        val opticalComponents: List<TransitionBounds>,
     )
 
     private data class NativeOpticalSize(
@@ -3423,11 +3548,13 @@ internal class CombinedStatusPainter(
         val intrinsicWidth: Int,
         val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
+        val opticalComponents: List<OpticalBounds>,
         val inkCenterY: Float,
     )
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
+        val opticalComponents: List<OpticalBounds>,
         val inkCenterY: Float,
     )
 

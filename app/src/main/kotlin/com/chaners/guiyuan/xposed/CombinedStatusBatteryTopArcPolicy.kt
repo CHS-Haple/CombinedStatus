@@ -113,6 +113,33 @@ internal object CombinedStatusBatteryTopArcPolicy {
         )
     }
 
+    fun mergeGaps(
+        gaps: List<Gap>,
+    ): Gap {
+        val visible =
+            gaps.filter { gap ->
+                gap.centerDegrees.isFinite() &&
+                    gap.sweepDegrees.isFinite() &&
+                    gap.sweepDegrees > 0f
+            }
+        if (visible.isEmpty()) return Gap(TOP_DEGREES, 0f)
+
+        var start = Float.POSITIVE_INFINITY
+        var end = Float.NEGATIVE_INFINITY
+        visible.forEach { gap ->
+            val half = gap.sweepDegrees / 2f
+            start = kotlin.math.min(start, gap.centerDegrees - half)
+            end = kotlin.math.max(end, gap.centerDegrees + half)
+        }
+        if (!start.isFinite() || !end.isFinite() || end <= start) {
+            return Gap(TOP_DEGREES, 0f)
+        }
+        return Gap(
+            centerDegrees = (start + end) / 2f,
+            sweepDegrees = end - start,
+        )
+    }
+
     fun drawableArcs(
         startDegrees: Float,
         maxSweep: Float,
