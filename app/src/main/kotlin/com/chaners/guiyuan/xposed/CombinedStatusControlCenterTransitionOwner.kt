@@ -27,6 +27,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val BATTERY_SLOT = "battery"
     private const val BATTERY_NUMBER_SLOT = "battery_number"
+    private const val BATTERY_CHARGING_SLOT = "battery_charging"
     private const val AIRPLANE_SLOT = "airplane"
     private const val NO_SIM_SLOT = "no_sim"
     private const val MOBILE_SLOT = "mobile"
@@ -1248,20 +1249,30 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 CombinedStatusPainter.TransitionComponent.CENTER &&
                                 model.centerIndicator is CenterIndicator.MobileType
                         )
+                val componentMotionProgress =
+                    if (
+                        spec.component ==
+                        CombinedStatusPainter.TransitionComponent.CHARGING_ICON
+                    ) {
+                        CombinedStatusPainter.BatteryNumberFollowerPolicy
+                            .chargingMotionProgress(motionProgress)
+                    } else {
+                        motionProgress
+                    }
                 val geometry =
                     if (targetGeometry != null) {
                         if (exactTextGeometry) {
                             projectedExactGeometry(
                                 source = sourceGeometry,
                                 target = targetGeometry,
-                                progress = motionProgress,
+                                progress = componentMotionProgress,
                                 carrierFrames = carrierFrames,
                             )
                         } else {
                             projectedGeometry(
                                 source = sourceGeometry,
                                 target = targetGeometry,
-                                progress = motionProgress,
+                                progress = componentMotionProgress,
                                 scalePolicy = spec.scalePolicy,
                                 carrierFrames = carrierFrames,
                             )
@@ -1273,7 +1284,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         )
                     }
                 val componentOpacity =
-                    if (targetGeometry != null) {
+                    if (
+                        spec.component ==
+                        CombinedStatusPainter.TransitionComponent.CHARGING_ICON
+                    ) {
+                        opacity *
+                            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                                .chargingOpacity(
+                                    progress = motionProgress,
+                                    targetAvailable = targetGeometry != null,
+                                )
+                    } else if (targetGeometry != null) {
                         opacity
                     } else {
                         opacity * Policy.unmatchedExitOpacity(motionProgress)
@@ -2290,6 +2311,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     CombinedStatusPainter.TransitionTarget.BatteryNumber ->
                         resolveBatteryNumberTargetWitness()
 
+                    CombinedStatusPainter.TransitionTarget.BatteryChargingIcon ->
+                        resolveBatteryChargingIconTargetWitness()
+
                     is CombinedStatusPainter.TransitionTarget.Slots ->
                         target.preferredSlots.firstNotNullOfOrNull { slot ->
                             val slotRoot =
@@ -2708,6 +2732,31 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 parentWidth = slot.width,
                 parentHeight = slot.height,
                 bounds = localBounds,
+            )
+        }
+
+        private fun resolveBatteryChargingIconTargetWitness(): TargetWitness? {
+            val chargingView =
+                readViewField(finalBattery, "mBatteryChargingView") as? ImageView
+                    ?: return null
+            val drawable = chargingView.drawable ?: return null
+            if (
+                !chargingView.isAttachedToWindow ||
+                chargingView.width <= 0 ||
+                chargingView.height <= 0 ||
+                drawable.intrinsicWidth <= 0 ||
+                drawable.intrinsicHeight <= 0
+            ) {
+                return null
+            }
+            return TargetWitness(
+                slot = BATTERY_CHARGING_SLOT,
+                slotView = chargingView,
+                opticalView = chargingView,
+                subscriptionId = null,
+                requiresOpticalGeometry = true,
+                fallbackBounds = null,
+                opticalSource = "battery-charging-view",
             )
         }
 
