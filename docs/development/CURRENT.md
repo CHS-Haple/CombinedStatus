@@ -46,7 +46,8 @@ Build 629 corrects only those terminal/handoff details:
 - transition ring drawing ends once the retained arc length is no greater than the actual ring stroke width, removing only the ROUND-cap-dominated terminal dot;
 - the cutoff is derived from current drawable sweep, ring radius and resolved stroke width, so weight scaling/top-gap geometry remain authoritative;
 - charging-glyph fade is moved later to retained ring 26% -> 20% and remains smooth but short;
-- target motion begins only after 20% retained ring, completes by 4%, and remains invisible until the final target-reveal phase;
+- while source-side charging alpha is greater than zero, its geometry is frozen at the captured source position: no target interpolation and no carrier rebase are allowed;
+- target motion begins only after source alpha reaches exactly zero at 20% retained ring, completes by 4%, and remains invisible until the final target-reveal phase;
 - exact `mBatteryChargingView` drawable optical geometry remains the only target; missing target still means fade-out only;
 - charging glyph remains separate from percentage text, so the number cannot reflow when the glyph reaches alpha zero.
 
@@ -65,7 +66,7 @@ Focused Build-629 charging validation:
 - the accepted Build-624 main ring/fill retract pace must remain visually unchanged;
 - the former lingering final ring dot should disappear cleanly instead of slowing at the end;
 - charging glyph should stay visible noticeably longer, then disappear quickly but smoothly as the ring approaches it;
-- glyph must be fully invisible before any target movement;
+- while the glyph is fading out, its position must remain completely fixed at the source; it must be fully invisible before any target movement;
 - percentage text must not jump when the glyph disappears;
 - with a reliable target, hidden travel should converge to native position/size and only reappear near the target;
 - without a reliable target, the glyph must only disappear and never drift to a guessed point;
