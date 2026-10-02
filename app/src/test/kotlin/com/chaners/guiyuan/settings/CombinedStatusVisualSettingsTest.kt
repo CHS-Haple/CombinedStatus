@@ -314,9 +314,9 @@ class CombinedStatusVisualSettingsTest {
 
 
     @Test
-    fun batteryCenteredProfileDefaultsBothBatteryScalesToOneHundredTwentyPercent() {
+    fun batteryCenteredProfileUsesRequestedTopDefaults() {
         assertEquals(
-            1.2f,
+            1.4f,
             batteryTopTextUiScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
             0.0001f,
         )
@@ -326,7 +326,7 @@ class CombinedStatusVisualSettingsTest {
             0.0001f,
         )
         assertEquals(
-            1.2f,
+            1.4f,
             batteryTopTextUiScale(
                 batteryTopTextScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
             ),
@@ -339,18 +339,23 @@ class CombinedStatusVisualSettingsTest {
             ),
             0.0001f,
         )
+        assertEquals(
+            0.8f,
+            mobileTypeSizeScaleDefault(CombinedStatusContentLayout.BATTERY_CENTER),
+            0.0001f,
+        )
     }
 
 
     @Test
-    fun directBatteryCenteredSettingsConstructionAlsoUsesOneHundredTwentyPercentDefaults() {
+    fun directBatteryCenteredSettingsConstructionUsesProfileDefaults() {
         val settings =
             CombinedStatusVisualSettings(
                 contentLayout = CombinedStatusContentLayout.BATTERY_CENTER,
             )
 
         assertEquals(
-            1.2f,
+            1.4f,
             batteryTopTextUiScale(settings.batteryTopTextScale),
             0.0001f,
         )
@@ -359,18 +364,24 @@ class CombinedStatusVisualSettingsTest {
             batteryTopChargingIconUiScale(settings.batteryTopChargingIconScale),
             0.0001f,
         )
+        assertEquals(0.8f, settings.mobileTypeSizeScale, 0.0001f)
     }
 
     @Test
-    fun networkCenteredProfileKeepsOneHundredPercentScaleDefaults() {
+    fun networkCenteredProfileUsesRequestedTopDefaults() {
         assertEquals(
-            1f,
+            1.2f,
             batteryTopTextUiScaleDefault(CombinedStatusContentLayout.NETWORK_CENTER),
             0.0001f,
         )
         assertEquals(
             1f,
             batteryTopChargingIconUiScaleDefault(CombinedStatusContentLayout.NETWORK_CENTER),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            mobileTypeSizeScaleDefault(CombinedStatusContentLayout.NETWORK_CENTER),
             0.0001f,
         )
     }

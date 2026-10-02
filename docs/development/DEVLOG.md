@@ -1,3 +1,31 @@
+## 2026-10-02 — Build 616 profile defaults and top-information offset ownership
+
+**Type:** Visual defaults / layout-profile geometry / companion UI  
+**Display version:** 0.0.4  
+**Build:** 616 / `20261002-616`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Maintainer direction
+- Network centered battery-number default: 120%.
+- Battery centered mobile-type default: 80%.
+- Battery centered battery-number default: 140%.
+- Rename the old battery-information vertical offset to Top information vertical offset and move the control into the Global UI section.
+- Offset target depends on layout: number + charging glyph in Network centered, network content in Battery centered.
+
+### Implementation
+- `batteryTopTextUiScaleDefault(layout)` is now 1.2 / 1.4 for Network/Battery centered.
+- Added layout-aware `mobileTypeSizeScaleDefault(layout)`: 1.0 for Network centered and 0.8 for Battery centered.
+- Existing saved profile overrides remain authoritative; only missing/reset defaults change.
+- Kept the historical persisted vertical-offset key to avoid a settings migration.
+- Added a layout-aware top-info offset policy:
+  - Network centered forwards the raw accepted readout offset and leaves network translation unchanged.
+  - Battery centered pins readout offset to its baseline and converts the same user-facing offset into network-top translation.
+- Ring avoidance, top-overflow calculation and transition source geometry share that network translation.
+- Moved the slider out of the battery AnimatedPreferenceGroup into the Global section; it is always visible and remains profile-scoped.
+
+### Boundaries
+No new animation/timer, state source, polling, native writer, migration rewrite or geometry fudge factor.
+
 ## 2026-10-02 — Build 615 size ranges, mobile-type overall scale, and visual-update serialization
 
 **Type:** Runtime visual geometry / settings transport  

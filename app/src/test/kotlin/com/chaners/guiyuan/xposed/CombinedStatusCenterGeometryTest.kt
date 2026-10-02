@@ -1,6 +1,9 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
+import com.chaners.guiyuan.settings.CombinedStatusContentLayout
+import com.chaners.guiyuan.settings.batteryTopVerticalOffsetRaw
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -169,6 +172,50 @@ class CombinedStatusCenterGeometryTest {
                 scaleWithCanvas = true,
             ),
             0f,
+        )
+    }
+
+    @Test
+    fun topInfoOffsetTargetsReadoutOnlyInNetworkCenter() {
+        val raw = batteryTopVerticalOffsetRaw(5f)
+
+        assertEquals(
+            raw,
+            CombinedStatusTopInfoOffsetPolicy.readoutRequestedOffset(
+                layout = CombinedStatusContentLayout.NETWORK_CENTER,
+                rawOffset = raw,
+            ),
+            0f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusTopInfoOffsetPolicy.networkTranslationDelta(
+                layout = CombinedStatusContentLayout.NETWORK_CENTER,
+                rawOffset = raw,
+            ),
+            0f,
+        )
+    }
+
+    @Test
+    fun topInfoOffsetTargetsNetworkOnlyInBatteryCenter() {
+        val raw = batteryTopVerticalOffsetRaw(5f)
+
+        assertEquals(
+            BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
+            CombinedStatusTopInfoOffsetPolicy.readoutRequestedOffset(
+                layout = CombinedStatusContentLayout.BATTERY_CENTER,
+                rawOffset = raw,
+            ),
+            0f,
+        )
+        assertEquals(
+            -5f,
+            CombinedStatusTopInfoOffsetPolicy.networkTranslationDelta(
+                layout = CombinedStatusContentLayout.BATTERY_CENTER,
+                rawOffset = raw,
+            ),
+            0.0001f,
         )
     }
 

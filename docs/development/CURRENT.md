@@ -5,8 +5,8 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.4.
-- `main` and `dev` are synchronized at the promoted Build 613 repository baseline before this work branch.
-- Latest accepted Runtime/SystemUI behavior before this branch: Build 612, maintainer device-accepted with no reported anomaly.
+- `main` and `dev` remain synchronized at the promoted Build 613 repository baseline before this work branch.
+- Latest accepted Runtime/SystemUI behavior before this branch: Build 612.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
 - GPL-3.0-or-later remains the project license.
 
@@ -14,87 +14,57 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `fix/wifi-ring-shape-avoidance`.
 
-Build 615 / `20261002-615` contains three bounded visual-geometry corrections:
-1. shape-aware battery-ring avoidance for Wi-Fi;
-2. requested size-range expansion;
-3. mobile-type overall-scale ownership plus visual-settings main-thread serialization.
+Build 616 / `20261002-616` supersedes the branch's 614/615 checkpoints and carries all of their fixes:
+- shape-aware Wi-Fi battery-ring avoidance;
+- overall 60%-100%, Wi-Fi/mobile-type 40%-125% ranges;
+- 5G/5GA following user overall scale while host viewport scale remains compensated;
+- SystemUI-main-thread visual-settings commits with stale slider snapshots coalesced.
 
-### Wi-Fi ring avoidance
+Build 616 adds profile-default and top-information semantics requested after Build 615.
 
-Root cause:
-- the native Wi-Fi drawable was already probed into disconnected visible optical components;
-- the painter discarded those components and kept only their union envelope;
-- the ring therefore reserved empty corners between Wi-Fi arcs.
+### Profile defaults
 
-Correction:
-- preserve read-only drawable components through the native optical probe/cache;
-- map each component through the same draw geometry as the rendered resource;
-- carry components through top-slot translation/appearance scaling;
-- resolve/merge only the angular gap actually required by visible components;
-- use real fallback Wi-Fi path bounds if the native resource is unavailable;
-- numeric/readout avoidance remains the existing single-envelope path.
+For profiles with no persisted override (including after restoring defaults):
+- Network centered: battery number default = 120%.
+- Battery centered: battery number default = 140%; mobile-type default = 80%.
+- Charging-glyph defaults are unchanged.
+- Existing explicitly saved profile values are not overwritten.
 
-### Visual sizing
+### Top information vertical offset
 
-Requested ranges:
-- overall size: 60%-100%;
-- Wi-Fi size: 40%-125%;
-- mobile-type size: 40%-125%.
+The previous persisted `battery_top_vertical_offset` key is retained for compatibility and remains profile-scoped, but its runtime/UI meaning is now “Top information vertical offset”.
 
-Implementation:
-- persisted/runtime clamps use those exact limits;
-- UI sliders retain 5% discrete cadence;
-- renderer Wi-Fi/mobile-type clamps reference the same settings constants instead of a hidden 70% floor;
-- mobile-type text/suffix continue compensating host viewport scale but no longer cancel user `combinedScale`, so 5G/5GA now follow overall size in production;
-- Preview retains its existing direct Canvas-scale path.
+Target follows the active layout:
+- Network centered: battery number + charging glyph.
+- Battery centered: top network content (Wi-Fi / mobile type / airplane / no-SIM as applicable).
 
-### Visual-settings hot-update robustness
+Implementation contract:
+- user-facing zero and ±10 range remain unchanged;
+- Network-centered readout keeps the accepted legacy raw-offset reference;
+- Battery-centered readout remains at its own baseline and no longer consumes the user offset;
+- Battery-centered network translation receives the user-facing offset instead;
+- the same translated geometry feeds drawing, ring avoidance, required top overflow and transition source bounds;
+- UI control lives in the Global section and is always available, independent of number/charging switches;
+- the value remains independently remembered for Network centered and Battery centered profiles.
 
-Build-612 device evidence reported one transient loss of the combined presentation while adjusting overall size; toggling the feature off/on restored it. The diagnostic contained no process exception and later battery/Wi-Fi model-to-draw events were still healthy, which is consistent with presentation ownership falling back rather than SystemUI crashing.
-
-Code review found visual preference callbacks lacked the main-thread dispatch already used by feature preferences, despite directly updating RenderViews, manual measure/layout, and native end reservation. Build 615:
-- serializes visual-settings commits onto the SystemUI main thread;
-- drops stale queued slider snapshots so renderer and reservation commit one latest settings state;
-- records combined/Wi-Fi/mobile-type scale plus `mainThread=true` in diagnostics.
-
-No timer/delay repair, polling, hard-coded shrink ratio, device-width constant, duplicate animation, or new native writer is introduced.
-
-## Current transition contract
-
-- HyperOS remains the sole expansion / appearance timeline authority.
-- Home and Keyguard bridge only through the verified QS_FAKE interval; fully expanded Control Center remains native-owned.
-- Notification Shade and AOD remain native-only on the pinned target.
-- Guiyuan does not write native peer translation, alpha, visibility, visibleState, or a second gesture animator.
-- `statusIcons.paddingEnd` remains the only progress-driven peer-layout property.
-- QS_FAKE capacity remains measurement-only and excluded from transition motion by the accepted Build-612 logical-carrier projection.
-- Compatibility uncertainty fails native.
+No migration rewrites existing profile values, no new preference key is introduced, and no timer/animation/native-writer ownership changes are introduced.
 
 ## Validation state
 
 Pre-commit review:
-- numeric/readout avoidance remains unchanged;
-- native and fallback Wi-Fi both provide component geometry;
-- no old envelope-only Wi-Fi gap path remains;
-- requested UI/runtime ranges are aligned;
-- no hidden 70% renderer floor remains;
-- mobile-type production scaling is separated into host compensation × user overall scale;
-- Control Center transition bounds and Home avoidance reuse the same mobile-type layout path;
-- visual settings now cross one explicit SystemUI-main-thread boundary before View/presentation mutation.
-
-Focused tests cover:
-- component-aware Wi-Fi gap vs envelope gap;
-- single-component gap preservation;
-- requested scale endpoints;
-- renderer/settings clamp agreement;
-- mobile-type 100%→60% physical scaling while host viewport scale remains compensated;
-- Preview direct-scale behavior.
+- requested profile defaults are represented by layout-aware default helpers;
+- battery-centered mobile-type default is used by data construction, persisted fallback and UI default key-point;
+- top-information offset has one tested target policy: readout-only in Network centered, network-only in Battery centered;
+- all network-top call sites share the same translated geometry, including transition bounds;
+- old battery-section offset UI is removed and the global control no longer depends on readout/charging visibility;
+- Build 615 scaling/main-thread fixes remain intact.
 
 Required next:
-1. exact-head Runtime CI for Build 615;
+1. exact-head Runtime CI for Build 616;
 2. signed Work Branch Canary;
-3. focused device check: Wi-Fi opening tightens without touching the glyph;
-4. drag overall size repeatedly, including 100%↔60%: combined presentation must remain present and 5G/5GA must visibly scale;
-5. verify 40% Wi-Fi/mobile-type endpoints and unchanged numeric top avoidance.
+3. verify defaults after restore/switching profiles;
+4. verify Top information vertical offset: Network centered moves number+glyph only; Battery centered moves network only;
+5. repeat the Build-615 regression checks for scale dragging, 40% endpoints, Wi-Fi gap and numeric avoidance.
 
 ## Reference priority
 

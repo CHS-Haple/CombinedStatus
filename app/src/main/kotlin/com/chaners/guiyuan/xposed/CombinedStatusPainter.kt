@@ -20,6 +20,7 @@ import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX as SETTINGS_WIFI_SIZE_SC
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN as SETTINGS_WIFI_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.batteryTopVerticalOffsetUi
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -139,7 +140,7 @@ internal class CombinedStatusPainter(
         }
         val centerSave = canvas.save()
         if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-            canvas.translate(0f, networkTopTranslationY())
+            canvas.translate(0f, networkTopTranslationY(visualSettings))
         }
         drawCenterTransition(
             canvas = canvas,
@@ -189,6 +190,7 @@ internal class CombinedStatusPainter(
                 val geometry =
                     resolveCenterGeometry(visualSettings)
                 resolveNetworkTopSlotAvoidance(
+                    visualSettings = visualSettings,
                     current = model.centerIndicator,
                     previous = previousCenterIndicator,
                     scale = scale,
@@ -302,7 +304,7 @@ internal class CombinedStatusPainter(
 
             TransitionComponent.CENTER -> {
                 if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-                    canvas.translate(0f, networkTopTranslationY())
+                    canvas.translate(0f, networkTopTranslationY(visualSettings))
                 }
                 val baseGeometry =
                     resolveCenterGeometry(visualSettings)
@@ -787,7 +789,7 @@ internal class CombinedStatusPainter(
                         sourceBounds =
                             shiftBoundsY(
                                 spec.sourceBounds,
-                                networkTopTranslationY() * scale,
+                                networkTopTranslationY(visualSettings) * scale,
                             ),
                     )
                 } else {
@@ -860,7 +862,7 @@ internal class CombinedStatusPainter(
             )
         val local =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-                shiftBoundsY(baseLocal, networkTopTranslationY())
+                shiftBoundsY(baseLocal, networkTopTranslationY(visualSettings))
             } else {
                 baseLocal
             }
@@ -896,7 +898,7 @@ internal class CombinedStatusPainter(
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
         if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-            canvas.translate(0f, networkTopTranslationY())
+            canvas.translate(0f, networkTopTranslationY(visualSettings))
         }
         drawNativeAirplane(
             canvas = canvas,
@@ -942,7 +944,7 @@ internal class CombinedStatusPainter(
             )
         val local =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-                shiftBoundsY(baseLocal, networkTopTranslationY())
+                shiftBoundsY(baseLocal, networkTopTranslationY(visualSettings))
             } else {
                 baseLocal
             }
@@ -979,7 +981,7 @@ internal class CombinedStatusPainter(
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
         if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-            canvas.translate(0f, networkTopTranslationY())
+            canvas.translate(0f, networkTopTranslationY(visualSettings))
         }
         drawNativeCenterResource(
             canvas = canvas,
@@ -1127,8 +1129,15 @@ internal class CombinedStatusPainter(
         return cachedOuterGeometry
     }
 
-    private fun networkTopTranslationY(): Float =
-        TOP_SLOT_CENTER_Y - CENTER_TRANSITION_PIVOT_Y
+    private fun networkTopTranslationY(
+        visualSettings: CombinedStatusVisualSettings,
+    ): Float =
+        TOP_SLOT_CENTER_Y -
+            CENTER_TRANSITION_PIVOT_Y +
+            CombinedStatusTopInfoOffsetPolicy.networkTranslationDelta(
+                layout = visualSettings.contentLayout,
+                rawOffset = visualSettings.batteryTopVerticalOffset,
+            )
 
     private fun shiftBoundsY(
         bounds: TransitionBounds,
@@ -1140,6 +1149,7 @@ internal class CombinedStatusPainter(
         )
 
     private fun resolveNetworkTopSlotAvoidance(
+        visualSettings: CombinedStatusVisualSettings,
         current: CenterIndicator,
         previous: CenterIndicator?,
         scale: Float,
@@ -1148,7 +1158,7 @@ internal class CombinedStatusPainter(
         exitAmount: Float,
         enterAmount: Float,
     ): TopSlotAvoidance? {
-        val translationY = networkTopTranslationY()
+        val translationY = networkTopTranslationY(visualSettings)
         if (previous == null || previous == current) {
             return resolveCenterIndicatorAvoidance(
                 indicator = current,
@@ -1464,6 +1474,7 @@ internal class CombinedStatusPainter(
         val topContentAvoidance =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
                 resolveNetworkTopSlotAvoidance(
+                    visualSettings = visualSettings,
                     current = model.centerIndicator,
                     previous = previousCenterIndicator,
                     scale = scale,
@@ -1758,7 +1769,11 @@ internal class CombinedStatusPainter(
         val groupCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = groupBaseCenterY,
-                requestedOffset = visualSettings.batteryTopVerticalOffset,
+                requestedOffset =
+                    CombinedStatusTopInfoOffsetPolicy.readoutRequestedOffset(
+                        layout = visualSettings.contentLayout,
+                        rawOffset = visualSettings.batteryTopVerticalOffset,
+                    ),
             )
         val textBaselineY =
             if (textVisible) {
@@ -1961,7 +1976,7 @@ internal class CombinedStatusPainter(
             ).bounds
         val local =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
-                shiftBoundsY(baseLocal, networkTopTranslationY())
+                shiftBoundsY(baseLocal, networkTopTranslationY(visualSettings))
             } else {
                 baseLocal
             }
@@ -3586,6 +3601,28 @@ internal class CombinedStatusPainter(
 
 
 
+
+internal object CombinedStatusTopInfoOffsetPolicy {
+    fun readoutRequestedOffset(
+        layout: CombinedStatusContentLayout,
+        rawOffset: Float,
+    ): Float =
+        if (layout == CombinedStatusContentLayout.NETWORK_CENTER) {
+            rawOffset
+        } else {
+            BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
+        }
+
+    fun networkTranslationDelta(
+        layout: CombinedStatusContentLayout,
+        rawOffset: Float,
+    ): Float =
+        if (layout == CombinedStatusContentLayout.BATTERY_CENTER) {
+            -batteryTopVerticalOffsetUi(rawOffset)
+        } else {
+            0f
+        }
+}
 
 internal object CombinedStatusMobileTypeScalePolicy {
     fun localValue(
