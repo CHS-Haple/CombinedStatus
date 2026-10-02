@@ -24,6 +24,36 @@ class RuntimeFeaturePreferencesOwnerTest {
     }
 
     @Test
+    fun keyguardAndAodPreferencesRemainIndependentOfEachOtherAndMasterGate() {
+        val keyguardOnly =
+            com.chaners.guiyuan.settings.CombinedStatusFeatureSettings(
+                enabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+            )
+        val aodOnly =
+            com.chaners.guiyuan.settings.CombinedStatusFeatureSettings(
+                enabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+            )
+        val masterDisabledWithChildrenPreserved =
+            com.chaners.guiyuan.settings.CombinedStatusFeatureSettings(
+                enabled = false,
+                keyguardEnabled = true,
+                aodEnabled = true,
+            )
+
+        assertEquals(true, keyguardOnly.keyguardEnabled)
+        assertEquals(false, keyguardOnly.aodEnabled)
+        assertEquals(false, aodOnly.keyguardEnabled)
+        assertEquals(true, aodOnly.aodEnabled)
+        assertEquals(false, masterDisabledWithChildrenPreserved.enabled)
+        assertEquals(true, masterDisabledWithChildrenPreserved.keyguardEnabled)
+        assertEquals(true, masterDisabledWithChildrenPreserved.aodEnabled)
+    }
+
+    @Test
     fun validCrossProcessTimestampProducesTransportLatency() {
         assertEquals(
             6_000_000L,
