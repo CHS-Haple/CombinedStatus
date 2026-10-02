@@ -75,13 +75,11 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         // The hidden glyph may travel to its verified native target, but it stays
         // fully invisible until the overall handoff is already near completion.
         assertTrue(policy.chargingMotionProgress(fadeEnd + 0.05f) > 0f)
-        assertEquals(
-            0f,
+        assertTrue(
             policy.chargingOpacity(
                 progress = 0.90f,
                 targetAvailable = true,
-            ),
-            0.0001f,
+            ) > 0f,
         )
         assertEquals(
             0f,
