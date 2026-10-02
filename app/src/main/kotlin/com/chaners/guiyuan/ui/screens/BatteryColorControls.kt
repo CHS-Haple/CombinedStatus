@@ -62,6 +62,7 @@ import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
 import com.chaners.guiyuan.settings.batteryBuiltInColor
 import com.chaners.guiyuan.settings.batterySchemeEntryColor
 import com.chaners.guiyuan.settings.customSchemeKey
+import com.chaners.guiyuan.settings.limitBatteryCustomSchemeNameInput
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
@@ -269,6 +270,7 @@ internal fun BatteryColorBottomSheet(
                     requestedSchemeKey = requestedSchemeKey,
                     onRequestedSchemeHandled = { requestedSchemeKey = null },
                     canCreateCustom = nextCustomId != null,
+                    nextCustomName = nextCustomName,
                     onApplyScheme = repository::activateScheme,
                     onOpenBuiltInSlot = { scheme, slot ->
                         pendingCreateSourceKey = scheme.key
@@ -397,6 +399,7 @@ private fun BatterySchemeOverview(
     requestedSchemeKey: String?,
     onRequestedSchemeHandled: () -> Unit,
     canCreateCustom: Boolean,
+    nextCustomName: String?,
     onApplyScheme: (String) -> Unit,
     onOpenBuiltInSlot: (BatteryBuiltInColorScheme, CombinedStatusBatteryColorSlot) -> Unit,
     onOpenCustomSlot: (Int, CombinedStatusBatteryColorSlot) -> Unit,
@@ -445,12 +448,9 @@ private fun BatterySchemeOverview(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        BatterySchemeNavigator(
+        BatterySchemeIndicatorRail(
             pageCount = pages.size,
             currentPage = pagerState.currentPage,
-            onNavigateTo = { target ->
-                scope.launch { pagerState.springAnimateToPage(target) }
-            },
         )
         HorizontalPager(
             state = pagerState,
@@ -477,6 +477,11 @@ private fun BatterySchemeOverview(
                         custom = null,
                         isActive = library.activeSchemeKey == page.key,
                         canCreateCustom = canCreateCustom,
+                        pageIndex = index,
+                        pageCount = pages.size,
+                        onNavigateTo = { target ->
+                            scope.launch { pagerState.springAnimateToPage(target) }
+                        },
                         onApply = { onApplyScheme(page.key) },
                         onSlotClick = { slot ->
                             scope.launch {
@@ -515,6 +520,14 @@ private fun BatterySchemeOverview(
                 BatterySchemePage.Add ->
                     BatteryAddSchemePage(
                         enabled = canCreateCustom,
+                        name =
+                            nextCustomName
+                                ?: stringResource(R.string.battery_custom_scheme_add_page_title),
+                        pageIndex = index,
+                        pageCount = pages.size,
+                        onNavigateTo = { target ->
+                            scope.launch { pagerState.springAnimateToPage(target) }
+                        },
                         settingsCardHeightPx = settingsCardHeightPx,
                         onClick = onAdd,
                     )
@@ -530,6 +543,9 @@ private fun BatterySchemePageContent(
     custom: BatteryCustomColorScheme?,
     isActive: Boolean,
     canCreateCustom: Boolean,
+    pageIndex: Int,
+    pageCount: Int,
+    onNavigateTo: (Int) -> Unit,
     onApply: () -> Unit,
     onSlotClick: (CombinedStatusBatteryColorSlot) -> Unit,
     onSettingsCardMeasured: (Int) -> Unit,
@@ -554,6 +570,9 @@ private fun BatterySchemePageContent(
         ) {
             BatterySchemeHeader(
                 name = name,
+                pageIndex = pageIndex,
+                pageCount = pageCount,
+                onNavigateTo = onNavigateTo,
                 previewPage =
                     if (builtIn != null) {
                         BatterySchemePage.BuiltIn(builtIn)
@@ -635,9 +654,13 @@ private fun BatterySchemePageContent(
 @Composable
 private fun BatterySchemeHeader(
     name: String,
+    pageIndex: Int,
+    pageCount: Int,
+    onNavigateTo: (Int) -> Unit,
     previewPage: BatterySchemePage?,
     endAction: (@Composable () -> Unit)? = null,
 ) {
+    val titleSideReserve = if (endAction != null) 84.dp else 44.dp
     Box(
         modifier =
             Modifier
@@ -650,18 +673,33 @@ private fun BatterySchemeHeader(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = IconButtonDefaults.MinWidth)
+                    .padding(horizontal = titleSideReserve)
                     .align(Alignment.Center),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
-        endAction?.let { action ->
-            Box(
-                modifier = Modifier.align(Alignment.CenterEnd),
-            ) {
+        BatterySchemeNavigationButton(
+            enabled = pageIndex > 0,
+            imageVector = MiuixIcons.ChevronBackward,
+            contentDescription = stringResource(R.string.battery_color_scheme_previous),
+            onClick = { onNavigateTo(pageIndex - 1) },
+            modifier = Modifier.align(Alignment.CenterStart),
+        )
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            endAction?.let { action ->
                 action()
+                Spacer(Modifier.width(4.dp))
             }
+            BatterySchemeNavigationButton(
+                enabled = pageIndex < pageCount - 1,
+                imageVector = MiuixIcons.ChevronForward,
+                contentDescription = stringResource(R.string.battery_color_scheme_next),
+                onClick = { onNavigateTo(pageIndex + 1) },
+            )
         }
     }
     Spacer(Modifier.height(BATTERY_SCHEME_VERTICAL_GAP))
@@ -726,6 +764,10 @@ private fun BatteryModeSettingItem(
 @Composable
 private fun BatteryAddSchemePage(
     enabled: Boolean,
+    name: String,
+    pageIndex: Int,
+    pageCount: Int,
+    onNavigateTo: (Int) -> Unit,
     settingsCardHeightPx: Int,
     onClick: () -> Unit,
 ) {
@@ -743,25 +785,31 @@ private fun BatteryAddSchemePage(
             insideMargin = PaddingValues(16.dp),
         ) {
             BatterySchemeHeader(
-                name = stringResource(R.string.battery_custom_scheme_add_page_title),
+                name = name,
+                pageIndex = pageIndex,
+                pageCount = pageCount,
+                onNavigateTo = onNavigateTo,
                 previewPage = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
             )
             BatterySchemeActionArea {
-                if (enabled) {
-                    Spacer(Modifier.height(26.dp))
-                } else {
-                    TextButton(
-                        text = stringResource(R.string.battery_custom_scheme_limit),
-                        onClick = {},
-                        enabled = false,
-                        minWidth = 26.dp,
-                        minHeight = 26.dp,
-                        cornerRadius = SnackbarDefaults.ActionCornerRadius,
-                        insideMargin = SnackbarDefaults.ActionInsideMargin,
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                        textStyle = TextStyle(fontSize = 15.sp),
-                    )
-                }
+                TextButton(
+                    text =
+                        stringResource(
+                            if (enabled) {
+                                R.string.battery_custom_scheme_add_page_title
+                            } else {
+                                R.string.battery_custom_scheme_limit
+                            },
+                        ),
+                    onClick = onClick,
+                    enabled = enabled,
+                    minWidth = 26.dp,
+                    minHeight = 26.dp,
+                    cornerRadius = SnackbarDefaults.ActionCornerRadius,
+                    insideMargin = SnackbarDefaults.ActionInsideMargin,
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    textStyle = TextStyle(fontSize = 15.sp),
+                )
             }
             Card(
                 modifier =
@@ -776,7 +824,7 @@ private fun BatteryAddSchemePage(
                         ),
                 pressFeedbackType =
                     if (enabled) {
-                        PressFeedbackType.Tilt
+                        PressFeedbackType.Sink
                     } else {
                         PressFeedbackType.None
                     },
@@ -825,34 +873,20 @@ private fun BatteryAddSchemePage(
 }
 
 @Composable
-private fun BatterySchemeNavigator(
+private fun BatterySchemeIndicatorRail(
     pageCount: Int,
     currentPage: Int,
-    onNavigateTo: (Int) -> Unit,
 ) {
-    val canGoBack = currentPage > 0
-    val canGoForward = currentPage < pageCount - 1
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        BatterySchemeNavigationButton(
-            enabled = canGoBack,
-            imageVector = MiuixIcons.ChevronBackward,
-            contentDescription = stringResource(R.string.battery_color_scheme_previous),
-            onClick = { onNavigateTo(currentPage - 1) },
-        )
-        Spacer(Modifier.width(10.dp))
         BatteryPagerIndicator(
             pageCount = pageCount,
             currentPage = currentPage,
-        )
-        Spacer(Modifier.width(10.dp))
-        BatterySchemeNavigationButton(
-            enabled = canGoForward,
-            imageVector = MiuixIcons.ChevronForward,
-            contentDescription = stringResource(R.string.battery_color_scheme_next),
-            onClick = { onNavigateTo(currentPage + 1) },
         )
     }
 }
@@ -863,9 +897,11 @@ private fun BatterySchemeNavigationButton(
     imageVector: androidx.compose.ui.graphics.vector.ImageVector,
     contentDescription: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     TooltipBox(text = contentDescription) {
         IconButton(
+            modifier = modifier,
             onClick = onClick,
             enabled = enabled,
             backgroundColor =
@@ -874,14 +910,14 @@ private fun BatterySchemeNavigationButton(
                 } else {
                     MiuixTheme.colorScheme.disabledSecondaryVariant
                 },
-            cornerRadius = 28.dp,
-            minWidth = 28.dp,
-            minHeight = 28.dp,
+            cornerRadius = 36.dp,
+            minWidth = 36.dp,
+            minHeight = 36.dp,
         ) {
             Icon(
                 imageVector = imageVector,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(20.dp),
                 tint =
                     if (enabled) {
                         MiuixTheme.colorScheme.onSecondaryVariant
@@ -1355,7 +1391,7 @@ private fun BatteryCreateSchemeDialog(
         Column {
             TextField(
                 value = name,
-                onValueChange = { name = it.take(28) },
+                onValueChange = { name = limitBatteryCustomSchemeNameInput(it) },
                 label = stringResource(R.string.battery_custom_scheme_name),
                 singleLine = true,
             )
@@ -1403,7 +1439,7 @@ private fun BatteryRenameSchemeDialog(
             Column {
                 TextField(
                     value = name,
-                    onValueChange = { name = it.take(28) },
+                    onValueChange = { name = limitBatteryCustomSchemeNameInput(it) },
                     label = stringResource(R.string.battery_custom_scheme_name),
                     singleLine = true,
                 )

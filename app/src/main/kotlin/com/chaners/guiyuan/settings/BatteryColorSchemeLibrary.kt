@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal const val BATTERY_COLOR_SCHEME_CUSTOM_MAX = 5
+internal const val BATTERY_COLOR_SCHEME_NAME_MAX_CODE_POINTS = 24
 internal const val BATTERY_COLOR_SCHEME_HYPEROS_KEY = "builtin:hyperos"
 internal const val BATTERY_COLOR_SCHEME_IOS_KEY = "builtin:ios"
 internal const val BATTERY_COLOR_SCHEME_LOW_SATURATION_KEY = "builtin:low_saturation"
@@ -229,7 +230,7 @@ internal class BatteryColorSchemeLibraryRepository(context: Context) {
         val custom =
             BatteryCustomColorScheme(
                 id = id,
-                name = name.trim(),
+                name = normalizeBatteryCustomSchemeName(name),
                 baseTemplate = baseTemplate,
                 entries = entries,
             )
@@ -248,7 +249,7 @@ internal class BatteryColorSchemeLibraryRepository(context: Context) {
         name: String,
     ) {
         updateCustom(id) { scheme ->
-            scheme.copy(name = name.trim())
+            scheme.copy(name = normalizeBatteryCustomSchemeName(name))
         }
     }
 
@@ -607,6 +608,21 @@ private fun customColorKey(
     slot: CombinedStatusBatteryColorSlot,
 ): String =
     customPrefix(id) + "color." + slot.name.lowercase()
+
+
+internal fun limitBatteryCustomSchemeNameInput(value: String): String {
+    val codePointCount = value.codePointCount(0, value.length)
+    if (codePointCount <= BATTERY_COLOR_SCHEME_NAME_MAX_CODE_POINTS) return value
+    val endIndex =
+        value.offsetByCodePoints(
+            0,
+            BATTERY_COLOR_SCHEME_NAME_MAX_CODE_POINTS,
+        )
+    return value.substring(0, endIndex)
+}
+
+internal fun normalizeBatteryCustomSchemeName(value: String): String =
+    limitBatteryCustomSchemeNameInput(value.trim())
 
 
 internal fun batteryColorSchemeSourceFromLegacy(

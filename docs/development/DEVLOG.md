@@ -2023,3 +2023,15 @@ Correction:
 - existing workflow runs keep their historical titles and are not renamed retroactively.
 
 This correction is CI presentation/branch hygiene only and does not affect the APK or runtime behavior.
+
+
+## 2026-10-02 — Build 600 battery scheme card navigation and safe custom names
+
+**Type:** settings UI / persistence guard / diagnostic conclusion
+
+- Move previous/next style controls from the pager-indicator row into the gray scheme Card title row. Controls use pinned MIUIX `IconButton` behavior at 36dp with 20dp chevrons and no synthetic shadow; custom-style More remains inside the right navigation control.
+- Keep the page indicator in a fixed 28dp rail so this change does not silently alter the accepted sheet-to-card vertical rhythm.
+- When custom capacity remains, the Add page title shows the next localized default name (`Custom style X` / `自定义样式X`) and the prior Apply-action slot becomes an enabled `New style` action. At capacity the existing disabled limit action remains.
+- Change only the Add white Card press feedback from `Tilt` to pinned MIUIX `Sink`; upstream `SinkFeedback` owns the 0.94 pressed scale.
+- Replace duplicated UI `take(28)` limits with one 24-code-point rule shared by create/rename UI and the repository write path. The limiter truncates by Unicode code point rather than UTF-16 code unit so a surrogate pair is never split.
+- Build-599 device diagnostics settle the late peer-icon disappearance mechanism: QS_FAKE `MiuiStatusIconContainer` stays 478px wide while transition reservation can apply 249px end padding, leaving 229px usable at ~full expansion; final QS has 645px usable. The disappearing network-speed icon is therefore native fake-carrier underflow, not source-state loss. Build 600 records this evidence only and does not alter runtime geometry.

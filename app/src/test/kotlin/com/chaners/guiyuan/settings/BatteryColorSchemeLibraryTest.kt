@@ -110,4 +110,22 @@ class BatteryColorSchemeLibraryTest {
         assertEquals(3, customSchemeId("custom:3"))
         assertNull(customSchemeId(BATTERY_COLOR_SCHEME_HYPEROS_KEY))
     }
+    @Test
+    fun customSchemeNameLimitIsSharedAndUnicodeCodePointSafe() {
+        assertEquals(
+            "123456789012345678901234",
+            limitBatteryCustomSchemeNameInput("1234567890123456789012345"),
+        )
+        val emoji = "\uD83D\uDE80"
+        val twentyFourEmoji = emoji.repeat(BATTERY_COLOR_SCHEME_NAME_MAX_CODE_POINTS)
+        assertEquals(
+            twentyFourEmoji,
+            limitBatteryCustomSchemeNameInput(twentyFourEmoji + emoji),
+        )
+        assertEquals(
+            "Custom style",
+            normalizeBatteryCustomSchemeName("  Custom style  "),
+        )
+    }
+
 }
