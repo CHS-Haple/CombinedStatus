@@ -2538,11 +2538,11 @@ No cross-host bridge, timer, delay, alpha patch, visibility patch, geometry writ
 This correction is lifecycle hygiene, not an attempt to eliminate native Home -> AOD visual switching. Future AOD work should only resume if device evidence shows Guiyuan adds an extra artifact beyond the stock transition.
 
 
-## 2026-10-03 — Build 642: single-child AOD handoff + authoritative unlock boundary
+## 2026-10-03 — Build 643: single-child AOD handoff + authoritative unlock boundary
 
 **Type:** device evidence / lifecycle root cause / performance isolation  
 **Branch / PR:** `feat/aod-display-control` / #196  
-**Builds:** 636 -> 642
+**Builds:** 636 -> 643
 
 ### Device evidence
 
@@ -2560,7 +2560,7 @@ Build 636 exposed three related lifecycle symptoms on the AOD branch:
 
 The existing ScenePolicy already rejects retaining a Keyguard Control Center lease for HOME; the defect was the module feeding it cached KEYGUARD state rather than honoring the newly verified HOME source.
 
-### Build 642 correction
+### Build 643 correction
 
 - Keyguard-only mode acquires Keyguard as soon as verified steady Keyguard is observed.
 - AOD-only mode releases AOD at the same verified steady-Keyguard boundary once Home no longer owns the source.
@@ -2591,3 +2591,11 @@ A post-fix review found that the initial AOD hot-path flag was being cleared on 
 - set true only after AOD renderer attach;
 - clear only on Keyguard retarget, explicit AOD detach, hot reload takeover, or old-generation teardown;
 - presentation readiness/failure does not suppress a later real renderer cleanup.
+
+
+### Hidden Control Center lifecycle isolation
+
+Build-636 diagnostics showed `controlCenterProjection state=native authority=keyguard-readiness-lost controlCenterVisible=false`: Keyguard lifecycle loss was mutating Control Center projection while Control Center was not even open. Build 643 isolates that path:
+- when Control Center is hidden, native fraction is zero, and no Keyguard Control Center lease is active, Keyguard readiness-lost/fail/deactivate no longer changes Control Center projection;
+- the next native Control Center visible callback resolves the actual `realSystemIcons` source scene and selects HOME/KEYGUARD projection from current state;
+- active/visible Control Center and a live Keyguard lease still reconcile immediately.
