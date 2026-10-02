@@ -37,44 +37,52 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 624 remains the accepted main battery-ring/fill retract baseline. Build 627 device evidence exposes two refinement issues rather than invalidating that baseline:
-- the final very short arc retracts visually too slowly because ROUND stroke caps dominate once arc length approaches one stroke width;
-- the charging glyph begins disappearing too early and its exit feels too soft.
+Build 624 remains the accepted main battery-ring/fill retract baseline. Build 629 is device-rejected for charging-glyph handoff semantics:
+- “no movement while visible” was interpreted as freezing the glyph in screen/root coordinates, but the intended behavior is to remain fixed **relative to the battery percentage** and move with that number;
+- the glyph still remained visible after the ring had passed the 50% retained point;
+- target-side reappearance happened too soon after ring completion.
 
-Build 629 corrects only those terminal/handoff details:
-- the Build-624 ring progress/easing remains unchanged;
-- transition ring drawing ends once the retained arc length is no greater than the actual ring stroke width, removing only the ROUND-cap-dominated terminal dot;
-- the cutoff is derived from current drawable sweep, ring radius and resolved stroke width, so weight scaling/top-gap geometry remain authoritative;
-- charging-glyph fade is moved later to retained ring 26% -> 20% and remains smooth but short;
-- while source-side charging alpha is greater than zero, its geometry is frozen at the captured source position: no target interpolation and no carrier rebase are allowed;
-- target motion begins only after source alpha reaches exactly zero at 20% retained ring, completes by 4%, and remains invisible until the final target-reveal phase;
-- exact `mBatteryChargingView` drawable optical geometry remains the only target; missing target still means fade-out only;
-- charging glyph remains separate from percentage text, so the number cannot reflow when the glyph reaches alpha zero.
+Build 631 corrects the handoff contract while preserving the accepted ring path:
+- derive source fade timing from the existing ring policy's real 60% -> 50% retained interval;
+- source glyph is fully invisible by 50% retained ring;
+- while source alpha is non-zero, target motion is still forbidden, but glyph geometry follows the battery-number participant through the same affine transform so their relative offset/scale stays fixed;
+- after source alpha reaches zero, the glyph may travel invisibly to exact native `mBatteryChargingView` target geometry;
+- target travel completes before the late reveal phase;
+- target reveal begins only near overall handoff progress 92%;
+- reveal duration is exactly the same progress span as source fade and uses the same smoothstep easing, giving symmetric fade-out/fade-in speed;
+- no reliable target still means source fade only, with no guessed motion or reveal.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003629` / Build `20261003-629`.
-- Build 627 device video confirms the terminal slow-looking remnant and that the glyph handoff starts earlier/softer than desired.
-- At default 50px ring radius / 8.25px stroke / 240-degree full sweep, the geometry-derived terminal threshold is about 3.94% retained ring; earlier main retract geometry is untouched.
-- Unit coverage locks the cap-dominated threshold and the later, shorter charging-glyph fade/hidden-travel sequence.
-- Runtime CI passed the source changes before final identity/docs closure.
-- Final Runtime CI on exact Build-629 HEAD is required before Canary.
+- Candidate identity: `0.0.5` / versionCode `261003631` / Build `20261003-631`.
+- Build 629 device video confirms the incorrect root-coordinate freeze, source visibility beyond the 50% ring point, and target reappearance too close to ring completion.
+- Unit coverage locks:
+  - ring 60% -> 50% as the source fade window;
+  - full source invisibility at the 50% retained point;
+  - zero charging-target motion while any source alpha remains;
+  - battery-number-relative follower geometry during the visible/fading source phase;
+  - equal fade-out/fade-in progress duration;
+  - no target-side reveal before the late 92% handoff phase;
+  - no-target fail-native behavior.
+- The accepted Build-624 main ring/fill curve remains unchanged; the terminal ROUND-cap cleanup from 629 remains intact.
 
 ## Device gate
 
-Focused Build-629 charging validation:
-- the accepted Build-624 main ring/fill retract pace must remain visually unchanged;
-- the former lingering final ring dot should disappear cleanly instead of slowing at the end;
-- charging glyph should stay visible noticeably longer, then disappear quickly but smoothly as the ring approaches it;
-- while the glyph is fading out, its position must remain completely fixed at the source; it must be fully invisible before any target movement;
-- percentage text must not jump when the glyph disappears;
-- with a reliable target, hidden travel should converge to native position/size and only reappear near the target;
-- without a reliable target, the glyph must only disappear and never drift to a guessed point;
-- reverse gesture must remain continuous.
+Focused Build-631 charging validation:
+- before and during fade-out, charging glyph must move with the percentage number and keep the same relative offset; it must not be screen/root locked;
+- glyph should begin fading around retained ring 60% and be completely invisible by 50%;
+- after full invisibility it may separate from the number and travel invisibly to the native charging target;
+- no target-side glyph should appear immediately after ring completion;
+- only near the end of the whole transition should the glyph smoothly fade back in;
+- fade-in and fade-out should feel equally fast and use the same smooth character;
+- percentage number must not jump;
+- target position/size must still converge to exact native charging geometry;
+- missing target must produce fade-out only;
+- reverse gesture should remain continuous.
 
 ## Immediate next step
 
-Finish exact-HEAD Runtime CI and final geometry/ownership review. If clean, freeze runtime and produce one signed Work Branch Canary for focused device evidence.
+Finish exact-HEAD Runtime CI and final geometry review for Build 631. If clean, freeze runtime and produce one signed Work Branch Canary for focused device validation.
 
 ## Reference priority
 
