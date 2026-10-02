@@ -65,6 +65,30 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
         return remainingArcLengthPx <= stroke
     }
 
+    fun terminalVisibility(
+        remainingFraction: Float,
+        totalSweepDegrees: Float,
+        ringRadius: Float,
+        ringStroke: Float,
+    ): Float {
+        if (
+            totalSweepDegrees <= 0f ||
+            ringRadius <= 0f ||
+            ringStroke <= 0f
+        ) {
+            return 0f
+        }
+        val strokeFootprintDegrees =
+            Math.toDegrees((ringStroke / ringRadius).toDouble()).toFloat()
+        val terminalFraction =
+            (strokeFootprintDegrees / totalSweepDegrees)
+                .coerceIn(0.01f, 0.08f)
+        val normalized =
+            (remainingFraction.coerceIn(0f, 1f) / terminalFraction)
+                .coerceIn(0f, 1f)
+        return normalized * normalized
+    }
+
     fun resolve(
         drawableArcs: List<CombinedStatusBatteryTopArcPolicy.Arc>,
         batteryPercent: Int,
