@@ -5,7 +5,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.3.
-- `main` and `dev` are identical at `d773b67d19abc45b576c286e5fc6e7a4032fbe98`; their integrated runtime baseline remains Build 511 plus repository-governance updates.
+- `main` and `dev` are identical at `5ef5d763d1eed99c12b826abf6031d278a954a0e`; their integrated runtime baseline remains Build 511 plus repository-governance and GPL-3.0-or-later metadata updates.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
 - Build 510 non-charging Home and Build 511 charging Home transition behavior remain protected accepted baselines.
 - Build 473 Wi-Fi optical normalization and the accepted companion-app presentation baseline remain protected.
