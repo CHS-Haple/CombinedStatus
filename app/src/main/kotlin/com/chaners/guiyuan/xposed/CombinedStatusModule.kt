@@ -25,6 +25,8 @@ class CombinedStatusModule : XposedModule() {
     private var controlCenterSceneEligible = false
     private var controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
     private var steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
+    private var lastStableKeyguardAodScene =
+        CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
     private var aodRendererAttached = false
@@ -261,6 +263,8 @@ class CombinedStatusModule : XposedModule() {
             controlCenterSceneEligible = false
             controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
             steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
+            lastStableKeyguardAodScene =
+                CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
             aodRendererAttached = false
@@ -1849,6 +1853,7 @@ class CombinedStatusModule : XposedModule() {
     private fun onKeyguardAodStateUpdate(
         update: SystemUiKeyguardAodStateSource.AodUpdate,
     ) {
+        refreshStableKeyguardAodSceneFromAodState(update)
         if (update.blocksProjection) {
             releaseKeyguardControlCenterLease(
                 source = "aod:" + update.source,
@@ -1895,6 +1900,7 @@ class CombinedStatusModule : XposedModule() {
         if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
             steadyStatusSourceScene = sourceScene
         }
+        refreshStableKeyguardAodSceneFromSceneState(update, sourceScene)
         if (sourceScene == CombinedStatusSourceScene.KEYGUARD) {
             SystemUiKeyguardHostResolver.observe(update)?.let { resolution ->
                 onKeyguardHostResolution(
@@ -1969,6 +1975,82 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun refreshStableKeyguardAodSceneFromAodState(
+        update: SystemUiKeyguardAodStateSource.AodUpdate,
+    ) {
+        if (update.isAodAnimate) return
+        val next =
+            when {
+                SystemUiKeyguardAodStateSource.isStableAod(
+                    toAod = update.toAod,
+                    isAodAnimate = update.isAodAnimate,
+                ) ->
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD
+
+                !update.toAod &&
+                    steadyStatusSourceScene == CombinedStatusSourceScene.KEYGUARD ->
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD
+
+                steadyStatusSourceScene == CombinedStatusSourceScene.HOME ->
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
+
+                else -> null
+            }
+        if (next != null) {
+            updateStableKeyguardAodScene(next, "aod:" + update.source)
+        }
+    }
+
+    private fun refreshStableKeyguardAodSceneFromSceneState(
+        update: SystemUiSceneStateSource.SceneUpdate,
+        sourceScene: CombinedStatusSourceScene,
+    ) {
+        when (sourceScene) {
+            CombinedStatusSourceScene.HOME ->
+                updateStableKeyguardAodScene(
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                    "scene-home",
+                )
+
+            CombinedStatusSourceScene.KEYGUARD -> {
+                val aodState = SystemUiKeyguardAodStateSource.currentState(update.sourceView)
+                if (
+                    aodState != null &&
+                    !aodState.isAodAnimate &&
+                    !SystemUiKeyguardAodStateSource.isStableAod(
+                        toAod = aodState.toAod,
+                        isAodAnimate = aodState.isAodAnimate,
+                    )
+                ) {
+                    updateStableKeyguardAodScene(
+                        CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                        "scene-keyguard",
+                    )
+                }
+            }
+
+            CombinedStatusSourceScene.UNKNOWN -> Unit
+        }
+    }
+
+    private fun updateStableKeyguardAodScene(
+        next: CombinedStatusScenePolicy.StableKeyguardAodScene,
+        source: String,
+    ) {
+        if (next == lastStableKeyguardAodScene) return
+        val previous = lastStableKeyguardAodScene
+        lastStableKeyguardAodScene = next
+        logDiagnostic(
+            level = Log.INFO,
+            event = "scene.stableFamily",
+            component = "keyguardAod",
+            state = next.name.lowercase(),
+            "source" to source,
+            "previous" to previous.name,
+            "nativeGeometryWrites" to 0,
+        )
+    }
+
     private fun resolveCurrentKeyguardAodProjection(
         resolved: SystemUiKeyguardHostResolver.ResolvedHost,
     ): CombinedStatusScenePolicy.KeyguardAodProjection? {
@@ -1983,6 +2065,7 @@ class CombinedStatusModule : XposedModule() {
             toAod = aodState.toAod,
             isAodAnimate = aodState.isAodAnimate,
             steadySourceScene = steadyStatusSourceScene,
+            lastStableFamilyScene = lastStableKeyguardAodScene,
             homePresentationOwned =
                 SystemUiHomePresentationOwner
                     .currentHomeRepresentedSlotOwnership()
