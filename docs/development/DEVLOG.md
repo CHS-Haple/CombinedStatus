@@ -2035,3 +2035,12 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - Change only the Add white Card press feedback from `Tilt` to pinned MIUIX `Sink`; upstream `SinkFeedback` owns the 0.94 pressed scale.
 - Replace duplicated UI `take(28)` limits with one 24-code-point rule shared by create/rename UI and the repository write path. The limiter truncates by Unicode code point rather than UTF-16 code unit so a surrogate pair is never split.
 - Build-599 device diagnostics settle the late peer-icon disappearance mechanism: QS_FAKE `MiuiStatusIconContainer` stays 478px wide while transition reservation can apply 249px end padding, leaving 229px usable at ~full expansion; final QS has 645px usable. The disappearing network-speed icon is therefore native fake-carrier underflow, not source-state loss. Build 600 records this evidence only and does not alter runtime geometry.
+
+## 2026-10-02 — Build 609 late peer disappearance: causal hypothesis reopened
+
+**Type:** runtime diagnostics / ownership review
+
+- Build-605 proves substantial QS_FAKE capacity pressure: the fake status-icon row remains 478px wide while transition reservation can apply ~249px end padding.
+- The same terminal evidence also shows `ControlCenterFakeStatusIcons` can already be alpha 0 around fraction ~0.998 while that reservation is still present. Therefore fake-row underflow is proven to exist but is not yet sufficient evidence that it is the user-visible disappearance.
+- Pre-commit review rejects widening `system_icon_area`: that would introduce a second native peer-layout writer and violate the accepted architecture where `statusIcons.paddingEnd` is the sole Guiyuan native peer-layout writer.
+- Build 609 stays read-only and records bounded fake/final native row membership and visibility across the existing 8 Detailed-diagnostic progress buckets so the disappearance can be assigned to fake-row underflow or native fake->final handoff before any behavior change.

@@ -833,6 +833,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
                 ",iconCapacity=" + statusIconCapacitySummary() +
+                ",nativeRows=" + nativeStatusRowSummary() +
                 ",fakeCarrier=" + fakeCarrierHierarchySummary() +
                 ",reservationMode=" +
                 when {
@@ -864,6 +865,51 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
             return "{fake=" + summary(fakeStatusIcons) +
                 ",final=" + summary(finalStatusIcons) + "}"
+        }
+
+        private fun nativeStatusRowSummary(): String {
+            fun rootToken(view: View?): String =
+                if (view == null) {
+                    "none"
+                } else {
+                    view.javaClass.simpleName +
+                        "(v=" + view.visibility +
+                        ",a=" + view.alpha +
+                        ",w=" + view.width + ")"
+                }
+
+            fun groupToken(group: ViewGroup): String {
+                val children =
+                    buildList {
+                        val limit = minOf(group.childCount, 12)
+                        for (index in 0 until limit) {
+                            val child = group.getChildAt(index)
+                            val slot =
+                                NativeParticipantRuntimeAccess.slotOf(child)
+                                    ?: NativeParticipantRuntimeAccess.resourceEntryName(child)
+                                    ?: child.javaClass.simpleName
+                            add(
+                                slot +
+                                    "(state=" +
+                                    (NativeParticipantRuntimeAccess.visibleState(child) ?: -1) +
+                                    ",icon=" +
+                                    (NativeParticipantRuntimeAccess.iconVisible(child)?.toString()
+                                        ?: "unknown") +
+                                    ",v=" + child.visibility +
+                                    ",a=" + child.alpha +
+                                    ",l=" + child.left +
+                                    ",r=" + child.right +
+                                    ",w=" + child.width + ")",
+                            )
+                        }
+                    }.joinToString(",")
+                return "count=" + group.childCount + "/items=[" + children + "]"
+            }
+
+            return "{fakeRoot=" + rootToken(fakeRootRef.get()) +
+                ",finalRoot=" + rootToken(finalRootRef.get()) +
+                ",fake=" + groupToken(fakeStatusIcons) +
+                ",final=" + groupToken(finalStatusIcons) + "}"
         }
 
         private fun fakeCarrierHierarchySummary(): String {
