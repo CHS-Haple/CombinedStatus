@@ -147,6 +147,17 @@ internal object CombinedStatusScenePolicy {
         isAodAnimate: Boolean,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
+        if (isAodAnimate) {
+            return if (keyguardEnabled && aodEnabled) {
+                if (toAod) {
+                    KeyguardAodProjection.KEYGUARD
+                } else {
+                    KeyguardAodProjection.AOD
+                }
+            } else {
+                KeyguardAodProjection.NATIVE
+            }
+        }
         if (
             SystemUiKeyguardAodStateSource.isStableAod(
                 toAod = toAod,
