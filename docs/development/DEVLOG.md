@@ -2406,3 +2406,41 @@ No timer, delay, polling, guessed direction, duplicate animation clock or new na
 - Obsolete unit coverage for the removed RenderSession eligibility policy is deleted; ScenePolicy tests remain the projection-matrix contract.
 - Runtime CI passes the source-level Build-628 correction on the pinned target before the identity/docs closure.
 - Signed Canary/device evidence remains mandatory before integration.
+
+
+## 2026-10-03 — Build 628 device finding; Build 630 family-child alpha correction
+
+**Type:** device evidence / render alpha ownership / root-cause correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 628 -> 630
+
+### Device evidence
+
+Build 628 fixes the earlier native represented-icon restoration: during AOD/Keyguard family switching, native Wi-Fi/mobile/battery no longer flash back. The remaining visible defect is different: the Guiyuan combined visual itself disappears for roughly ten video frames before returning.
+
+The matching detailed trace keeps the family projection healthy across the same interval: readiness stays true, scene eligibility stays true, and presentation cutover remains combined. This excludes another presentation cleanup/reacquire gap.
+
+### Root cause
+
+Build 628 still applied AOD alpha with:
+
+`renderView.alpha = batteryView.alpha`
+
+for the whole combined child.
+
+Exact-target architecture evidence already distinguishes HyperOS AOD animation layers: `animateFullAod()` independently drives Battery alpha/AOD state and status-icon alpha/visibility. Battery alpha can therefore reach zero while the verified family/status-icons carrier remains the correct owner for Guiyuan. Copying Battery alpha onto the entire module child incorrectly turned one native child animation into Guiyuan's global alpha clock.
+
+### Build 630 correction
+
+- Keep the module child alpha at 1 whenever ScenePolicy/presentation says the family overlay is visible.
+- Continue inheriting the verified `system_icons` parent carrier's native visibility/motion; no native parent alpha/visibility is written.
+- Keep Battery, status-icons and system-icons alpha as read-only diagnostics so any surviving device artifact can be assigned to the correct native layer.
+- Preserve Build-628 single ScenePolicy eligibility authority, one family Session/RenderView and role-retarget ownership.
+
+No custom AOD animator, delay, timer, threshold, native alpha writer or duplicate scene state machine is added.
+
+### Review / validation
+
+- Unit coverage now locks that family child alpha does not copy independent Battery AOD alpha.
+- Exact Build-630 Runtime CI #2322 succeeds.
+- Focused signed-Canary device evidence remains mandatory.
