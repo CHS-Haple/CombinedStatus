@@ -37,7 +37,7 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 650 is the current device candidate after Build-638 feedback.
+Build 652 is the current device candidate after Build-638 feedback.
 
 Confirmed Build-638 root causes:
 - `FOLLOW_SYSTEM` is correctly classified as non-colorized; only resolved `Custom` semantic sources are treated as battery-colorized;
@@ -46,7 +46,7 @@ Confirmed Build-638 root causes:
 - supplemental Airplane / No-SIM reveal resolved real native optical target geometry but used `SHRINK_ONLY`, preventing growth when the native target drawable is larger than the Guiyuan source;
 - the Build-638 charging Clip window (retained ring 26% -> 20%) kept the source charging glyph visible too long.
 
-Build 650 correction:
+Build 652 correction:
 - pull-down native tint now reads the already-applied tint from visible, non-represented native peers in `QS_FAKE / fakeStatusIcons`, the same native transition presentation moving beside Guiyuan;
 - non-colorized / FOLLOW_SYSTEM participants directly follow that live native peer tint; custom battery-colorized participants alone use the optional 35%-65% source -> native interpolation;
 - final Battery tint is removed as a generic status-icon tint fallback; if a live QS_FAKE peer is temporarily unavailable, only the last valid QS_FAKE peer tint is retained;
@@ -58,19 +58,27 @@ Build 650 correction:
 
 No new animator, timer, native tint/geometry writer, guessed pixel offset, or second transition clock is added.
 
-Build 648 Runtime failed only because a pre-change unit assertion still expected custom tint to remain fully at source color at progress 0.20. The runtime implementation already followed the approved ring-synced rule; Build 650 updates that test to hold source only at retract start (progress 0) and keeps the runtime behavior unchanged.
+Build 648 Runtime failed only because a pre-change unit assertion still expected custom tint to remain fully at source color at progress 0.20. The runtime implementation already followed the approved ring-synced rule; Build 652 updates that test to hold source only at retract start (progress 0) and keeps the runtime behavior unchanged.
 
 
-Build 650 device-feedback correction:
+Build 652 device-feedback correction:
 - Build 649 tied source charging-glyph disappearance to 50% **remaining ring arc**, but the ring retract curve is intentionally front-loaded; device video therefore showed the lightning fully gone before the retract animation itself reached halfway.
-- Build 650 instead uses the ring retract **lifetime** as the authority: clipping starts at lifetime 0%, is exactly 50% visible at lifetime 25%, and is fully clipped at lifetime 50%.
+- Build 652 instead uses the ring retract **lifetime** as the authority: clipping starts at lifetime 0%, is exactly 50% visible at lifetime 25%, and is fully clipped at lifetime 50%.
 - The source glyph remains number-relative while any source clip remains; only after complete clipping can hidden target travel begin.
 - The mechanism remains opaque horizontal Clip only (`opacity=1`), not alpha fade or scale.
 - Target reveal remains independently fixed at 0.85 -> 0.90.
 
+
+Build 652 device-video correction:
+- Build 649 ended the source charging Clip when retained ring arc reached 50%, which device video showed as too early.
+- Build 650 ended it at 50% of raw ring-retract lifetime, but the ring uses a strong front-loaded curve (0.92); at that point only about 18% of the arc remains, so device video showed the lightning disappearing near the end.
+- Build 652 calibrates the source Clip endpoint to 40% of ring-retract lifetime, corresponding to about 32% retained arc under the current ring curve. This visually falls between the two proven bad endpoints and matches the observed midpoint more closely.
+- Clip still starts exactly with ring retract, remains linear/opaque, stays locked to the number while visible, then hidden travel begins.
+- Target reveal remains fixed at 0.85 -> 0.90; tint timing and ring geometry are unchanged.
+
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003650` / Build `20261003-650`.
+- Candidate identity: `0.0.5` / versionCode `261003652` / Build `20261003-652`.
 - Work branch remains based on current `dev` with no behind commits at the latest checkpoint.
 - Focused coverage locks:
   - FOLLOW_SYSTEM -> live native target tint and custom-color switch semantics;
@@ -106,7 +114,7 @@ After exact-HEAD Runtime CI passes, validate one signed Build-644 Canary:
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 650. If green, request one signed Canary and freeze #197 runtime for focused device validation.
+Run exact-HEAD Runtime CI for Build 652. If green, request one signed Canary and freeze #197 runtime for focused device validation.
 
 ## Reference priority
 
