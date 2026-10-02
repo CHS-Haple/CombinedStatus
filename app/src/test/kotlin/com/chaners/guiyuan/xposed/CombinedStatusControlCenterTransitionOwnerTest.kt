@@ -191,6 +191,37 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun transitionTintInterpolatesArgbChannels() {
+        val source = 0xffff6600.toInt()
+        val target = 0xe6ffffff.toInt()
+
+        assertEquals(
+            source,
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateColor(
+                source = source,
+                target = target,
+                progress = 0f,
+            ),
+        )
+        assertEquals(
+            target,
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateColor(
+                source = source,
+                target = target,
+                progress = 1f,
+            ),
+        )
+        assertEquals(
+            0xf3ffb380.toInt(),
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateColor(
+                source = source,
+                target = target,
+                progress = 0.5f,
+            ),
+        )
+    }
+
+    @Test
     fun mobileTypeWeightInterpolatesToNativeTarget() {
         assertEquals(
             800,
