@@ -27,7 +27,7 @@ class CombinedStatusModule : XposedModule() {
     private var steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
-    private var aodRuntimeAttached = false
+    private var aodRendererAttached = false
     private var keyguardPresentationReadyObserved = false
     private var keyguardControlCenterLeaseActive = false
     private var controlCenterGeometryProbeBucket = -1
@@ -263,7 +263,7 @@ class CombinedStatusModule : XposedModule() {
             steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
-            aodRuntimeAttached = false
+            aodRendererAttached = false
             keyguardPresentationReadyObserved = false
             keyguardControlCenterLeaseActive = false
             controlCenterGeometryProbeBucket = -1
@@ -1906,7 +1906,7 @@ class CombinedStatusModule : XposedModule() {
                 authority = "steady-source-view",
             )
 
-            if (aodRuntimeAttached) {
+            if (aodRendererAttached) {
                 val retainAodHandoff =
                     SystemUiHomePresentationOwner.currentAodPresentationClaimed()
                 if (!retainAodHandoff) {
@@ -2105,7 +2105,7 @@ class CombinedStatusModule : XposedModule() {
                 )
         ) {
             CombinedStatusKeyguardRenderSession.AttachResult.Ready -> {
-                aodRuntimeAttached = false
+                aodRendererAttached = false
                 logDiagnostic(
                     level = Log.INFO,
                     event = "renderer.attach",
@@ -2159,7 +2159,7 @@ class CombinedStatusModule : XposedModule() {
                 )
         ) {
             CombinedStatusKeyguardRenderSession.AttachResult.Ready -> {
-                aodRuntimeAttached = true
+                aodRendererAttached = true
                 logDiagnostic(
                     level = Log.INFO,
                     event = "renderer.attach",
@@ -2452,7 +2452,6 @@ class CombinedStatusModule : XposedModule() {
             }
 
             is SystemUiHomePresentationOwner.StateResult.Failure -> {
-                aodRuntimeAttached = false
                 CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
                 SystemUiHomePresentationOwner.deactivateAod("activation-failed")
                 logDiagnostic(
@@ -2471,7 +2470,6 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun applyAodPresentationReadinessLost(source: String) {
-        aodRuntimeAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod("readiness-lost:" + source)
     }
@@ -2508,7 +2506,6 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onAodPresentationRuntimeFailure(reason: String) {
-        aodRuntimeAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         logDiagnostic(
             level = Log.WARN,
@@ -2521,7 +2518,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun deactivateAodRuntime(source: String) {
-        aodRuntimeAttached = false
+        aodRendererAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod(source)
         CombinedStatusKeyguardRenderSession.detachAod()
@@ -2569,7 +2566,7 @@ class CombinedStatusModule : XposedModule() {
         steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
-        aodRuntimeAttached = false
+        aodRendererAttached = false
         keyguardPresentationReadyObserved = false
         keyguardControlCenterLeaseActive = false
         CombinedStatusControlCenterTransitionOwner.detach("hotReload-oldGeneration")
