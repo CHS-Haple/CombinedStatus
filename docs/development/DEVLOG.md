@@ -1,3 +1,22 @@
+## 2026-10-02 — Build 594 Canvas composable-context correction
+
+**Type:** App UI compile fix  
+**Display version:** 0.0.3  
+**Build:** 594 / `20261002-594`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### CI evidence
+Build 592 Runtime CI #2163 failed Kotlin compilation at the Add-card Canvas because a composable MIUIX color token was read from inside the non-composable draw lambda. Build 593 inherited the same issue.
+
+### Root cause
+`MiuixTheme.colorScheme.disabledOnSecondaryVariant` was resolved inside `Canvas { ... }`.
+
+### Change
+Resolve the plus foreground color in composable scope before Canvas, then capture the resulting `Color` inside the draw lambda.
+
+### Validation
+No visual or behavioral change. Re-run exact-head Runtime CI and Canary.
+
 ## 2026-10-02 — Build 593 explicit custom-style limit state
 
 **Type:** App UI / MIUIX disabled-state feedback  
