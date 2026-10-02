@@ -2381,3 +2381,50 @@ Build 631's source-side behavior is retained. The only requested refinement is t
 
 - Unit coverage locks the 88% reveal start and equal fade-window duration.
 - Exact Build-632 Runtime CI and signed Canary remain required before device validation.
+
+
+## 2026-10-03 — Build 633 selective pull-down tint transition
+
+**Type:** Control Center visual color handoff / settings  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Build:** 633
+
+### Requested behavior
+
+Maintainer clarified that the Control Center pull-down should not recolor every projected participant. Only participants currently receiving a semantic/preset/custom battery-linked color should transition back to the system reverse tint. Already-native/system-tinted participants should remain on the native tint path.
+
+The color change should also be concentrated in the middle of the handoff: unchanged at the beginning, fast smooth transition in the middle, unchanged at the end.
+
+A default-enabled switch is required. Disabling it means colorized participants remain in their original source color during pull-down rather than transitioning to reverse tint.
+
+### Implementation
+
+- Added global visual setting `controlCenterTintTransitionEnabled`, persisted under `control_center_tint_transition_enabled`, default `true`, synchronized through the existing visual-settings owner.
+- Added MIUIX `SwitchPreference` in the Global section:
+  - EN: **Pull-down tint transition**
+  - zh-CN: **下拉反色过渡**
+- Added `CombinedStatusBatteryColorPolicy.isTinted(...)` so transition participation is based on the active semantic color source being an actual `Custom` source after preset/custom resolution.
+- Battery ring participates whenever the active semantic battery source is tinted.
+- Center/mobile/top-number/charging-glyph participate only when their existing follow-battery-color setting is enabled in addition to the active battery source being tinted.
+- Non-tinted participants resolve directly to the live final native peer tint.
+- Colorized participants with the switch disabled keep their source color.
+- With the switch enabled, `transitionTintProgress()` is:
+  - 0 through handoff 35%;
+  - smoothstep 0 -> 1 over 35% -> 65%;
+  - 1 from 65% onward.
+- ARGB channels are interpolated independently.
+- Native target tint is read from the existing final `statusIcons` peer authority; reads refresh each pre-draw while retaining the last valid value.
+
+No new animator, timer, color guess, native tint writer, geometry writer, or second settings owner is introduced.
+
+### Charging timing retained
+
+Build 632's 88% final charging-glyph reveal start remains. The 60% -> 50% source fade, number-relative follower geometry, hidden target travel, equal fade durations, exact target geometry and fail-native behavior are unchanged.
+
+### Review / tests
+
+- Tests distinguish preset/custom tinted states from FOLLOW_SYSTEM.
+- Tests lock source/target/midpoint ARGB interpolation.
+- Tests lock the 35%/65% middle-only phase.
+- Tests lock switch OFF -> source color for tinted participants and non-tinted -> native target tint.
+- Visual-settings tests lock default ON and runtime-sync key coverage.
