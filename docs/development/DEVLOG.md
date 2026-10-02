@@ -2262,3 +2262,41 @@ No timer, delayed runnable, additional animation clock, native target mutation, 
 - Unit coverage verifies the glyph is hidden before target motion becomes visible, cannot reappear without a target, and reaches full target opacity/motion at completion.
 - Ownership remains single-writer: Guiyuan only draws its transition participant; native charging target is read-only geometry evidence.
 - Build 624 ring/fill implementation is otherwise unchanged.
+
+
+## 2026-10-03 — Build 627 device findings; Build 629 terminal ring and late charging handoff
+
+**Type:** device evidence / transition optics / target handoff timing  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 627 -> 629
+
+### Device evidence
+
+Build 627 preserves the accepted Build-624 main retract behavior but exposes two visual problems:
+- near the end, a tiny remaining ring segment appears to retract disproportionately slowly;
+- the charging glyph starts fading/leaving too early and too softly relative to the ring.
+
+### Root cause
+
+The ring uses ROUND stroke caps. Once the remaining centerline arc becomes comparable to the stroke width, reducing sweep no longer produces a proportionally smaller visual mark: the two round caps dominate and the remainder looks like a nearly fixed dot until mathematical progress finally reaches zero.
+
+The charging-glyph source fade in Build 627 was tied to 60% -> 50% retained ring, so it began well before the ring visually approached the glyph. Its hidden target travel also consumed the entire remaining 50% -> 0% interval, making the exit feel prolonged.
+
+### Build 629 correction
+
+- Do not retune `transitionProgress()`, `FRONT_LOAD`, fill-follow semantics or the accepted Build-624 main retract curve.
+- Compute the retained transition arc length from current drawable sweep and `CombinedStatusOuterGeometry.RING_RADIUS`.
+- Stop drawing only when that retained arc length is less than or equal to the resolved ring stroke width. This removes the cap-dominated terminal artifact and naturally adapts to outer-weight scaling and top-gap sweep.
+- Move charging fade to retained ring 26% -> 20%.
+- Begin hidden target motion only after full source disappearance; map retained ring 20% -> 4% to the complete hidden travel.
+- Start target reveal only in the final portion of that target motion.
+- Keep exact native charging-target optical geometry, target scaling, no-target fail-native behavior and percentage-layout isolation unchanged.
+
+No timer, extra animator, guessed pixel offset, native target mutation or second progress clock is introduced.
+
+### Review / validation
+
+- Geometry test distinguishes a 5% retained default arc (still drawable) from a 3% retained arc (cap-dominated terminal state).
+- Charging handoff tests verify later source visibility, full disappearance before target travel, short hidden travel and no-target no-reveal behavior.
+- Runtime CI passes the source correction before final Build identity/docs closure.
+- Signed Canary/device evidence remains mandatory before integration.
