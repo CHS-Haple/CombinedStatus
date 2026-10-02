@@ -983,6 +983,7 @@ internal object CombinedStatusControlCenterRenderSession {
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
                     " nativePresentationReady=" + nativePresentationReady +
+                    " islandFallback=" + islandNativeFallbackLatched +
                     " rootAlphaInherited=true nativeGeometryWrites=0"
             }
             onProjectionReadinessChanged(ready)
