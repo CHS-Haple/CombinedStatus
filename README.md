@@ -71,7 +71,7 @@ The project is still under active development, so wider device, system-version, 
 
 ### License
 
-Guiyuan is free software licensed under the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (`GPL-3.0-only`). See [LICENSE](LICENSE).
+Guiyuan is free software licensed under version 3 of the GNU General Public License as published by the Free Software Foundation (`GPL-3.0-only`). See [LICENSE](LICENSE).
 
 ---
 
