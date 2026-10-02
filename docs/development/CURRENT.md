@@ -15,39 +15,37 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 626 is device-rejected. The callback-order correction was necessary but insufficient: detailed device evidence shows both family roles can still be released during one native AOD transition because RenderSession/readiness code independently re-derives eligibility from raw AOD state after ScenePolicy has already selected the continuous family projection.
+Build 628 is partially accepted by device evidence: it fixes the native represented-icon flash during Keyguard/AOD scene switching, confirming that the single ScenePolicy ownership authority and one family Session/RenderView are correct. A visible self-flash remains: Guiyuan itself disappears briefly during the family scene change and then returns, without native icons taking over.
 
-Build 628 removes those duplicate eligibility writers:
-- `CombinedStatusScenePolicy.resolveKeyguardAodProjection()` is the sole KEYGUARD / AOD / NATIVE projection authority;
-- RenderSession receives the selected scene eligibility from Module and no longer derives it again from `toAod`, `isAodAnimate` or `blocksProjection`;
-- raw AOD updates may refresh inherited visibility/alpha diagnostics but cannot change presentation readiness ownership;
-- Keyguard and AOD readiness/cutover validate against the same current ScenePolicy projection instead of applying a second stable-AOD rule;
-- same-host family retarget, role-specific cleanup guards, one presentation Session and one RenderView remain unchanged;
-- no timer, delay, polling, direction guess or duplicate native geometry/visibility writer is added.
+Build 630 isolates that remaining defect to child alpha ownership:
+- the family RenderView remains `ownerReady=true`, `sceneEligible=true` and presentation ownership stays continuous during the flash;
+- Build 628 nevertheless copies `MiuiBatteryMeterView.alpha` onto the entire Guiyuan child whenever the role is AOD;
+- HyperOS independently animates Battery alpha and status-icon alpha during `animateFullAod()`; Battery may legitimately reach alpha 0 while the family/status-icons surface remains the correct Guiyuan carrier;
+- therefore Battery child alpha is not a valid animation clock for the whole combined visual.
+
+Build 630 keeps Guiyuan child alpha at 1 and inherits only the verified `system_icons` family host's native parent visibility/motion. Battery/status-icons/system-icons alpha are now read-only diagnostics and do not become Guiyuan alpha writers.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003628` / Build `20261003-628`.
-- Build 626 device video still shows temporary native battery/status presentation during both directions of AOD switching.
-- Build-626 diagnostics prove two remaining cleanup paths:
-  - Keyguard scene-transfer becomes ineligible during `isAodAnimate=true`, then `readiness-lost:aod:setIsAodAnimate` restores ignored slots, clip masks and reservation;
-  - an already-active AOD presentation is later cleaned with `aod-not-eligible` when the raw animation state changes.
-- The Build-626 “retarget before readiness update” hypothesis is therefore rejected as a complete fix; the surviving root cause is duplicated eligibility authority.
-- Runtime CI passed the Build-628 source changes before the final identity/docs bump.
-- Final Runtime CI on the exact Build-628 HEAD is required before Canary.
+- Candidate identity: `0.0.5` / versionCode `261003630` / Build `20261003-630`.
+- Build 628 device evidence confirms the native represented-icon flash is fixed but a roughly 0.4 s Guiyuan-only blank interval remains.
+- Matching diagnostics keep `ownerReady=true`, `sceneEligible=true`, `overlayVisible=true` across the same scene transfers, excluding presentation ownership loss as the remaining root cause.
+- Existing architecture/reference evidence states that HyperOS AOD independently animates Battery and status-icon alpha; copying Battery alpha onto the whole Guiyuan child collapses distinct native animation layers.
+- Build 630 removes only that derived child-alpha write; no new animation clock, timer, delay, native alpha/visibility writer or ownership path is added.
+- Exact Build-630 Runtime CI #2322 passed.
 
 ## Device gate
 
-Validate Build 628 with emphasis on:
-- repeated Home -> AOD -> Home switching: no temporary native battery/network set, blank interval or duplicate set;
-- repeated Keyguard -> AOD -> Keyguard switching with both child switches enabled: no native represented-icon flash and no cleanup/reacquire gap;
-- AOD-only and Keyguard-only child settings still fall native for the disabled scene;
-- global Guiyuan off still releases family ownership immediately;
-- no stuck outgoing frame, stale AOD alpha on Keyguard or AOD leakage into Control Center.
+Focused Build-630 validation:
+- repeated Keyguard -> AOD -> Keyguard and Home -> AOD -> Home: no Guiyuan blank/flash interval and no native represented-icon flash;
+- child alpha should remain visually continuous while HyperOS controls the parent family host transition;
+- AOD steady state still follows native parent visibility and scene lifecycle;
+- disabled AOD/Keyguard child settings and global Guiyuan off still fail native immediately;
+- watch for any stale frame, duplicate set, or AOD content leaking into Control Center.
 
 ## Immediate next step
 
-Finish exact-HEAD Runtime CI and final ownership review. If clean, freeze runtime and produce one signed Work Branch Canary for focused device evidence.
+Record Build-628 rejection/Build-630 alpha root cause, then freeze runtime and produce one signed Work Branch Canary from the exact reviewed Build-630 branch.
 
 ## Reference priority
 
