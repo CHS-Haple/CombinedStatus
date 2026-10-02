@@ -923,6 +923,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var started = false
         private var lastStateVersion = sourceSnapshot.stateVersion
         private var lastWitnessSummary = "pending"
+        private var lastTintSummary = "pending"
         private var batteryNumberProbeSummary = "pending"
         private var cachedNativePeerTint: Int? = null
         private var cachedNativePeerTintAuthority = "none"
@@ -990,6 +991,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",fake=" + (fakeRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",final=" + (finalRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",witness=" + lastWitnessSummary +
+                ",tintTransition=" + lastTintSummary +
                 ",batteryNumberProbe=" + batteryNumberProbeSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
@@ -1378,6 +1380,38 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         )
                     }
                     ?: currentSnapshot.colors
+
+            fun tintHex(color: Int): String =
+                color.toUInt().toString(16).padStart(8, '0')
+            lastTintSummary =
+                "{batteryTinted=" + batteryTinted +
+                    ",enabled=" +
+                    currentSnapshot.visualSettings.controlCenterTintTransitionEnabled +
+                    ",motion=" + motionProgress +
+                    ",target=" +
+                    (cachedNativePeerTint?.let(::tintHex) ?: "none") +
+                    ",battery=" +
+                    tintHex(currentSnapshot.colors.batteryTint) + "->" +
+                    tintHex(transitionColors.batteryTint) +
+                    ",number=" +
+                    tintHex(currentSnapshot.colors.batteryTextTint) + "->" +
+                    tintHex(transitionColors.batteryTextTint) +
+                    ",charging=" +
+                    tintHex(currentSnapshot.colors.chargingIconTint) + "->" +
+                    tintHex(transitionColors.chargingIconTint) +
+                    ",center=" +
+                    tintHex(currentSnapshot.colors.centerTint) + "->" +
+                    tintHex(transitionColors.centerTint) +
+                    ",mobile=" +
+                    tintHex(currentSnapshot.colors.mobileTint) + "->" +
+                    tintHex(transitionColors.mobileTint) +
+                    ",chargingVisible=" +
+                    CombinedStatusPainter.BatteryNumberFollowerPolicy
+                        .chargingVisibleFraction(
+                            progress = motionProgress,
+                            targetAvailable = true,
+                        ) +
+                    "}"
 
             val refreshWitnessDiagnostic =
                 lastWitnessSummary == "pending" ||
