@@ -1,3 +1,24 @@
+## 2026-10-02 — Build 612 device acceptance and transition-capacity closure
+
+**Type:** runtime acceptance / transition geometry ownership  
+**Display version:** 0.0.3  
+**Build:** 612 / `20261002-612`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Evidence
+- Exact-head Runtime run 36962917018 succeeded at `0f8128c5e2cf8ad1c8715acf7aa776a0ad09ef2a`.
+- The maintainer reports the latest Build 612 device pass has no anomaly.
+- Build 611 had fixed the late QS_FAKE native-peer underflow with one bounded fixed carrier-capacity lease, but the leased leading width was accidentally sampled as transition motion and produced the all-scene initial left jump.
+
+### Conclusion
+The capacity lease and transition motion are separate contracts. QS_FAKE may expose already-unused parent width for native measurement, but lease-only leading capacity must not move the Guiyuan motion carrier. Build 612's end-anchored logical carrier projection preserves the frozen native source-carrier width for motion while keeping the fixed capacity lease for peer layout.
+
+### Acceptance
+- No new native translation/alpha/visibility writer, animator, delay, polling path, or target-geometry compensation was introduced.
+- LTR/RTL logical-carrier projection is unit-covered.
+- The Build-612 device result closes the Build-611 left-jump regression without reopening the Build-609 peer-underflow defect.
+- No additional Canary/device gate is required for the documentation-only closure.
+
 ## 2026-10-02 — Build 595 embedded MIUIX FAB visual in Add Card
 
 **Type:** App UI / MIUIX interaction visual  
