@@ -43,7 +43,6 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
 import com.chaners.guiyuan.settings.COMBINED_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MAX
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
-import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.MOBILE_TYPE_WEIGHT_DEFAULT
@@ -64,6 +63,7 @@ import com.chaners.guiyuan.settings.batteryTopChargingIconUiScaleDefault
 import com.chaners.guiyuan.settings.batteryTopTextUiScale
 import com.chaners.guiyuan.settings.batteryTopTextUiScaleDefault
 import com.chaners.guiyuan.settings.batteryTopVerticalOffsetUi
+import com.chaners.guiyuan.settings.mobileTypeSizeScaleDefault
 import com.chaners.guiyuan.system.SystemUiScopeController
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
 import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
@@ -140,7 +140,7 @@ internal fun FeaturesScreen(
                         (visualSettings.wifiSizeScale * 100f).roundToInt(),
                     ),
                 valueRange = WIFI_SIZE_SCALE_MIN..WIFI_SIZE_SCALE_MAX,
-                steps = 8,
+                steps = 16,
                 showKeyPoints = true,
                 keyPoints = listOf(WIFI_SIZE_SCALE_DEFAULT),
                 magnetThreshold = 0.035f,
@@ -156,9 +156,14 @@ internal fun FeaturesScreen(
                         (visualSettings.mobileTypeSizeScale * 100f).roundToInt(),
                     ),
                 valueRange = MOBILE_TYPE_SIZE_SCALE_MIN..MOBILE_TYPE_SIZE_SCALE_MAX,
-                steps = 8,
+                steps = 16,
                 showKeyPoints = true,
-                keyPoints = listOf(MOBILE_TYPE_SIZE_SCALE_DEFAULT),
+                keyPoints =
+                    listOf(
+                        mobileTypeSizeScaleDefault(
+                            visualSettings.contentLayout,
+                        ),
+                    ),
                 magnetThreshold = 0.035f,
                 enabled = featureSettings.enabled,
             )
@@ -316,34 +321,6 @@ internal fun FeaturesScreen(
                 )
             }
 
-            AnimatedPreferenceGroup(
-                visible =
-                    visualSettings.batteryTopReadoutEnabled ||
-                        visualSettings.batteryTopChargingIconEnabled,
-            ) {
-                val verticalOffsetUi =
-                    batteryTopVerticalOffsetUi(
-                        visualSettings.batteryTopVerticalOffset,
-                    )
-                SliderPreference(
-                    value = verticalOffsetUi,
-                    onValueChange = visualRepository::setBatteryTopVerticalOffset,
-                    title = stringResource(R.string.battery_content_vertical_offset),
-                    valueText =
-                        stringResource(
-                            R.string.battery_top_offset_value,
-                            verticalOffsetUi.roundToInt(),
-                        ),
-                    valueRange =
-                        BATTERY_TOP_VERTICAL_OFFSET_UI_MIN..
-                            BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
-                    steps = 19,
-                    showKeyPoints = true,
-                    keyPoints = listOf(0f),
-                    magnetThreshold = 0.035f,
-                    enabled = featureSettings.enabled,
-                )
-            }
         },
         quaternarySectionTitle = stringResource(R.string.section_management),
         quaternaryContent = {
@@ -412,6 +389,28 @@ internal fun FeaturesScreen(
                     ?.let(visualRepository::setContentLayout)
             },
         )
+        val topInfoVerticalOffsetUi =
+            batteryTopVerticalOffsetUi(
+                visualSettings.batteryTopVerticalOffset,
+            )
+        SliderPreference(
+            value = topInfoVerticalOffsetUi,
+            onValueChange = visualRepository::setBatteryTopVerticalOffset,
+            title = stringResource(R.string.top_info_vertical_offset),
+            valueText =
+                stringResource(
+                    R.string.battery_top_offset_value,
+                    topInfoVerticalOffsetUi.roundToInt(),
+                ),
+            valueRange =
+                BATTERY_TOP_VERTICAL_OFFSET_UI_MIN..
+                    BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
+            steps = 19,
+            showKeyPoints = true,
+            keyPoints = listOf(0f),
+            magnetThreshold = 0.035f,
+            enabled = featureSettings.enabled,
+        )
         SliderPreference(
             value = visualSettings.combinedScale,
             onValueChange = visualRepository::setCombinedScale,
@@ -422,7 +421,7 @@ internal fun FeaturesScreen(
                     (visualSettings.combinedScale * 100f).roundToInt(),
                 ),
             valueRange = COMBINED_SCALE_MIN..COMBINED_SCALE_MAX,
-            steps = 4,
+            steps = 7,
             showKeyPoints = true,
             keyPoints = listOf(COMBINED_SCALE_DEFAULT),
             magnetThreshold = 0.035f,

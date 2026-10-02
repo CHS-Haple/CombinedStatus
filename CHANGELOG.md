@@ -32,7 +32,15 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Development display version advanced to **0.0.4** after integrating the accepted Build 612 product/runtime line into `dev`; this remains a pre-release development checkpoint and does not change the planned first formal release target of 1.0.0.
+- Battery-ring avoidance now handles optical components that sit entirely to one side of the ring center, so HyperOS hotspot-link and no-internet badge components reserve only their actual right/left shoulder arc instead of being skipped by the legacy center-crossing assumption.
+
+- Profile defaults now use 120% battery-number size for Network centered and 140% battery-number / 80% mobile-type size for Battery centered; the former battery-content vertical-offset control is now a global-section “Top information vertical offset” whose target follows the active layout (number + charging glyph for Network centered, network content for Battery centered).
+
+- Visual sizing ranges now allow 60%-100% overall size and 40%-125% Wi-Fi/mobile-type size while preserving 5% slider increments; mobile-type labels (5G/5GA/etc.) follow the user overall-size scale, and visual preference commits are serialized on the SystemUI main thread with stale slider callbacks coalesced.
+
+- Battery-center Wi-Fi ring avoidance now follows the actual disconnected optical components of the rendered Wi-Fi drawable instead of reserving the empty corners of one union rectangle; the existing visual clearance and numeric readout avoidance remain unchanged.
+
+- Development display version advanced to **0.0.5** after integrating the accepted Build 617 product/runtime line into `dev`; this remains a pre-release development checkpoint and does not change the planned first formal release target of 1.0.0.
 
 - Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 or later (`GPL-3.0-or-later`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
 

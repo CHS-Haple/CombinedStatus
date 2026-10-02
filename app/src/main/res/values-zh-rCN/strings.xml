@@ -22,7 +22,7 @@
     <string name="battery_text_follow_battery_color_summary">关闭后跟随当前状态栏前景色</string>
     <string name="charging_icon_follow_battery_color">充电图标跟随电量环颜色</string>
     <string name="charging_icon_follow_battery_color_summary">关闭后跟随当前状态栏前景色</string>
-    <string name="battery_content_vertical_offset">电量信息上下偏移（正上负下）</string>
+    <string name="top_info_vertical_offset">顶部信息上下偏移（正上负下）</string>
     <string name="settings_title">设置</string>
     <string name="section_appearance_interaction">外观与交互</string>
     <string name="section_app">应用</string>

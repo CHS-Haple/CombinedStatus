@@ -192,7 +192,7 @@ internal data class CombinedStatusVisualSettings(
     val combinedScale: Float = COMBINED_SCALE_DEFAULT,
     val outerWeightScale: Float = OUTER_WEIGHT_SCALE_DEFAULT,
     val wifiSizeScale: Float = WIFI_SIZE_SCALE_DEFAULT,
-    val mobileTypeSizeScale: Float = MOBILE_TYPE_SIZE_SCALE_DEFAULT,
+    val mobileTypeSizeScale: Float = mobileTypeSizeScaleDefault(contentLayout),
     val mobileTypeWeight: Int = MOBILE_TYPE_WEIGHT_DEFAULT,
     val batteryColorPreset: CombinedStatusBatteryColorPreset =
         CombinedStatusBatteryColorPreset.HYPEROS,
@@ -622,7 +622,11 @@ internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatu
         wifiSizeScale =
             profileFloat(layout, WIFI_SIZE_SCALE_KEY, WIFI_SIZE_SCALE_DEFAULT),
         mobileTypeSizeScale =
-            profileFloat(layout, MOBILE_TYPE_SIZE_SCALE_KEY, MOBILE_TYPE_SIZE_SCALE_DEFAULT),
+            profileFloat(
+                layout,
+                MOBILE_TYPE_SIZE_SCALE_KEY,
+                mobileTypeSizeScaleDefault(layout),
+            ),
         mobileTypeWeight =
             profileInt(layout, MOBILE_TYPE_WEIGHT_KEY, MOBILE_TYPE_WEIGHT_DEFAULT),
         batteryColorPreset =
@@ -931,8 +935,16 @@ internal fun batteryTopTextUiScaleDefault(
     layout: CombinedStatusContentLayout,
 ): Float =
     when (layout) {
-        CombinedStatusContentLayout.NETWORK_CENTER -> 1f
-        CombinedStatusContentLayout.BATTERY_CENTER -> 1.2f
+        CombinedStatusContentLayout.NETWORK_CENTER -> 1.2f
+        CombinedStatusContentLayout.BATTERY_CENTER -> 1.4f
+    }
+
+internal fun mobileTypeSizeScaleDefault(
+    layout: CombinedStatusContentLayout,
+): Float =
+    when (layout) {
+        CombinedStatusContentLayout.NETWORK_CENTER -> MOBILE_TYPE_SIZE_SCALE_DEFAULT
+        CombinedStatusContentLayout.BATTERY_CENTER -> 0.8f
     }
 
 internal fun batteryTopChargingIconUiScaleDefault(
@@ -1000,16 +1012,16 @@ internal fun batteryTopVerticalOffsetRaw(uiOffset: Float): Float =
 
 
 internal const val COMBINED_SCALE_DEFAULT = 1f
-internal const val COMBINED_SCALE_MIN = 0.75f
+internal const val COMBINED_SCALE_MIN = 0.60f
 internal const val COMBINED_SCALE_MAX = 1.00f
 internal const val OUTER_WEIGHT_SCALE_DEFAULT = 1f
 internal const val OUTER_WEIGHT_SCALE_MIN = 0.70f
 internal const val OUTER_WEIGHT_SCALE_MAX = 1.30f
 internal const val WIFI_SIZE_SCALE_DEFAULT = 1f
-internal const val WIFI_SIZE_SCALE_MIN = 0.80f
+internal const val WIFI_SIZE_SCALE_MIN = 0.40f
 internal const val WIFI_SIZE_SCALE_MAX = 1.25f
 internal const val MOBILE_TYPE_SIZE_SCALE_DEFAULT = 1f
-internal const val MOBILE_TYPE_SIZE_SCALE_MIN = 0.80f
+internal const val MOBILE_TYPE_SIZE_SCALE_MIN = 0.40f
 internal const val MOBILE_TYPE_SIZE_SCALE_MAX = 1.25f
 internal const val MOBILE_TYPE_WEIGHT_DEFAULT = 900
 internal const val MOBILE_TYPE_WEIGHT_MIN = 400

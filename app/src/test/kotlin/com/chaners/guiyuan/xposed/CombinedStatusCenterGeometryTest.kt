@@ -1,5 +1,9 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
+import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
+import com.chaners.guiyuan.settings.CombinedStatusContentLayout
+import com.chaners.guiyuan.settings.batteryTopVerticalOffsetRaw
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -114,6 +118,104 @@ class CombinedStatusCenterGeometryTest {
         assertEquals(
             CombinedStatusCenterGeometry.MAX_MOBILE_TYPE_WEIGHT,
             clamped.mobileTypeWeight,
+        )
+    }
+
+    @Test
+    fun rendererRangeClampsMatchPersistedVisualRanges() {
+        assertEquals(0.40f, CombinedStatusCenterGeometry.MIN_WIFI_SIZE_SCALE, 0f)
+        assertEquals(0.40f, CombinedStatusCenterGeometry.MIN_MOBILE_TYPE_SIZE_SCALE, 0f)
+
+        val clamped =
+            CombinedStatusCenterGeometry.resolve(
+                wifiSizeScale = -1f,
+                mobileTypeSizeScale = -1f,
+                mobileTypeWeight = 800,
+                combinedScale = -1f,
+            )
+
+        assertEquals(0.40f, clamped.wifiSizeScale, 0f)
+        assertEquals(0.40f, clamped.mobileTypeSizeScale, 0f)
+        assertEquals(COMBINED_SCALE_MIN, clamped.combinedScale, 0f)
+    }
+
+    @Test
+    fun mobileTypeKeepsHostCompensationButFollowsCombinedScale() {
+        val base = 39f
+        val hostScale = 1.5f
+
+        fun physicalSize(combinedScale: Float): Float {
+            val canvasScale = hostScale * combinedScale
+            val local =
+                CombinedStatusMobileTypeScalePolicy.localValue(
+                    baseValue = base,
+                    canvasScale = canvasScale,
+                    combinedScale = combinedScale,
+                    scaleWithCanvas = false,
+                )
+            return local * canvasScale
+        }
+
+        assertEquals(base, physicalSize(1f), 0.0001f)
+        assertEquals(base * 0.6f, physicalSize(0.6f), 0.0001f)
+    }
+
+    @Test
+    fun previewCanvasScalingKeepsExistingDirectScalePath() {
+        val base = 39f
+        assertEquals(
+            base,
+            CombinedStatusMobileTypeScalePolicy.localValue(
+                baseValue = base,
+                canvasScale = 0.6f,
+                combinedScale = 0.6f,
+                scaleWithCanvas = true,
+            ),
+            0f,
+        )
+    }
+
+    @Test
+    fun topInfoOffsetTargetsReadoutOnlyInNetworkCenter() {
+        val raw = batteryTopVerticalOffsetRaw(5f)
+
+        assertEquals(
+            raw,
+            CombinedStatusTopInfoOffsetPolicy.readoutRequestedOffset(
+                layout = CombinedStatusContentLayout.NETWORK_CENTER,
+                rawOffset = raw,
+            ),
+            0f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusTopInfoOffsetPolicy.networkTranslationDelta(
+                layout = CombinedStatusContentLayout.NETWORK_CENTER,
+                rawOffset = raw,
+            ),
+            0f,
+        )
+    }
+
+    @Test
+    fun topInfoOffsetTargetsNetworkOnlyInBatteryCenter() {
+        val raw = batteryTopVerticalOffsetRaw(5f)
+
+        assertEquals(
+            BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
+            CombinedStatusTopInfoOffsetPolicy.readoutRequestedOffset(
+                layout = CombinedStatusContentLayout.BATTERY_CENTER,
+                rawOffset = raw,
+            ),
+            0f,
+        )
+        assertEquals(
+            -5f,
+            CombinedStatusTopInfoOffsetPolicy.networkTranslationDelta(
+                layout = CombinedStatusContentLayout.BATTERY_CENTER,
+                rawOffset = raw,
+            ),
+            0.0001f,
         )
     }
 

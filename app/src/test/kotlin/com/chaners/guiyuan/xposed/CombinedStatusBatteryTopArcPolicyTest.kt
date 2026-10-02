@@ -97,6 +97,119 @@ class CombinedStatusBatteryTopArcPolicyTest {
     }
 
     @Test
+    fun componentAwareWifiGapDoesNotReserveEmptyEnvelopeCorners() {
+        val envelope =
+            gapFor(
+                left = 30f,
+                top = -6f,
+                right = 90f,
+                bottom = 20f,
+            )
+        val componentAware =
+            CombinedStatusBatteryTopArcPolicy.mergeGaps(
+                listOf(
+                    gapFor(
+                        left = 30f,
+                        top = -6f,
+                        right = 90f,
+                        bottom = 4f,
+                    ),
+                    gapFor(
+                        left = 40f,
+                        top = 4f,
+                        right = 80f,
+                        bottom = 12f,
+                    ),
+                    gapFor(
+                        left = 50f,
+                        top = 10f,
+                        right = 70f,
+                        bottom = 20f,
+                    ),
+                ),
+            )
+
+        assertTrue(componentAware.sweepDegrees > 0f)
+        assertTrue(componentAware.sweepDegrees < envelope.sweepDegrees)
+    }
+
+    @Test
+    fun rightSideBadgeRequestsItsOwnRightShoulderGap() {
+        val badge =
+            gapFor(
+                left = 70f,
+                top = 2f,
+                right = 92f,
+                bottom = 24f,
+            )
+
+        assertTrue(badge.sweepDegrees > 0f)
+        assertTrue(badge.centerDegrees > 270f)
+    }
+
+    @Test
+    fun leftSideBadgeRequestsItsOwnLeftShoulderGap() {
+        val badge =
+            gapFor(
+                left = 28f,
+                top = 2f,
+                right = 50f,
+                bottom = 24f,
+            )
+
+        assertTrue(badge.sweepDegrees > 0f)
+        assertTrue(badge.centerDegrees < 270f)
+    }
+
+    @Test
+    fun wifiBadgeExtendsOnlyTheShoulderItActuallyOccupies() {
+        val center =
+            gapFor(
+                left = 42f,
+                top = 0f,
+                right = 78f,
+                bottom = 16f,
+            )
+        val rightBadge =
+            gapFor(
+                left = 72f,
+                top = 2f,
+                right = 92f,
+                bottom = 24f,
+            )
+        val merged =
+            CombinedStatusBatteryTopArcPolicy.mergeGaps(
+                listOf(center, rightBadge),
+            )
+
+        val centerStart = center.centerDegrees - center.sweepDegrees / 2f
+        val centerEnd = center.centerDegrees + center.sweepDegrees / 2f
+        val mergedStart = merged.centerDegrees - merged.sweepDegrees / 2f
+        val mergedEnd = merged.centerDegrees + merged.sweepDegrees / 2f
+
+        assertEquals(centerStart, mergedStart, 0.0001f)
+        assertTrue(mergedEnd > centerEnd)
+    }
+
+    @Test
+    fun singleComponentGapMergePreservesExistingGeometry() {
+        val original =
+            gapFor(
+                left = 42f,
+                top = 2f,
+                right = 92f,
+                bottom = 22f,
+            )
+        val merged =
+            CombinedStatusBatteryTopArcPolicy.mergeGaps(
+                listOf(original),
+            )
+
+        assertEquals(original.centerDegrees, merged.centerDegrees, 0.0001f)
+        assertEquals(original.sweepDegrees, merged.sweepDegrees, 0.0001f)
+    }
+
+    @Test
     fun asymmetricVisibleEnvelopeMovesGapCenterInsteadOfAddingDeadPadding() {
         val result =
             gapFor(
