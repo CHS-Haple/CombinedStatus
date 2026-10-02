@@ -47,72 +47,86 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingGlyphHidesLateThenMovesQuicklyOnlyWithTarget() {
+    fun chargingGlyphIsHiddenByHalfRingAndRevealsOnlyNearHandoffEnd() {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
+        val (fadeStart, fadeEnd) = policy.sourceFadeWindow()
+        val (revealStart, revealEnd) = policy.targetRevealWindow()
 
-        // Keep the glyph fully visible until the ring is already well into retract.
+        assertEquals(0.60f, policy.chargingRingRemaining(fadeStart), 0.01f)
+        assertEquals(0.50f, policy.chargingRingRemaining(fadeEnd), 0.01f)
         assertEquals(
             1f,
             policy.chargingOpacity(
-                progress = 0.18f,
+                progress = fadeStart,
+                targetAvailable = true,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            policy.chargingOpacity(
+                progress = fadeEnd,
+                targetAvailable = true,
+            ),
+            0.0001f,
+        )
+
+        // The hidden glyph may travel to its verified native target, but it stays
+        // fully invisible until the overall handoff is already near completion.
+        assertTrue(policy.chargingMotionProgress(fadeEnd + 0.05f) > 0f)
+        assertEquals(
+            0f,
+            policy.chargingOpacity(
+                progress = 0.90f,
+                targetAvailable = true,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            policy.chargingOpacity(
+                progress = revealStart,
                 targetAvailable = true,
             ),
             0.0001f,
         )
         assertTrue(
             policy.chargingOpacity(
-                progress = 0.205f,
+                progress = (revealStart + revealEnd) / 2f,
                 targetAvailable = true,
             ) in 0f..1f,
         )
-
-        // Full disappearance precedes all visible target travel.
         assertEquals(
-            0f,
+            1f,
             policy.chargingOpacity(
-                progress = 0.225f,
+                progress = revealEnd,
                 targetAvailable = true,
             ),
             0.0001f,
         )
-        assertTrue(policy.chargingMotionProgress(0.225f) > 0f)
 
-        // Hidden travel is intentionally short; target reveal only occurs near its end.
-        assertTrue(policy.chargingMotionProgress(0.30f) > 0.8f)
-        assertTrue(
-            policy.chargingOpacity(
-                progress = 0.30f,
-                targetAvailable = true,
-            ) > 0f,
+        // Fade-out and fade-in use the same progress duration and smoothstep.
+        assertEquals(
+            fadeEnd - fadeStart,
+            revealEnd - revealStart,
+            0.001f,
         )
 
-        // Fail-native target policy: no target means fade-out only, never guessed motion/reveal.
+        // Fail-native: without a reliable charging target there is no reveal.
         assertEquals(
             0f,
             policy.chargingOpacity(
-                progress = 0.30f,
+                progress = 1f,
                 targetAvailable = false,
-            ),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            policy.chargingMotionProgress(0.35f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            policy.chargingOpacity(
-                progress = 0.35f,
-                targetAvailable = true,
             ),
             0.0001f,
         )
     }
 
     @Test
-    fun chargingGlyphNeverMovesWhileAnySourceOpacityRemains() {
+    fun chargingGlyphNeverUsesItsOwnTargetMotionWhileSourceOpacityRemains() {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
+        val (_, fadeEnd) = policy.sourceFadeWindow()
         var observedSourceFade = false
 
         for (sample in 0..400) {
@@ -131,8 +145,48 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         }
 
         assertTrue(observedSourceFade)
-        assertEquals(0f, policy.chargingSourceOpacity(0.225f), 0.0001f)
-        assertTrue(policy.chargingMotionProgress(0.225f) > 0f)
+        assertEquals(0f, policy.chargingSourceOpacity(fadeEnd), 0.0001f)
+        assertTrue(policy.chargingMotionProgress(fadeEnd + 0.05f) > 0f)
+    }
+
+    @Test
+    fun chargingGlyphFollowerPreservesItsRelativeGeometryToBatteryNumber() {
+        val numberSource =
+            geometry(
+                centerX = 100f,
+                centerY = 50f,
+                width = 20f,
+                height = 10f,
+            )
+        val chargingSource =
+            geometry(
+                centerX = 130f,
+                centerY = 50f,
+                width = 6f,
+                height = 6f,
+            )
+        val numberCurrent =
+            geometry(
+                centerX = 200f,
+                centerY = 80f,
+                width = 30f,
+                height = 15f,
+            )
+
+        val follower =
+            CombinedStatusControlCenterTransitionOwner.Policy.followAnchorGeometry(
+                follower = chargingSource,
+                sourceAnchor = numberSource,
+                currentAnchor = numberCurrent,
+            )
+        requireNotNull(follower)
+
+        // Number grows by 1.5x and moves; charging glyph follows the exact same
+        // transform, preserving its source-relative offset and scale.
+        assertEquals(245f, follower[0], 0.0001f)
+        assertEquals(80f, follower[1], 0.0001f)
+        assertEquals(9f, follower[2], 0.0001f)
+        assertEquals(9f, follower[5], 0.0001f)
     }
 
     @Test
