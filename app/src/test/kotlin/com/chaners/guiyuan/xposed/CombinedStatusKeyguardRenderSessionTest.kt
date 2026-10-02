@@ -1,5 +1,6 @@
 package com.chaners.guiyuan.xposed
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,18 +51,11 @@ class CombinedStatusKeyguardRenderSessionTest {
     }
 
     @Test
-    fun keyguardFamilyAlphaResetsAfterLeavingAod() {
-        assertTrue(
-            CombinedStatusKeyguardRenderSession.resolveFamilyChildAlpha(
-                sceneIsAod = true,
-                batteryAlpha = 0.42f,
-            ) < 1f,
-        )
-        assertTrue(
-            CombinedStatusKeyguardRenderSession.resolveFamilyChildAlpha(
-                sceneIsAod = false,
-                batteryAlpha = 0.42f,
-            ) == 1f,
+    fun keyguardFamilyChildDoesNotCopyIndependentBatteryAodAlpha() {
+        assertEquals(
+            1f,
+            CombinedStatusKeyguardRenderSession.resolveFamilyChildAlpha(),
+            0.0001f,
         )
     }
 
