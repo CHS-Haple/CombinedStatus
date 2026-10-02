@@ -420,6 +420,38 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun hiddenControlCenterIgnoresKeyguardLifecycleChurnUntilItActuallyOpens() {
+        assertFalse(
+            CombinedStatusScenePolicy.shouldReconcileControlCenterForKeyguardLifecycle(
+                controlCenterVisible = false,
+                nativeFraction = 0f,
+                leaseActive = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusScenePolicy.shouldReconcileControlCenterForKeyguardLifecycle(
+                controlCenterVisible = true,
+                nativeFraction = 0f,
+                leaseActive = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusScenePolicy.shouldReconcileControlCenterForKeyguardLifecycle(
+                controlCenterVisible = false,
+                nativeFraction = 0.1f,
+                leaseActive = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusScenePolicy.shouldReconcileControlCenterForKeyguardLifecycle(
+                controlCenterVisible = false,
+                nativeFraction = 0f,
+                leaseActive = true,
+            ),
+        )
+    }
+
+    @Test
     fun keyguardControlCenterLeaseExistsOnlyInsideVerifiedNativeTransitionLifetime() {
         assertTrue(
             CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
