@@ -424,16 +424,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ).roundToInt().coerceAtLeast(compact)
         }
 
-        private const val TINT_TRANSITION_START = 0.45f
-        private const val TINT_TRANSITION_END = 0.80f
-
         fun transitionTintProgress(progress: Float): Float {
-            val phase =
-                (
-                    (progress.coerceIn(0f, 1f) - TINT_TRANSITION_START) /
-                        (TINT_TRANSITION_END - TINT_TRANSITION_START)
-                ).coerceIn(0f, 1f)
-            return phase * phase * (3f - 2f * phase)
+            val ringPhase =
+                CombinedStatusBatteryRingTransitionPolicy
+                    .transitionProgress(progress)
+                    .coerceIn(0f, 1f)
+            return ringPhase * ringPhase * (3f - 2f * ringPhase)
         }
 
         fun resolveTransitionTint(
