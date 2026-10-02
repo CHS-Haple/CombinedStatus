@@ -33,11 +33,43 @@ Renderer ownership remains narrow:
 - Final PR Runtime CI #2230 succeeded after synchronizing latest `dev` ancestry and recording device evidence.
 - Trusted `dev` integration CI #2231 succeeded on merge commit `d59b7452cfe7abcad9a48f8ddbf00812adc00da5`, including tests/build, pinned HyperOS target verification, Modern Xposed metadata, Haple APK signature, non-debuggable Canary verification, and Canary artifact upload.
 
-## Current state
+## Active objective
 
-Build 619 remains the accepted runtime baseline. The companion app now adds a Settings > Other > Project address entry linking to the repository, and repository/project license identity is GPL-3.0-only. These changes do not alter SystemUI runtime ownership or behavior. `main` should remain on Build 618 until a later stable promotion is intentionally requested.
+Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-The optional AOD display design remains roadmap-only: global Guiyuan is the parent gate, Keyguard and AOD are independent child preferences, and AOD requires its own bounded host/session/lifecycle before any runtime implementation.
+Build 624 is the maintainer-accepted device baseline for the battery-ring retract behavior. Its ring/fill path must not be altered while refining charging-glyph handoff.
+
+Build 627 adds an independent charging-glyph transition participant:
+- the charging glyph no longer shares the Battery-number participant, so hiding/moving it cannot reflow or reposition the percentage text;
+- while the ring retracts, glyph alpha follows the same ring-retained fraction: full above 60%, smooth fade from 60% to 50%, fully hidden at 50%;
+- target motion begins only after the glyph is fully hidden;
+- when a reliable native target exists, hidden travel follows the native target geometry and `TARGET` scale policy, using the exact `mBatteryChargingView` ImageView/drawable optical geometry like the existing Wi-Fi target path;
+- the glyph begins to reappear only near the end of that hidden target travel;
+- when no reliable charging target exists, no guessed/fallback target geometry is used: only the source-side fade executes and the glyph stays hidden until native handoff;
+- reverse gesture reuses the same progress mapping; no second animator or clock is introduced.
+
+## Validation state
+
+- Candidate identity: `0.0.5` / versionCode `261003627` / Build `20261003-627`.
+- Maintainer device feedback accepts Build 624 ring behavior as the required baseline.
+- Unit coverage locks source fade, hidden-before-motion ordering, target-required reappearance, and target completion.
+- Percentage layout remains based on the original readout group for the transition frame; glyph alpha changes do not remove its layout slot, preventing percentage jumps.
+- Runtime CI for Build 627 is the current automated gate.
+
+## Device gate
+
+Focused charging validation for Build 627:
+- charging Control Center transition: ring reaches the glyph visually, glyph fades smoothly and is fully gone around the 50% retained-ring point;
+- the percentage number must not jump when the glyph becomes fully transparent;
+- after full disappearance, glyph motion must remain invisible until close to the native charging target;
+- near the target, the glyph should fade in while converging to the native target position and optical size;
+- reverse gesture should remain continuous;
+- if target resolution is unavailable, the glyph should only disappear and must not drift toward a guessed location;
+- Build-624 ring/fill retract appearance must remain unchanged.
+
+## Immediate next step
+
+Finish Runtime CI and review. If clean, runtime is frozen and a signed Work Branch Canary is required because the new behavior depends on live native charging-target geometry.
 
 ## Reference priority
 
