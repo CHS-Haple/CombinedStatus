@@ -451,7 +451,6 @@ private fun BatterySchemeOverview(
                 scope.launch { pagerState.springAnimateToPage(target) }
             },
         )
-        Spacer(Modifier.height(4.dp))
         HorizontalPager(
             state = pagerState,
             modifier =
@@ -747,7 +746,21 @@ private fun BatteryAddSchemePage(
                 previewPage = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
             )
             BatterySchemeActionArea {
-                Spacer(Modifier.height(26.dp))
+                if (enabled) {
+                    Spacer(Modifier.height(26.dp))
+                } else {
+                    TextButton(
+                        text = stringResource(R.string.battery_custom_scheme_limit),
+                        onClick = {},
+                        enabled = false,
+                        minWidth = 26.dp,
+                        minHeight = 26.dp,
+                        cornerRadius = SnackbarDefaults.ActionCornerRadius,
+                        insideMargin = SnackbarDefaults.ActionInsideMargin,
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        textStyle = TextStyle(fontSize = 15.sp),
+                    )
+                }
             }
             Card(
                 modifier =

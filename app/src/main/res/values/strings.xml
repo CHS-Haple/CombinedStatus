@@ -226,7 +226,7 @@
     <string name="battery_mode_editor_title">%1$s color</string>
     <string name="battery_custom_scheme_new">New custom style</string>
     <string name="battery_custom_scheme_add_page_title">New style</string>
-    <string name="battery_custom_scheme_limit">Custom style limit reached · %1$d/%1$d</string>
+    <string name="battery_custom_scheme_limit">Custom style limit reached</string>
     <string name="battery_custom_scheme_default_name">Custom style %1$d</string>
     <string name="battery_custom_scheme_name">Style name</string>
     <string name="battery_custom_scheme_create">Create</string>

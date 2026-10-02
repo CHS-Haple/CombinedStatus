@@ -225,7 +225,7 @@
     <string name="battery_mode_editor_title">%1$s颜色</string>
     <string name="battery_custom_scheme_new">新建自定义样式</string>
     <string name="battery_custom_scheme_add_page_title">新建样式</string>
-    <string name="battery_custom_scheme_limit">已达自定义上限 · %1$d/%1$d</string>
+    <string name="battery_custom_scheme_limit">自定义样式数量已上限</string>
     <string name="battery_custom_scheme_default_name">自定义样式%1$d</string>
     <string name="battery_custom_scheme_name">样式名称</string>
     <string name="battery_custom_scheme_create">创建</string>
