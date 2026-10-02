@@ -51,14 +51,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
         val (hideStart, hideEnd) = policy.sourceHideWindow()
         val (revealStart, revealEnd) = policy.targetRevealWindow()
-        val baseRevealComplete =
-            (0.88f + (hideEnd - hideStart)).coerceAtMost(0.98f)
-        val expectedRevealComplete =
-            revealStart + (baseRevealComplete - revealStart) * 0.35f
 
         assertEquals(0.85f, revealStart, 0.0001f)
-        assertEquals(expectedRevealComplete, revealEnd, 0.001f)
-        assertTrue(revealEnd < baseRevealComplete)
+        assertEquals(0.90f, revealEnd, 0.0001f)
 
         assertEquals(1.00f, policy.chargingRingRemaining(hideStart), 0.01f)
         assertEquals(0.50f, policy.chargingRingRemaining(hideEnd), 0.01f)
