@@ -705,6 +705,50 @@ internal object CombinedStatusControlCenterTransitionOwner {
             y: Float,
         ): Float = sqrt(x * x + y * y)
 
+        fun followAnchorGeometry(
+            follower: FloatArray,
+            sourceAnchor: FloatArray,
+            currentAnchor: FloatArray,
+        ): FloatArray? {
+            if (
+                follower.size != 6 ||
+                sourceAnchor.size != 6 ||
+                currentAnchor.size != 6
+            ) return null
+
+            val swx = sourceAnchor[2]
+            val swy = sourceAnchor[3]
+            val shx = sourceAnchor[4]
+            val shy = sourceAnchor[5]
+            val determinant = swx * shy - shx * swy
+            if (!determinant.isFinite() || kotlin.math.abs(determinant) < 0.0001f) {
+                return null
+            }
+
+            fun mapVector(x: Float, y: Float): Pair<Float, Float> {
+                val localX = (x * shy - shx * y) / determinant
+                val localY = (swx * y - x * swy) / determinant
+                return Pair(
+                    currentAnchor[2] * localX + currentAnchor[4] * localY,
+                    currentAnchor[3] * localX + currentAnchor[5] * localY,
+                )
+            }
+
+            val centerDeltaX = follower[0] - sourceAnchor[0]
+            val centerDeltaY = follower[1] - sourceAnchor[1]
+            val mappedCenterDelta = mapVector(centerDeltaX, centerDeltaY)
+            val mappedWidth = mapVector(follower[2], follower[3])
+            val mappedHeight = mapVector(follower[4], follower[5])
+            return floatArrayOf(
+                currentAnchor[0] + mappedCenterDelta.first,
+                currentAnchor[1] + mappedCenterDelta.second,
+                mappedWidth.first,
+                mappedWidth.second,
+                mappedHeight.first,
+                mappedHeight.second,
+            )
+        }
+
         fun componentGeometry(
             parentGeometry: FloatArray,
             parentWidth: Int,
@@ -772,7 +816,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var airplaneTargetResolved = false
         private var frozenNoSimTarget: TargetWitness? = null
         private var noSimTargetResolved = false
-        private var frozenChargingSourceGeometry: FloatArray? = null
 
         private var currentSnapshot = sourceSnapshot
         private var progress = 0f
@@ -1210,6 +1253,49 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     null
                 }
 
+            val batteryNumberFollowerFrames =
+                specs.firstOrNull {
+                    it.component ==
+                        CombinedStatusPainter.TransitionComponent.BATTERY_NUMBER
+                }?.let { numberSpec ->
+                    val numberSource =
+                        Policy.componentGeometry(
+                            parentGeometry = sourceParentGeometry,
+                            parentWidth = sourceWidth,
+                            parentHeight = sourceHeight,
+                            bounds = numberSpec.sourceBounds,
+                        ) ?: return@let null
+                    val numberWitness =
+                        resolveTarget(
+                            target = numberSpec.target,
+                            preferredMobileSubId = preferredMobileSubId,
+                        )
+                    val numberTarget =
+                        numberWitness?.let { target ->
+                            resolveTargetGeometry(
+                                witness = target,
+                                root = rootView,
+                                sourceGeometry = numberSource,
+                                targetOpticalBounds = numberSpec.targetOpticalBounds,
+                            )
+                        }
+                    val numberCurrent =
+                        if (numberTarget != null) {
+                            projectedExactGeometry(
+                                source = numberSource,
+                                target = numberTarget,
+                                progress = motionProgress,
+                                carrierFrames = carrierFrames,
+                            )
+                        } else {
+                            carriedSourceGeometry(
+                                source = numberSource,
+                                carrierFrames = carrierFrames,
+                            )
+                        }
+                    Pair(numberSource, numberCurrent)
+                }
+
             specs.forEach { spec ->
                 val sourceGeometry =
                     Policy.componentGeometry(
@@ -1277,12 +1363,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val geometry =
                     when {
                         chargingSourceLocked -> {
-                            val locked =
-                                frozenChargingSourceGeometry
-                                    ?: sourceGeometry.copyOf().also { captured ->
-                                        frozenChargingSourceGeometry = captured
-                                    }
-                            locked.copyOf()
+                            batteryNumberFollowerFrames
+                                ?.let { (numberSource, numberCurrent) ->
+                                    Policy.followAnchorGeometry(
+                                        follower = sourceGeometry,
+                                        sourceAnchor = numberSource,
+                                        currentAnchor = numberCurrent,
+                                    )
+                                }
+                                ?: carriedSourceGeometry(
+                                    source = sourceGeometry,
+                                    carrierFrames = carrierFrames,
+                                )
                         }
 
                         targetGeometry != null -> {
