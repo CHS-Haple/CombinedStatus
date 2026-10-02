@@ -412,7 +412,7 @@ internal class CombinedStatusPainter(
         private const val CHARGING_FADE_START_REMAINING = 0.60f
         private const val CHARGING_FADE_END_REMAINING = 0.50f
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
-        private const val CHARGING_TARGET_REVEAL_START = 0.92f
+        private const val CHARGING_TARGET_REVEAL_START = 0.88f
 
         private val chargingFadeStartProgress =
             firstProgressAtOrBelowRemaining(CHARGING_FADE_START_REMAINING)
