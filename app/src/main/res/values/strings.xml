@@ -210,6 +210,16 @@
     <string name="battery_color_current">Current color</string>
     <string name="battery_color_opaque_summary">Status colors are always applied as opaque</string>
     <string name="battery_color_common">Common colors</string>
+    <string name="battery_common_color_red">Red</string>
+    <string name="battery_common_color_orange">Orange</string>
+    <string name="battery_common_color_yellow">Yellow</string>
+    <string name="battery_common_color_green">Green</string>
+    <string name="battery_common_color_light_blue">Light blue</string>
+    <string name="battery_common_color_blue">Blue</string>
+    <string name="battery_common_color_indigo">Indigo</string>
+    <string name="battery_common_color_purple">Purple</string>
+    <string name="battery_common_color_pink">Pink</string>
+    <string name="battery_common_color_gray">Gray</string>
     <string name="battery_color_full_adjustment">Full color adjustment</string>
     <string name="battery_color_hue">Hue</string>
     <string name="battery_color_saturation">Saturation</string>
