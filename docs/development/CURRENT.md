@@ -37,48 +37,64 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 638 is the current visual correction candidate, based on the Build-635 device video plus the matching detailed diagnostic.
+Build 644 is the current device candidate after Build-638 feedback.
 
-Confirmed Build-635 root causes:
-- native target tint acquisition is healthy: the pull-down repeatedly resolves `nativeTint=e6ffffff` through `final-battery-tint`;
-- non-colorized projected participants were nevertheless forced directly to that final tint instead of preserving their live source tint through the shared tint phase;
-- latent additional-mobile reveal clipped against the source four-dot bounds even though exact native target-axis compensation can expand the rendered signal bars beyond those bounds;
-- charging source clipping at retained-ring 60% -> 50% begins visibly before the accepted retract path reaches the charging-glyph region.
+Confirmed Build-638 root causes:
+- `FOLLOW_SYSTEM` is correctly classified as non-colorized; only resolved `Custom` semantic sources are treated as battery-colorized;
+- the pull-down was sampling `finalStatusIcons`, the fully-expanded QS destination, as native tint authority. That destination is commonly white and is not the native transition carrier visible beside Guiyuan during the gesture;
+- Build 638 also attempted to preserve source tint for non-colorized participants, which diverged from the actual native QS_FAKE peer tint path;
+- supplemental Airplane / No-SIM reveal resolved real native optical target geometry but used `SHRINK_ONLY`, preventing growth when the native target drawable is larger than the Guiyuan source;
+- the Build-638 charging Clip window (retained ring 26% -> 20%) kept the source charging glyph visible too long.
 
-Build 638 corrections:
-- non-colorized participants now follow the same source -> native 35%-65% tint phase instead of jumping to white at transition start;
-- the pull-down tint switch still only freezes battery-colorized participants when disabled;
-- latent additional-mobile Clip bounds are expanded from the same target-axis compensation used by the exact signal-bar morph;
-- charging source Clip moves to retained-ring 26% -> 20% while preserving the accepted ring curve, number-relative follower transform, hidden target travel, 85% target reveal start, exact native target geometry, and no-target fail-native behavior;
-- Build-637 tint-decision diagnostics remain available and now verify the corrected behavior rather than being the next experimental step.
+Build 644 correction:
+- pull-down native tint now reads the already-applied tint from visible, non-represented native peers in `QS_FAKE / fakeStatusIcons`, the same native transition presentation moving beside Guiyuan;
+- non-colorized / FOLLOW_SYSTEM participants directly follow that live native peer tint; custom battery-colorized participants alone use the optional 35%-65% source -> native interpolation;
+- final Battery tint is removed as a generic status-icon tint fallback; if a live QS_FAKE peer is temporarily unavailable, only the last valid QS_FAKE peer tint is retained;
+- supplemental Airplane and No-SIM use `TARGET` scale with the existing native drawable optical target geometry, matching the Wi-Fi exact-target principle without per-icon scale constants;
+- latent additional-mobile Clip remains expanded from exact target-axis compensation;
+- source charging-glyph Clip starts when ring retract starts (100% remaining) and completes exactly when 50% remains; while source-visible it keeps following the number, then travels only while hidden and reveals near the native target at the existing 85%-98% late window.
 
-No native geometry/alpha/visibility/tint writer, animator, timer, guessed pixel offset, or second transition clock is added.
+No new animator, timer, native tint/geometry writer, guessed pixel offset, or second transition clock is added.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003638` / Build `20261003-638`.
-- Work branch remains based on current `dev` with no behind commits at the correction checkpoint.
-- Focused unit coverage now locks:
-  - source-preserving native tint handoff for non-colorized participants;
-  - switch-OFF source retention for colorized participants;
-  - exact-target latent-mobile Clip-envelope expansion;
-  - charging source Clip at retained-ring 26% -> 20%.
-- Exact-HEAD Runtime CI is required before producing a signed Canary.
-- Device evidence is required because Build 638 changes visible transition tint/Clip timing and latent mobile reveal geometry.
+- Candidate identity: `0.0.5` / versionCode `261003644` / Build `20261003-644`.
+- Work branch remains based on current `dev` with no behind commits at the latest checkpoint.
+- Focused coverage locks:
+  - FOLLOW_SYSTEM -> live native target tint and custom-color switch semantics;
+  - no Battery fallback in native transition tint selection;
+  - latent-mobile target Clip envelope;
+  - charging source Clip endpoints at ring remaining 100% and 50%;
+  - existing native optical target resolution for single-icon Airplane / No-SIM witnesses.
+- Exact-HEAD Runtime CI is required before a signed Canary.
+- Device evidence is required for color, Airplane / No-SIM target-size continuity, and charging Clip timing.
 
 ## Device gate
 
-After exact-HEAD Runtime CI passes, validate one signed Build-638 Canary with a slow Home -> Control Center pull-down in the same representative scene.
+After exact-HEAD Runtime CI passes, validate one signed Build-644 Canary:
 
-Acceptance:
-- icons that are not battery-colorized retain their real Home tint at the start and transition smoothly to the native Control Center tint only through the middle phase; they must not start white;
-- the later-appearing additional mobile signal is fully visible throughout its reveal and final bar morph, with no edge or bar clipping;
-- the charging glyph stays fully visible until the retracting ring is visually close to its region, then clips away without alpha fade, follows the percentage while source-visible, travels only while hidden, and reveals near the exact native target;
-- no regression in ring/fill retract path, native peer reservation, target alignment, or fail-native behavior.
+1. Pull-down tint
+   - use a scene where adjacent native status icons visibly change tint during pull-down;
+   - all Guiyuan participants configured as FOLLOW_SYSTEM must match those adjacent native QS_FAKE icons throughout the gesture, not default to white;
+   - custom battery-linked colors should transition only when the existing pull-down tint switch is enabled.
+
+2. Airplane / No-SIM
+   - trigger states where the icon appears only during Control Center expansion;
+   - projected icon size must converge continuously to the fully-expanded native icon with no final size jump;
+   - compare directly against the already-accepted Wi-Fi size continuity.
+
+3. Charging glyph
+   - Clip begins immediately with ring retract;
+   - source charging glyph is exactly gone when retained ring reaches 50%;
+   - it keeps its relative position to the battery number while source-visible, does not independently fade/shrink, travels only while hidden, and late-reveals at the native target.
+
+4. Regression
+   - additional mobile signal remains unclipped;
+   - no regression in ring/fill retract, reservation, target alignment, or fail-native behavior.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 638. If green, request one signed Work Branch Canary and freeze runtime for focused device validation.
+Run exact-HEAD Runtime CI for Build 644. If green, request one signed Canary and freeze #197 runtime for focused device validation.
 
 ## Reference priority
 
