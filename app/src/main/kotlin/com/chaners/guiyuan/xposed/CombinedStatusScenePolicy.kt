@@ -96,6 +96,15 @@ internal object CombinedStatusScenePolicy {
             keyguardRuntimeReady &&
             nativeFraction > 0f
 
+    fun shouldReconcileControlCenterForKeyguardLifecycle(
+        controlCenterVisible: Boolean,
+        nativeFraction: Float,
+        leaseActive: Boolean,
+    ): Boolean =
+        controlCenterVisible ||
+            nativeFraction > 0f ||
+            leaseActive
+
     fun shouldRetainKeyguardControlCenterLease(
         leaseActive: Boolean,
         sourceScene: CombinedStatusSourceScene,
