@@ -5,7 +5,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.5.
-- `dev` is promotion-ready on the integrated 0.0.5 / Build 618 state.
+- `main` and `dev` are synchronized on the promoted 0.0.5 / Build 618 development baseline.
 - Version identity: `0.0.5` / versionCode `261002418` / Build `20261002-618`.
 - Build 617 / `20261002-617` is the latest runtime-affecting checkpoint.
 - Build 618 changes only version/public-documentation identity; runtime behavior remains Build 617.
@@ -29,15 +29,19 @@ Runtime/product line:
 - signed Work Branch Canary #649 succeeded for Build 617, including trusted-source checkout, target profile, unit tests/build, Modern Xposed metadata, Haple signature and non-debuggable verification.
 
 Version/promotion line:
-- PR #193 advanced the development line to 0.0.5 / Build 618;
+- PR #193 advanced the development line to 0.0.5 / Build 618 and merged to `dev` as `9e2611f9140f74046dd7ec409a4d74a87c151b35`;
 - exact-head Full CI #2217 succeeded on the 0.0.5 bump;
-- trusted `dev` integration CI #2218 succeeded on `9e2611f9140f74046dd7ec409a4d74a87c151b35`, including Haple signing, signed APK verification, target profile, tests/build, Modern Xposed metadata and non-debuggable verification.
+- trusted `dev` integration CI #2218 succeeded on the merged 0.0.5 state;
+- promotion-ready documentation commit: `4dbd84bb9805814711718b8bb37ba4dc9fa87032`;
+- PR #194 promoted the exact validated `dev` history to `main` with merge commit `ef806f89365f7622841a791d6c87f13d711454f7`;
+- GitHub auto-deleted `dev` after promotion; `dev` was immediately recreated at the promoted main SHA;
+- post-promotion trusted CI #2221 (`main`) and #2222 (`dev`) both succeeded, including Haple signing, signed APK verification, target profile, tests/build, Modern Xposed metadata and non-debuggable verification.
 
-## Promotion objective
+## Current state
 
-The exact validated `dev` state is ready for direct `dev -> main` promotion. The promotion must preserve history with a merge commit. If GitHub auto-deletes `dev` after the promotion, recreate `dev` immediately at the promoted `main` SHA and verify both branches are synchronized.
+The 0.0.5 promotion is complete. No runtime delta was introduced after accepted Build 617. New work should start from the current `dev` baseline and preserve the accepted transition/ownership contracts documented elsewhere.
 
-No additional device validation is required for Build 618 because its delta from accepted Build 617 is metadata/documentation-only.
+No formal GitHub Release is implied by this promotion; 0.0.5 remains a pre-release development checkpoint toward the planned 1.0.0 formal release.
 
 ## Reference priority
 
