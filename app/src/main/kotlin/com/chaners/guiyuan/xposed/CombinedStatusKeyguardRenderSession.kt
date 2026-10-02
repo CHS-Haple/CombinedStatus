@@ -41,6 +41,8 @@ internal object CombinedStatusKeyguardRenderSession {
                 scene = Scene.KEYGUARD,
                 initialFeatureEnabled = settings.enabled && settings.keyguardEnabled,
                 initialSceneEligible = !initialAod.blocksProjection,
+                initialTransitionContinuityEnabled =
+                    settings.enabled && settings.keyguardEnabled && settings.aodEnabled,
                 onPresentationReadinessChanged = onPresentationReadinessChanged,
             )
         current = session
@@ -86,6 +88,8 @@ internal object CombinedStatusKeyguardRenderSession {
                 scene = Scene.AOD,
                 initialFeatureEnabled = settings.enabled && settings.aodEnabled,
                 initialSceneEligible = true,
+                initialTransitionContinuityEnabled =
+                    settings.enabled && settings.keyguardEnabled && settings.aodEnabled,
                 onPresentationReadinessChanged = onPresentationReadinessChanged,
             )
         aodCurrent = session
@@ -115,8 +119,16 @@ internal object CombinedStatusKeyguardRenderSession {
 
     @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
-        current?.setFeatureEnabled(settings.enabled && settings.keyguardEnabled)
-        aodCurrent?.setFeatureEnabled(settings.enabled && settings.aodEnabled)
+        val transitionContinuityEnabled =
+            settings.enabled && settings.keyguardEnabled && settings.aodEnabled
+        current?.setFeatureState(
+            enabled = settings.enabled && settings.keyguardEnabled,
+            transitionContinuityEnabled = transitionContinuityEnabled,
+        )
+        aodCurrent?.setFeatureState(
+            enabled = settings.enabled && settings.aodEnabled,
+            transitionContinuityEnabled = transitionContinuityEnabled,
+        )
     }
 
     @Synchronized
@@ -186,6 +198,20 @@ internal object CombinedStatusKeyguardRenderSession {
             sceneEligible = stableAod,
         )
 
+    internal fun resolveTransitionSceneEligible(
+        sceneIsAod: Boolean,
+        stableSceneEligible: Boolean,
+        transitionContinuityEnabled: Boolean,
+        toAod: Boolean,
+        isAodAnimate: Boolean,
+    ): Boolean {
+        val retainOutgoingScene =
+            transitionContinuityEnabled &&
+                isAodAnimate &&
+                if (sceneIsAod) !toAod else toAod
+        return retainOutgoingScene || stableSceneEligible
+    }
+
     private fun resolveSceneOwnerReady(
         featureEnabled: Boolean,
         modelReady: Boolean,
@@ -250,6 +276,7 @@ internal object CombinedStatusKeyguardRenderSession {
         private val scene: Scene,
         initialFeatureEnabled: Boolean,
         initialSceneEligible: Boolean,
+        initialTransitionContinuityEnabled: Boolean,
         private val onPresentationReadinessChanged: ((Boolean) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(resolved.host)
@@ -262,6 +289,7 @@ internal object CombinedStatusKeyguardRenderSession {
         private val anchorRect = Rect()
 
         private var featureEnabled = initialFeatureEnabled
+        private var transitionContinuityEnabled = initialTransitionContinuityEnabled
         private var nativeHandoffActive = true
         private var sceneEligible = initialSceneEligible
         private var modelReady = false
@@ -360,16 +388,29 @@ internal object CombinedStatusKeyguardRenderSession {
             (renderView.parent as? ViewGroup)?.removeView(renderView)
         }
 
-        fun setFeatureEnabled(enabled: Boolean) {
+        fun setFeatureState(
+            enabled: Boolean,
+            transitionContinuityEnabled: Boolean,
+        ) {
             if (Looper.myLooper() !== Looper.getMainLooper()) {
-                host.get()?.post { setFeatureEnabled(enabled) }
+                host.get()?.post {
+                    setFeatureState(
+                        enabled = enabled,
+                        transitionContinuityEnabled = transitionContinuityEnabled,
+                    )
+                }
                 return
             }
-            if (featureEnabled == enabled) return
+            val changed =
+                featureEnabled != enabled ||
+                    this.transitionContinuityEnabled != transitionContinuityEnabled
+            if (!changed) return
             featureEnabled = enabled
+            this.transitionContinuityEnabled = transitionContinuityEnabled
             val visible = applyResolvedVisibility()
             emitEvent {
                 scene.logPrefix + "Feature enabled=" + featureEnabled +
+                    " transitionContinuity=" + this.transitionContinuityEnabled +
                     " overlayVisible=" + visible +
                     " nativeHandoffActive=" + nativeHandoffActive +
                     " nativeGeometryWrites=0"
@@ -396,7 +437,7 @@ internal object CombinedStatusKeyguardRenderSession {
         fun updateAodState(update: SystemUiKeyguardAodStateSource.AodUpdate) {
             val battery = batteryView.get() ?: return
             if (update.sourceView !== battery) return
-            val nextEligible =
+            val stableSceneEligible =
                 when (scene) {
                     Scene.KEYGUARD -> !update.blocksProjection
                     Scene.AOD ->
@@ -405,6 +446,15 @@ internal object CombinedStatusKeyguardRenderSession {
                             isAodAnimate = update.isAodAnimate,
                         )
                 }
+            val nextEligible =
+                resolveTransitionSceneEligible(
+                    sceneIsAod = scene == Scene.AOD,
+                    stableSceneEligible = stableSceneEligible,
+                    transitionContinuityEnabled = transitionContinuityEnabled,
+                    toAod = update.toAod,
+                    isAodAnimate = update.isAodAnimate,
+                )
+            }
             if (sceneEligible == nextEligible) return
 
             sceneEligible = nextEligible
