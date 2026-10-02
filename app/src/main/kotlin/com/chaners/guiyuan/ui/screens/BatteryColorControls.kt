@@ -477,11 +477,6 @@ private fun BatterySchemeOverview(
                         custom = null,
                         isActive = library.activeSchemeKey == page.key,
                         canCreateCustom = canCreateCustom,
-                        pageIndex = index,
-                        pageCount = pages.size,
-                        onNavigateTo = { target ->
-                            scope.launch { pagerState.springAnimateToPage(target) }
-                        },
                         onApply = { onApplyScheme(page.key) },
                         onSlotClick = { slot ->
                             scope.launch {
@@ -506,11 +501,6 @@ private fun BatterySchemeOverview(
                         custom = page.scheme,
                         isActive = library.activeSchemeKey == page.key,
                         canCreateCustom = canCreateCustom,
-                        pageIndex = index,
-                        pageCount = pages.size,
-                        onNavigateTo = { target ->
-                            scope.launch { pagerState.springAnimateToPage(target) }
-                        },
                         onApply = { onApplyScheme(page.key) },
                         onSlotClick = { slot ->
                             onOpenCustomSlot(page.scheme.id, slot)
@@ -528,11 +518,6 @@ private fun BatterySchemeOverview(
                         name =
                             nextCustomName
                                 ?: stringResource(R.string.battery_custom_scheme_add_page_title),
-                        pageIndex = index,
-                        pageCount = pages.size,
-                        onNavigateTo = { target ->
-                            scope.launch { pagerState.springAnimateToPage(target) }
-                        },
                         settingsCardHeightPx = settingsCardHeightPx,
                         onClick = onAdd,
                     )
@@ -548,9 +533,6 @@ private fun BatterySchemePageContent(
     custom: BatteryCustomColorScheme?,
     isActive: Boolean,
     canCreateCustom: Boolean,
-    pageIndex: Int,
-    pageCount: Int,
-    onNavigateTo: (Int) -> Unit,
     onApply: () -> Unit,
     onSlotClick: (CombinedStatusBatteryColorSlot) -> Unit,
     onSettingsCardMeasured: (Int) -> Unit,
@@ -575,9 +557,6 @@ private fun BatterySchemePageContent(
         ) {
             BatterySchemeHeader(
                 name = name,
-                pageIndex = pageIndex,
-                pageCount = pageCount,
-                onNavigateTo = onNavigateTo,
                 previewPage =
                     if (builtIn != null) {
                         BatterySchemePage.BuiltIn(builtIn)
@@ -659,18 +638,9 @@ private fun BatterySchemePageContent(
 @Composable
 private fun BatterySchemeHeader(
     name: String,
-    pageIndex: Int,
-    pageCount: Int,
-    onNavigateTo: (Int) -> Unit,
     previewPage: BatterySchemePage?,
     endAction: (@Composable () -> Unit)? = null,
 ) {
-    val titleSideReserve =
-        if (endAction != null) {
-            IconButtonDefaults.MinWidth * 2 + 4.dp
-        } else {
-            IconButtonDefaults.MinWidth
-        }
     Box(
         modifier =
             Modifier
@@ -683,33 +653,18 @@ private fun BatterySchemeHeader(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = titleSideReserve)
+                    .padding(horizontal = IconButtonDefaults.MinWidth)
                     .align(Alignment.Center),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
-        BatterySchemeNavigationButton(
-            enabled = pageIndex > 0,
-            imageVector = MiuixIcons.ChevronBackward,
-            contentDescription = stringResource(R.string.battery_color_scheme_previous),
-            onClick = { onNavigateTo(pageIndex - 1) },
-            modifier = Modifier.align(Alignment.CenterStart),
-        )
-        Row(
-            modifier = Modifier.align(Alignment.CenterEnd),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            endAction?.let { action ->
+        endAction?.let { action ->
+            Box(
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
                 action()
-                Spacer(Modifier.width(4.dp))
             }
-            BatterySchemeNavigationButton(
-                enabled = pageIndex < pageCount - 1,
-                imageVector = MiuixIcons.ChevronForward,
-                contentDescription = stringResource(R.string.battery_color_scheme_next),
-                onClick = { onNavigateTo(pageIndex + 1) },
-            )
         }
     }
     Spacer(Modifier.height(BATTERY_SCHEME_VERTICAL_GAP))
@@ -775,9 +730,6 @@ private fun BatteryModeSettingItem(
 private fun BatteryAddSchemePage(
     enabled: Boolean,
     name: String,
-    pageIndex: Int,
-    pageCount: Int,
-    onNavigateTo: (Int) -> Unit,
     settingsCardHeightPx: Int,
     onClick: () -> Unit,
 ) {
@@ -796,9 +748,6 @@ private fun BatteryAddSchemePage(
         ) {
             BatterySchemeHeader(
                 name = name,
-                pageIndex = pageIndex,
-                pageCount = pageCount,
-                onNavigateTo = onNavigateTo,
                 previewPage = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
             )
             BatterySchemeActionArea {
@@ -898,28 +847,6 @@ private fun BatterySchemeIndicatorRail(
             pageCount = pageCount,
             currentPage = currentPage,
         )
-    }
-}
-
-@Composable
-private fun BatterySchemeNavigationButton(
-    enabled: Boolean,
-    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    TooltipBox(text = contentDescription) {
-        IconButton(
-            modifier = modifier,
-            onClick = onClick,
-            enabled = enabled,
-        ) {
-            Icon(
-                imageVector = imageVector,
-                contentDescription = contentDescription,
-            )
-        }
     }
 }
 
