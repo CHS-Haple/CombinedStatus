@@ -72,13 +72,13 @@ internal object CombinedStatusKeyguardRenderSession {
         val initialAod =
             SystemUiKeyguardAodStateSource.currentState(resolved.battery)
                 ?: return AttachResult.Failure("aod-state-unavailable")
-        if (
-            !SystemUiKeyguardAodStateSource.isStableAod(
+        val initialAodEligible =
+            SystemUiKeyguardAodStateSource.isStableAod(
                 toAod = initialAod.toAod,
                 isAodAnimate = initialAod.isAodAnimate,
-            )
-        ) {
-            return AttachResult.Failure("aod-not-stable")
+            ) || initialAod.isAodAnimate
+        if (!initialAodEligible) {
+            return AttachResult.Failure("aod-not-active")
         }
         val session =
             Session(
@@ -87,9 +87,9 @@ internal object CombinedStatusKeyguardRenderSession {
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 scene = Scene.AOD,
                 initialFeatureEnabled = settings.enabled && settings.aodEnabled,
-                initialSceneEligible = true,
+                initialSceneEligible = initialAodEligible,
                 initialTransitionContinuityEnabled =
-                    settings.enabled && settings.keyguardEnabled && settings.aodEnabled,
+                    settings.enabled && settings.aodEnabled,
                 onPresentationReadinessChanged = onPresentationReadinessChanged,
             )
         aodCurrent = session
@@ -119,15 +119,17 @@ internal object CombinedStatusKeyguardRenderSession {
 
     @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
-        val transitionContinuityEnabled =
+        val keyguardTransitionContinuityEnabled =
             settings.enabled && settings.keyguardEnabled && settings.aodEnabled
+        val aodTransitionContinuityEnabled =
+            settings.enabled && settings.aodEnabled
         current?.setFeatureState(
             enabled = settings.enabled && settings.keyguardEnabled,
-            transitionContinuityEnabled = transitionContinuityEnabled,
+            transitionContinuityEnabled = keyguardTransitionContinuityEnabled,
         )
         aodCurrent?.setFeatureState(
             enabled = settings.enabled && settings.aodEnabled,
-            transitionContinuityEnabled = transitionContinuityEnabled,
+            transitionContinuityEnabled = aodTransitionContinuityEnabled,
         )
     }
 
@@ -199,17 +201,16 @@ internal object CombinedStatusKeyguardRenderSession {
         )
 
     internal fun resolveTransitionSceneEligible(
-        sceneIsAod: Boolean,
         stableSceneEligible: Boolean,
         transitionContinuityEnabled: Boolean,
-        toAod: Boolean,
+        wasSceneEligible: Boolean,
         isAodAnimate: Boolean,
     ): Boolean {
-        val retainOutgoingScene =
+        val retainOwnedScene =
             transitionContinuityEnabled &&
                 isAodAnimate &&
-                if (sceneIsAod) !toAod else toAod
-        return retainOutgoingScene || stableSceneEligible
+                wasSceneEligible
+        return retainOwnedScene || stableSceneEligible
     }
 
     private fun resolveSceneOwnerReady(
@@ -448,10 +449,9 @@ internal object CombinedStatusKeyguardRenderSession {
                 }
             val nextEligible =
                 resolveTransitionSceneEligible(
-                    sceneIsAod = scene == Scene.AOD,
                     stableSceneEligible = stableSceneEligible,
                     transitionContinuityEnabled = transitionContinuityEnabled,
-                    toAod = update.toAod,
+                    wasSceneEligible = sceneEligible,
                     isAodAnimate = update.isAodAnimate,
                 )
             if (sceneEligible == nextEligible) return
