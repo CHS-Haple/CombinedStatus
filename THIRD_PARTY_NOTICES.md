@@ -46,4 +46,4 @@ Before a formal public release, maintainers should verify the resolved dependenc
 
 ## Project license
 
-Guiyuan itself is licensed under the [GNU General Public License v3.0 or later](LICENSE) (`GPL-3.0-or-later`). Third-party components remain governed by their respective upstream licenses and notice requirements.
+Guiyuan itself is licensed under the [GNU General Public License v3.0 only](LICENSE) (`GPL-3.0-only`). Third-party components remain governed by their respective upstream licenses and notice requirements.

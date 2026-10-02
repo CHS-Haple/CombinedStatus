@@ -9,7 +9,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 - `dev` is accepted through Build 619: `0.0.5` / versionCode `261002419` / Build `20261002-619`.
 - Build 619 is the latest accepted runtime-affecting development baseline.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- GPL-3.0-or-later remains the project license.
+- GPL-3.0-only remains the project license.
 
 ## Active objective
 

@@ -28,6 +28,9 @@
     <string name="section_appearance_interaction">Appearance &amp; interaction</string>
     <string name="section_app">App</string>
     <string name="section_diagnostics_maintenance">Diagnostics &amp; maintenance</string>
+    <string name="section_other">Other</string>
+    <string name="project_address_title">Project address</string>
+    <string name="project_address_summary">This project is open source under GPL-3.0-only</string>
     <string name="language_title">Language</string>
     <string name="language_summary">Use the system language or choose an app language</string>
     <string name="language_system">System default</string>

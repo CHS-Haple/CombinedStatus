@@ -7,6 +7,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 ## [Unreleased]
 
 ### Added
+- Settings now includes an “Other” card with a Project address row linking to the Guiyuan repository and showing the project’s GPL-3.0-only license identity.
 - Optional battery-top percentage readout can reserve a measured opening in the ring, reuse the HyperOS-selected native charging glyph, and expose MIUIX controls for number size/weight/vertical position and charging-glyph size; the feature defaults off and remains inside the existing Battery transition ownership.
 - Optional opt-in lock-screen Guiyuan uses a separate Keyguard host/render/presentation adapter, while Home and Keyguard retain independent mutable View ownership. Keyguard-originated QS_FAKE is enabled only after the steady Keyguard presentation is ready.
 - Keyguard projection is guarded by native HyperOS AOD lifecycle authority from `MiuiBatteryMeterView`. An independent default-off AOD preference projects Guiyuan in AOD. Transition continuity is routed from the actually owned Home/Keyguard/AOD presentation rather than inferred AOD-direction fields; visible Home may prearm the AOD host, and an already-owned Keyguard/AOD presentation is retained through the native lifecycle boundary so represented native icons do not reappear mid-handoff. HyperOS still owns enter/exit animation timing, alpha, visibility and translation, and unresolved AOD contracts fail native without affecting the accepted Home/QS_FAKE path.
@@ -42,7 +43,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 - Development display version advanced to **0.0.5** after integrating the accepted Build 617 product/runtime line into `dev`; this remains a pre-release development checkpoint and does not change the planned first formal release target of 1.0.0.
 
-- Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 or later (`GPL-3.0-or-later`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
+- Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 only (`GPL-3.0-only`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
 
 
 - Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses; QS_FAKE may take one fixed, reversible session lease on already-unused native parent width so the existing `statusIcons.paddingEnd` progress writer no longer forces native peer underflow before the HyperOS appearance handoff. Lease-only leading capacity is excluded from transition motion by sampling an end-anchored logical carrier frozen to the native source-carrier width, preventing capacity growth from shifting Guiyuan's motion origin. Mobile exact four-bar geometry remains shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
