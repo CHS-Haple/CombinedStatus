@@ -34,7 +34,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
 | Control Center fully expanded | NATIVE_ONLY | SYSTEM_UI | Exact-target fake/final appearance ownership is verified; accepted runtime keeps the final surface native-only |
 | Keyguard | PROJECTED | SYSTEM_UI | Build 456 is maintainer device-accepted with a separate opt-in Keyguard host/render/presentation adapter |
-| AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified; independent runtime gate |
+| AOD | PROJECTED | SYSTEM_UI | Build 625 candidate; exact-target host/authority verified, device continuity pending |
 
 The map fails closed outside the verified Home / opt-in Keyguard steady paths and the bounded Control Center transition bridge. Unsupported scenes remain native rather than receiving a partial Guiyuan implementation. A verified transition carrier is not, by itself, permission to keep Guiyuan visible as a fully expanded panel surface.
 
@@ -111,6 +111,11 @@ No polling/frame follower, per-peer native geometry write, second layout/suppres
 
 
 ## Keyguard and AOD
+
+**Build 625 candidate ownership boundary.** Build 623 device evidence rejects the separate Keyguard/AOD presentation/render-session model: even with direction-independent routing, the outgoing session restored represented-slot suppression before the target session completed its next native layout, creating a visible native interval. Build 625 keeps a single host-scoped Keyguard-family presentation Session and one module RenderView for the verified shared host. Keyguard<->AOD changes retarget scene semantics without restoring/reacquiring the native ignored-slot delta, clip mask or end reservation and without detaching/re-adding a second render View.
+
+Presentation claim and compact readiness remain separate. A same-host family retarget can preserve an already-established layout contract. Home->AOD is cross-host and therefore cannot inherit Home layout ownership; during explicit AOD prearm it may apply only the existing reversible represented-view mask while the AOD family owner waits for native compact-layout readiness. Renderer cutover remains blocked until that readiness is real. Failure, feature disable, host replacement, SystemUI recreation and Hot Reload still restore only module-owned state. HyperOS continues to own AOD timing, native alpha/visibility/translation and the native lifecycle clock.
+
 
 Build 456 is the current **device-accepted opt-in PROJECTED steady Keyguard implementation**. Build 455 proves the corrected AOD authority can reach steady Keyguard Guiyuan but is rejected for a shared Keyguard/QS_FAKE peer-layout/motion inconsistency caused by temporary ignored-slot state. Build 456 keeps AOD NATIVE_ONLY and makes Keyguard/QS_FAKE represented-slot exclusion session-scoped through the verified native container API; focused maintainer device validation accepted the resulting steady Keyguard and transition behavior.
 
