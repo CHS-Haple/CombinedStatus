@@ -772,6 +772,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var airplaneTargetResolved = false
         private var frozenNoSimTarget: TargetWitness? = null
         private var noSimTargetResolved = false
+        private var frozenChargingSourceGeometry: FloatArray? = null
 
         private var currentSnapshot = sourceSnapshot
         private var progress = 0f
@@ -1275,8 +1276,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     }
                 val geometry =
                     when {
-                        chargingSourceLocked ->
-                            sourceGeometry.copyOf()
+                        chargingSourceLocked -> {
+                            val locked =
+                                frozenChargingSourceGeometry
+                                    ?: sourceGeometry.copyOf().also { captured ->
+                                        frozenChargingSourceGeometry = captured
+                                    }
+                            locked.copyOf()
+                        }
 
                         targetGeometry != null -> {
                             if (exactTextGeometry) {
