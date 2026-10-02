@@ -255,6 +255,7 @@ internal fun PreviewSandboxScreen(
                                     },
                                     insideMargin = SandboxPreferenceInsideMargin,
                                     maxHeight = 360.dp,
+                                    modifier = Modifier.padding(top = 4.dp),
                                 )
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
