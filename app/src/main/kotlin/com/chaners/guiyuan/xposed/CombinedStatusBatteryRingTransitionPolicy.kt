@@ -33,6 +33,38 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
         return 1f - eased
     }
 
+    fun isTerminalCapDominated(
+        remainingFraction: Float,
+        totalSweepDegrees: Float,
+        radiusPx: Float,
+        strokeWidthPx: Float,
+    ): Boolean {
+        val remaining =
+            remainingFraction
+                .takeIf(Float::isFinite)
+                ?.coerceIn(0f, 1f)
+                ?: return false
+        val sweep =
+            totalSweepDegrees
+                .takeIf(Float::isFinite)
+                ?.coerceAtLeast(0f)
+                ?: return false
+        val radius =
+            radiusPx
+                .takeIf(Float::isFinite)
+                ?.takeIf { it > 0f }
+                ?: return false
+        val stroke =
+            strokeWidthPx
+                .takeIf(Float::isFinite)
+                ?.takeIf { it > 0f }
+                ?: return false
+        if (remaining <= 0f || sweep <= 0f) return true
+        val remainingArcLengthPx =
+            Math.toRadians((sweep * remaining).toDouble()).toFloat() * radius
+        return remainingArcLengthPx <= stroke
+    }
+
     fun resolve(
         drawableArcs: List<CombinedStatusBatteryTopArcPolicy.Arc>,
         batteryPercent: Int,
