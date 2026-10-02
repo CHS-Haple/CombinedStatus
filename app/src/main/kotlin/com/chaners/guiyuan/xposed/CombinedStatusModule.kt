@@ -2019,19 +2019,25 @@ class CombinedStatusModule : XposedModule() {
                     )
                 ) {
                     CombinedStatusScenePolicy.KeyguardAodProjection.AOD -> {
-                        deactivateKeyguardRuntime("aod-stable")
-                        attachAodRenderer(
-                            resolved = resolution.host,
-                            source = source,
-                        )
+                        if (
+                            attachAodRenderer(
+                                resolved = resolution.host,
+                                source = source,
+                            )
+                        ) {
+                            deactivateKeyguardRuntime("aod-family-handoff")
+                        }
                     }
 
                     CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD -> {
-                        deactivateAodRuntime("keyguard-active")
-                        attachKeyguardRenderer(
-                            resolved = resolution.host,
-                            source = source,
-                        )
+                        if (
+                            attachKeyguardRenderer(
+                                resolved = resolution.host,
+                                source = source,
+                            )
+                        ) {
+                            deactivateAodRuntime("keyguard-family-handoff")
+                        }
                     }
 
                     CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE -> {
@@ -2071,8 +2077,8 @@ class CombinedStatusModule : XposedModule() {
     private fun attachKeyguardRenderer(
         resolved: SystemUiKeyguardHostResolver.ResolvedHost,
         source: String,
-    ) {
-        when (
+    ): Boolean {
+        return when (
             val result =
                 CombinedStatusKeyguardRenderSession.attach(
                     resolved = resolved,
@@ -2101,6 +2107,7 @@ class CombinedStatusModule : XposedModule() {
                     "aodOwned" to false,
                     "nativeGeometryWrites" to 0,
                 )
+                true
             }
 
             is CombinedStatusKeyguardRenderSession.AttachResult.Failure -> {
@@ -2114,6 +2121,7 @@ class CombinedStatusModule : XposedModule() {
                     "reason" to result.reason,
                     "fallback" to "native-keyguard",
                 )
+                false
             }
         }
     }
@@ -2121,8 +2129,8 @@ class CombinedStatusModule : XposedModule() {
     private fun attachAodRenderer(
         resolved: SystemUiKeyguardHostResolver.ResolvedHost,
         source: String,
-    ) {
-        when (
+    ): Boolean {
+        return when (
             val result =
                 CombinedStatusKeyguardRenderSession.attachAod(
                     resolved = resolved,
@@ -2151,6 +2159,7 @@ class CombinedStatusModule : XposedModule() {
                     "aodOwned" to true,
                     "nativeGeometryWrites" to 0,
                 )
+                true
             }
 
             is CombinedStatusKeyguardRenderSession.AttachResult.Failure -> {
@@ -2164,6 +2173,7 @@ class CombinedStatusModule : XposedModule() {
                     "reason" to result.reason,
                     "fallback" to "native-aod",
                 )
+                false
             }
         }
     }
@@ -2375,6 +2385,7 @@ class CombinedStatusModule : XposedModule() {
             val result =
                 SystemUiHomePresentationOwner.activateAod(
                     resolved = resolved.host,
+                    preMaskBeforeLayout = homeTransitionPrearm,
                     onEvent = { event ->
                         if (detailedDiagnosticsEnabled) {
                             log(Log.INFO, TAG, event)
@@ -2407,7 +2418,13 @@ class CombinedStatusModule : XposedModule() {
                     "representedSlots" to result.representedSlots,
                     "reused" to result.reused,
                     "next" to "native-status-icons-layout",
-                    "fallback" to "native-aod-until-compact-layout",
+                    "preMasked" to homeTransitionPrearm,
+                    "fallback" to
+                        if (homeTransitionPrearm) {
+                            "outgoing-guiyuan-or-masked-native-until-compact-layout"
+                        } else {
+                            "native-aod-until-compact-layout"
+                        },
                 )
             }
 
