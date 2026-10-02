@@ -665,7 +665,12 @@ private fun BatterySchemeHeader(
     previewPage: BatterySchemePage?,
     endAction: (@Composable () -> Unit)? = null,
 ) {
-    val titleSideReserve = if (endAction != null) 84.dp else 44.dp
+    val titleSideReserve =
+        if (endAction != null) {
+            IconButtonDefaults.MinWidth * 2 + 4.dp
+        } else {
+            IconButtonDefaults.MinWidth
+        }
     Box(
         modifier =
             Modifier
@@ -909,26 +914,10 @@ private fun BatterySchemeNavigationButton(
             modifier = modifier,
             onClick = onClick,
             enabled = enabled,
-            backgroundColor =
-                if (enabled) {
-                    MiuixTheme.colorScheme.secondaryVariant
-                } else {
-                    MiuixTheme.colorScheme.disabledSecondaryVariant
-                },
-            cornerRadius = 36.dp,
-            minWidth = 36.dp,
-            minHeight = 36.dp,
         ) {
             Icon(
                 imageVector = imageVector,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(20.dp),
-                tint =
-                    if (enabled) {
-                        MiuixTheme.colorScheme.onSecondaryVariant
-                    } else {
-                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
-                    },
             )
         }
     }
