@@ -14,8 +14,12 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MAX
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
+import com.chaners.guiyuan.settings.AIRPLANE_SIZE_SCALE_MAX as SETTINGS_AIRPLANE_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.AIRPLANE_SIZE_SCALE_MIN as SETTINGS_AIRPLANE_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MAX as SETTINGS_MOBILE_TYPE_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MIN as SETTINGS_MOBILE_TYPE_SIZE_SCALE_MIN
+import com.chaners.guiyuan.settings.NO_SIM_SIZE_SCALE_MAX as SETTINGS_NO_SIM_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.NO_SIM_SIZE_SCALE_MIN as SETTINGS_NO_SIM_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX as SETTINGS_WIFI_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN as SETTINGS_WIFI_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
@@ -1115,6 +1119,8 @@ internal class CombinedStatusPainter(
         CombinedStatusCenterGeometry.resolve(
             wifiSizeScale = visualSettings.wifiSizeScale,
             mobileTypeSizeScale = visualSettings.mobileTypeSizeScale,
+            airplaneSizeScale = visualSettings.airplaneSizeScale,
+            noSimSizeScale = visualSettings.noSimSizeScale,
             mobileTypeWeight = visualSettings.mobileTypeWeight,
             combinedScale = visualSettings.combinedScale,
         )
@@ -3793,6 +3799,12 @@ internal object CombinedStatusCenterGeometry {
     const val DEFAULT_MOBILE_TYPE_SIZE_SCALE = 1.00f
     const val MIN_WIFI_SIZE_SCALE = SETTINGS_WIFI_SIZE_SCALE_MIN
     const val MAX_WIFI_SIZE_SCALE = SETTINGS_WIFI_SIZE_SCALE_MAX
+    const val DEFAULT_AIRPLANE_SIZE_SCALE = 1.00f
+    const val MIN_AIRPLANE_SIZE_SCALE = SETTINGS_AIRPLANE_SIZE_SCALE_MIN
+    const val MAX_AIRPLANE_SIZE_SCALE = SETTINGS_AIRPLANE_SIZE_SCALE_MAX
+    const val DEFAULT_NO_SIM_SIZE_SCALE = 1.00f
+    const val MIN_NO_SIM_SIZE_SCALE = SETTINGS_NO_SIM_SIZE_SCALE_MIN
+    const val MAX_NO_SIM_SIZE_SCALE = SETTINGS_NO_SIM_SIZE_SCALE_MAX
     const val MIN_MOBILE_TYPE_SIZE_SCALE = SETTINGS_MOBILE_TYPE_SIZE_SCALE_MIN
     const val MAX_MOBILE_TYPE_SIZE_SCALE = SETTINGS_MOBILE_TYPE_SIZE_SCALE_MAX
     const val DEFAULT_MOBILE_TYPE_WEIGHT = 800
@@ -3809,6 +3821,8 @@ internal object CombinedStatusCenterGeometry {
 
     data class Resolved(
         val wifiSizeScale: Float,
+        val airplaneSizeScale: Float,
+        val noSimSizeScale: Float,
         val mobileTypeSizeScale: Float,
         val wifiMaxWidth: Float,
         val wifiMaxHeight: Float,
@@ -3825,11 +3839,21 @@ internal object CombinedStatusCenterGeometry {
         wifiSizeScale: Float,
         mobileTypeSizeScale: Float,
         mobileTypeWeight: Int,
+        airplaneSizeScale: Float = DEFAULT_AIRPLANE_SIZE_SCALE,
+        noSimSizeScale: Float = DEFAULT_NO_SIM_SIZE_SCALE,
         combinedScale: Float = COMBINED_SCALE_DEFAULT,
     ): Resolved {
         val normalizedWifi =
             wifiSizeScale.takeIf(Float::isFinite)?.coerceIn(MIN_WIFI_SIZE_SCALE, MAX_WIFI_SIZE_SCALE)
                 ?: DEFAULT_WIFI_SIZE_SCALE
+        val normalizedAirplane =
+            airplaneSizeScale.takeIf(Float::isFinite)
+                ?.coerceIn(MIN_AIRPLANE_SIZE_SCALE, MAX_AIRPLANE_SIZE_SCALE)
+                ?: DEFAULT_AIRPLANE_SIZE_SCALE
+        val normalizedNoSim =
+            noSimSizeScale.takeIf(Float::isFinite)
+                ?.coerceIn(MIN_NO_SIM_SIZE_SCALE, MAX_NO_SIM_SIZE_SCALE)
+                ?: DEFAULT_NO_SIM_SIZE_SCALE
         val normalizedMobile =
             mobileTypeSizeScale.takeIf(Float::isFinite)
                 ?.coerceIn(MIN_MOBILE_TYPE_SIZE_SCALE, MAX_MOBILE_TYPE_SIZE_SCALE)
@@ -3843,11 +3867,13 @@ internal object CombinedStatusCenterGeometry {
                 ?: COMBINED_SCALE_DEFAULT
         return Resolved(
             wifiSizeScale = normalizedWifi,
+            airplaneSizeScale = normalizedAirplane,
+            noSimSizeScale = normalizedNoSim,
             mobileTypeSizeScale = normalizedMobile,
             wifiMaxWidth = BASE_WIFI_MAX_WIDTH * normalizedWifi,
             wifiMaxHeight = BASE_WIFI_MAX_HEIGHT * normalizedWifi,
-            airplaneMaxSize = BASE_AIRPLANE_MAX_SIZE,
-            noSimMaxSize = BASE_NO_SIM_MAX_SIZE,
+            airplaneMaxSize = BASE_AIRPLANE_MAX_SIZE * normalizedAirplane,
+            noSimMaxSize = BASE_NO_SIM_MAX_SIZE * normalizedNoSim,
             mobileTypeTextSize = BASE_MOBILE_TYPE_TEXT_SIZE * normalizedMobile,
             mobileTypeSuffixSize = BASE_MOBILE_TYPE_SUFFIX_SIZE * normalizedMobile,
             mobileTypeSuffixRise = BASE_MOBILE_TYPE_SUFFIX_RISE * normalizedMobile,
