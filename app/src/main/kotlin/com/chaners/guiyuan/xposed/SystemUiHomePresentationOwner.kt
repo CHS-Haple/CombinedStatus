@@ -952,9 +952,6 @@ internal object SystemUiHomePresentationOwner {
         keyguardEventSink = null
         keyguardFailNativeSink = null
         keyguardReadySink = null
-        aodEventSink = null
-        aodFailNativeSink = null
-        aodReadySink = null
     }
 
     @Synchronized
@@ -1090,6 +1087,9 @@ internal object SystemUiHomePresentationOwner {
         keyguardEventSink = null
         keyguardFailNativeSink = null
         keyguardReadySink = null
+        aodEventSink = null
+        aodFailNativeSink = null
+        aodReadySink = null
     }
 
     private class Session(
