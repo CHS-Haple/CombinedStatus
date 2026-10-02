@@ -842,12 +842,12 @@ private fun BatterySchemeNavigator(
             contentDescription = stringResource(R.string.battery_color_scheme_previous),
             onClick = { onNavigateTo(currentPage - 1) },
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         BatteryPagerIndicator(
             pageCount = pageCount,
             currentPage = currentPage,
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         BatterySchemeNavigationButton(
             enabled = canGoForward,
             imageVector = MiuixIcons.ChevronForward,
@@ -874,14 +874,14 @@ private fun BatterySchemeNavigationButton(
                 } else {
                     MiuixTheme.colorScheme.disabledSecondaryVariant
                 },
-            cornerRadius = 32.dp,
-            minWidth = 32.dp,
-            minHeight = 32.dp,
+            cornerRadius = 28.dp,
+            minWidth = 28.dp,
+            minHeight = 28.dp,
         ) {
             Icon(
                 imageVector = imageVector,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(16.dp),
                 tint =
                     if (enabled) {
                         MiuixTheme.colorScheme.onSecondaryVariant
