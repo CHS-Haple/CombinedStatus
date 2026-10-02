@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 640 addresses the independent Keyguard/AOD child-switch handoff asymmetry exposed by Build 636 device testing.
+Build 641 addresses the independent Keyguard/AOD child-switch handoff asymmetry exposed by Build 636 device testing.
 
 Build-636 device evidence:
 - with Keyguard enabled and AOD disabled, AOD -> Keyguard waits until the native AOD animation state fully clears before Guiyuan reacquires Keyguard, producing a delayed Guiyuan entrance;
@@ -23,21 +23,22 @@ Build-636 device evidence:
 - Home -> AOD with Keyguard disabled can expose native represented icons during the transient native Keyguard source interval before the AOD owner is attached;
 - the two AOD -> Keyguard delays are the same ownership-boundary defect in opposite directions.
 
-Historical constraint remains authoritative: Build 621 proved `toAod` / `animToAod` are not reliable transition-direction authorities on the pinned HyperOS target. Build 640 does not use them to guess direction.
+Historical constraint remains authoritative: Build 621 proved `toAod` / `animToAod` are not reliable transition-direction authorities on the pinned HyperOS target. Build 641 does not use them to guess direction.
 
-Build 640 correction:
+Build 641 correction:
 - dual-enabled Keyguard/AOD transitions retain the accepted ownership-driven continuity behavior unchanged;
 - Keyguard-only mode may acquire Keyguard as soon as the verified steady source is Keyguard, without waiting for the later AOD-animation teardown callback;
 - AOD-only mode releases an already-owned AOD presentation when the verified steady source is Keyguard and Home is no longer the still-owned source;
 - AOD-only Home -> AOD keeps/prearms the AOD family owner across the transient native Keyguard source while Home presentation ownership is still present;
 - all handoffs continue to use one Keyguard-family Session / one RenderView with existing presentation ownership, masking, reservation and fail-native cleanup;
 - HOME scene updates now skip AOD ownership/cleanup work entirely when no AOD render runtime is attached, preventing AOD lifecycle bookkeeping from entering the ordinary desktop pull-down hot path.
+- authoritative unlocked HOME now releases any stale Keyguard Control Center lease and updates Control Center source ownership to HOME before Keyguard renderer teardown; this closes the reproducible lockscreen -> Home -> immediate pull-down race that could briefly select native QS icons.
 
 No timer, delay, polling, alpha/visibility/translation writer, copied native animation, or second scene-state machine is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003640` / Build `20261003-640`.
+- Candidate identity: `0.0.5` / versionCode `261003641` / Build `20261003-641`.
 - Work branch is based on current `dev` with no behind commits at the correction checkpoint.
 - Focused ScenePolicy coverage locks:
   - Keyguard-only acquisition during the native AOD animation tail once steady Keyguard is verified;
@@ -46,7 +47,7 @@ No timer, delay, polling, alpha/visibility/translation writer, copied native ani
   - existing dual-enabled ownership continuity independent of unreliable direction fields.
 - Exact-HEAD Runtime CI is required before a signed Canary.
 - Device evidence is required because the correction changes visible Keyguard/AOD family ownership timing.
-- Build 640 additionally carries a performance-only hot-path short circuit for the maintainer-reported occasional Home pull-down stutter seen on the AOD branch.
+- Build 641 additionally carries a performance-only hot-path short circuit for the maintainer-reported occasional Home pull-down stutter seen on the AOD branch.
 
 ## Device gate
 
@@ -60,11 +61,11 @@ After exact-HEAD Runtime CI passes, validate one signed Build-639 Canary in two 
    - Home -> AOD should not expose a transient native represented-icon frame before Guiyuan AOD ownership;
    - AOD -> Keyguard should release Guiyuan when Keyguard becomes the verified steady source, without a delayed Guiyuan exit animation.
 
-Also verify dual-enabled Keyguard <-> AOD remains unchanged and continuous, and repeat several ordinary Home pull-down gestures to confirm the intermittent AOD-branch stutter is gone.
+Also verify dual-enabled Keyguard <-> AOD remains unchanged and continuous. Then unlock from Keyguard to Home and immediately pull down Control Center repeatedly: Guiyuan must remain projected on the first fast pull with no native-status-bar flash. Repeat ordinary Home pull-down gestures to confirm the intermittent AOD-branch stutter is gone.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 640. If green, request one signed Work Branch Canary and freeze #196 runtime for the focused two-configuration device test.
+Run exact-HEAD Runtime CI for Build 641. If green, request one signed Work Branch Canary and freeze #196 runtime for the focused two-configuration device test.
 
 ## Reference priority
 
