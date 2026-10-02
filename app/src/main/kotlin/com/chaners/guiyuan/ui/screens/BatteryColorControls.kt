@@ -768,9 +768,10 @@ private fun BatteryAddSchemePage(
                     },
                 onClick = if (enabled) onClick else null,
             ) {
-                Box(
+                Column(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Surface(
                         modifier = Modifier.size(60.dp),
@@ -815,6 +816,18 @@ private fun BatteryAddSchemePage(
                                 )
                             }
                         }
+                    }
+                    if (!enabled) {
+                        Text(
+                            text =
+                                stringResource(
+                                    R.string.battery_custom_scheme_limit,
+                                    BATTERY_COLOR_SCHEME_CUSTOM_MAX,
+                                ),
+                            modifier = Modifier.padding(top = 12.dp),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.disabledOnSecondaryVariant,
+                        )
                     }
                 }
             }
