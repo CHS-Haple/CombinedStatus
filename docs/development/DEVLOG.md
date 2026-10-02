@@ -2055,3 +2055,15 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - Positive transition `paddingEnd` delta and fake-carrier width expansion are equal and use the same raw HyperOS progress sample. This keeps peer usable capacity stable while preserving the existing semantic peer-X reservation. No peer visibleState, alpha, visibility, translation, native appearance threshold, timer, delay, or second animator is added.
 - The width path requires concrete native layout width, sole-child parent topology, exact end anchoring, sufficient live slack, and writer exclusivity. Failure restores/keeps native behavior rather than applying a guessed geometry compensation.
 - Padding is restored before carrier width on cleanup; carrier width is applied before padding during expansion, preventing Guiyuan-owned ordering from creating a transient underflow window.
+
+
+## 2026-10-02 — Build 611 fixed QS_FAKE capacity lease review correction
+
+**Type:** runtime ownership / lifecycle review
+
+- Build 610 keeps the correct Build-609 root-cause conclusion, but its implementation changes `system_icon_area` width on each expansion sample. Review rejects that per-progress width path because HyperOS `ControlCenterFakeViewController.updateFakeStatusIconsSize()` owns the native fake-carrier baseline; making width a second progress-driven property creates avoidable writer overlap.
+- Build 611 moves width ownership to one bounded session lease. After HyperOS has established a concrete fake-carrier width, Guiyuan requires `system_icon_area` to be the parent's sole zero-horizontal-margin child, snapshots the native width, and expands it once to the existing parent content width. The width stays fixed until cleanup; only the already-accepted `statusIcons.paddingEnd` reservation follows raw HyperOS progress.
+- On Build-609 evidence the lease is 587 -> 837px, exposing 250px of existing parent capacity for a maximum observed 249px reservation delta. If required reservation exceeds that capacity, or the parent topology/width contract is unavailable, the fake surface fails native.
+- The lease forces a fresh native status-icon layout before compact visual cutover. Existing-layout adoption and the Hot Reload transferred-layout shortcut are blocked while that layout is pending; the completed layout must still preserve the carrier's end anchor before masking can begin.
+- Any later native/third-party width change during the lease is treated as a competing writer. Cleanup never overwrites such a new value; it restores only the exact Guiyuan-applied padding/width state.
+- No peer visibleState, alpha, visibility, translation, appearance threshold, timer, polling path, new Hook, or second animator is added.

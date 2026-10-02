@@ -750,7 +750,10 @@ internal object SystemUiHomePresentationOwner {
                 } ?: return@Hooker chain.proceed()
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
-            if (refreshMasksAfter) {
+            if (
+                refreshMasksAfter &&
+                session.validateNativeLayoutBeforeVisualMask()
+            ) {
                 val masked = session.refreshClipMasks()
                 session.onNativeLayoutCompleted(masked)
             }
@@ -848,7 +851,7 @@ internal object SystemUiHomePresentationOwner {
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + maskedViews +
                 " slotExclusion=session-native-ignored-slots " +
-                "carrierReservation=qs-fake-end-capacity " +
+                "carrierReservation=qs-fake-capacity-lease+status-icons-end-padding " +
                 "carrierAuthority=battery_icon_container visualMask=clipBounds " +
                 "cutover=compact-layout-ready nativeLayoutReservationOwner=single " +
                 "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
@@ -922,9 +925,10 @@ internal object SystemUiHomePresentationOwner {
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
         private var nativeFakeCarrierLayoutWidthPx: Int? = null
-        private var nativeFakeCarrierWidthPx: Int? = null
-        private var nativeFakeCarrierLeadingSlackPx: Int? = null
+        private var nativeFakeCarrierParentContentWidthPx: Int? = null
         private var appliedFakeCarrierWidthPx: Int? = null
+        private var fakeCarrierCapacityDeltaPx: Int? = null
+        private var fakeCarrierCapacityLeaseAwaitingLayout = false
         private var transientLiveBatteryWidthUnavailable = false
         private var persistentIgnoredSlotsApplied = false
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
@@ -1025,6 +1029,8 @@ internal object SystemUiHomePresentationOwner {
                     deferVisualMaskUntilLayout = deferVisualMaskUntilLayout,
                     laidOut = group.isLaidOut,
                     layoutRequested = group.isLayoutRequested,
+                    capacityLeaseAwaitingLayout =
+                        fakeCarrierCapacityLeaseAwaitingLayout,
                     width = group.width,
                     height = group.height,
                 )
@@ -1381,10 +1387,14 @@ internal object SystemUiHomePresentationOwner {
                     actualBatteryWidthPx = actualBatteryWidthPx,
                     requestedSlotWidthPx = requestedSlotWidthPx,
                 )
+            val capacityDeltaPx =
+                ensureFakeCarrierCapacityLease(hostView)
+                    ?: return false
             if (
-                reservationDelta > 0 &&
-                !applyFakeCarrierReservation(hostView, reservationDelta)
+                surfaceName == CONTROL_CENTER_FAKE_SURFACE &&
+                reservationDelta.coerceAtLeast(0) > capacityDeltaPx
             ) {
+                onFailNative("fake-carrier-capacity-insufficient")
                 return false
             }
             val target =
@@ -1402,13 +1412,6 @@ internal object SystemUiHomePresentationOwner {
                 return false
             }
             appliedPadding = if (target == baseline) null else target
-            if (
-                reservationDelta <= 0 &&
-                !restoreFakeCarrierReservation()
-            ) {
-                onFailNative("fake-carrier-width-restore-failed")
-                return false
-            }
             if (lastReservationDelta != reservationDelta) {
                 lastReservationDelta = reservationDelta
                 onEvent(
@@ -1424,10 +1427,9 @@ internal object SystemUiHomePresentationOwner {
                         " basePaddingEnd=" + baseline.end +
                         " appliedPaddingEnd=" + target.end +
                         " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
-                        " fakeCarrierWidthDelta=" +
-                        (if (appliedFakeCarrierWidthPx != null) reservationDelta.coerceAtLeast(0) else 0) +
+                        " fakeCarrierCapacityDelta=" + capacityDeltaPx +
                         " carrierAuthority=battery_icon_container " +
-                        "owner=qs-fake-end-capacity",
+                        "owner=qs-fake-capacity-lease+statusIcons-paddingEnd",
                 )
             }
             return true
@@ -1463,153 +1465,172 @@ internal object SystemUiHomePresentationOwner {
                     appliedPadding = null
                 }
             }
-            val carrierRestored = restoreFakeCarrierReservation()
+            val carrierRestored = restoreFakeCarrierCapacityLease()
             return paddingRestored && carrierRestored
         }
 
-        private fun applyFakeCarrierReservation(
-            hostView: ViewGroup,
-            reservationDeltaPx: Int,
-        ): Boolean {
-            if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return true
-
-            val widthDeltaPx = reservationDeltaPx.coerceAtLeast(0)
-            if (widthDeltaPx == 0) return true
+        private fun ensureFakeCarrierCapacityLease(hostView: ViewGroup): Int? {
+            if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return 0
 
             val parent =
                 hostView.parent as? ViewGroup
                     ?: run {
                         onFailNative("fake-carrier-parent-unavailable")
-                        return false
+                        return null
                     }
             if (parent.childCount != 1 || parent.getChildAt(0) !== hostView) {
-                onFailNative("fake-carrier-parent-topology-unverified")
-                return false
+                onFailNative("fake-carrier-exclusive-parent-contract-unavailable")
+                return null
             }
             val params =
                 hostView.layoutParams
                     ?: run {
                         onFailNative("fake-carrier-layout-params-unavailable")
-                        return false
+                        return null
                     }
+            val margins = params as? ViewGroup.MarginLayoutParams
+            if (
+                margins != null &&
+                (
+                    margins.marginStart != 0 ||
+                        margins.marginEnd != 0 ||
+                        margins.leftMargin != 0 ||
+                        margins.rightMargin != 0
+                )
+            ) {
+                onFailNative("fake-carrier-horizontal-margin-contract-unsupported")
+                return null
+            }
 
-            if (nativeFakeCarrierLayoutWidthPx == null) {
-                val baselineWidthPx =
-                    hostView.width.takeIf { width -> width > 0 }
-                        ?: run {
-                            onFailNative("fake-carrier-width-unavailable")
-                            return false
-                        }
-                if (params.width <= 0 || params.width != baselineWidthPx) {
-                    onFailNative("fake-carrier-width-contract-unavailable")
-                    return false
-                }
-                val leadingSlackPx =
-                    EndReservationPolicy.resolveEndAnchoredLeadingSlack(
-                        parentWidthPx = parent.width,
-                        parentPaddingStartPx = parent.paddingStart,
-                        parentPaddingEndPx = parent.paddingEnd,
-                        carrierLeftPx = hostView.left,
-                        carrierRightPx = hostView.right,
-                        isRtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL,
-                    ) ?: run {
-                        onFailNative("fake-carrier-end-anchor-unverified")
-                        return false
+            val parentContentWidthPx =
+                (
+                    parent.width -
+                        parent.paddingLeft -
+                        parent.paddingRight
+                ).takeIf { width -> width > 0 }
+                    ?: run {
+                        onFailNative("fake-carrier-parent-width-unavailable")
+                        return null
                     }
-                nativeFakeCarrierLayoutWidthPx = params.width
-                nativeFakeCarrierWidthPx = baselineWidthPx
-                nativeFakeCarrierLeadingSlackPx = leadingSlackPx
-            } else {
-                val baselineLayoutWidthPx =
-                    nativeFakeCarrierLayoutWidthPx
-                        ?: run {
-                            onFailNative("fake-carrier-reservation-state-invalid")
-                            return false
-                        }
-                val expectedLiveWidthPx =
-                    appliedFakeCarrierWidthPx ?: baselineLayoutWidthPx
-                if (params.width != expectedLiveWidthPx) {
+            if (!isFakeCarrierEndAnchored(hostView, parent)) {
+                onFailNative("fake-carrier-end-anchor-unverified")
+                return null
+            }
+
+            val existingAppliedWidthPx = appliedFakeCarrierWidthPx
+            if (existingAppliedWidthPx != null) {
+                if (
+                    nativeFakeCarrierParentContentWidthPx != parentContentWidthPx ||
+                    params.width != existingAppliedWidthPx
+                ) {
                     onFailNative("fake-carrier-width-writer-conflict")
-                    return false
+                    return null
                 }
+                return fakeCarrierCapacityDeltaPx
             }
 
-            val nativeCarrierWidthPx =
-                nativeFakeCarrierWidthPx
+            val baselineWidthPx =
+                hostView.width.takeIf { width -> width > 0 }
                     ?: run {
-                        onFailNative("fake-carrier-reservation-state-invalid")
-                        return false
+                        onFailNative("fake-carrier-width-unavailable")
+                        return null
                     }
-            val leadingSlackPx =
-                nativeFakeCarrierLeadingSlackPx
-                    ?: run {
-                        onFailNative("fake-carrier-reservation-state-invalid")
-                        return false
-                    }
-            val targetWidthPx =
-                EndReservationPolicy.resolveExpandedFakeCarrierWidth(
-                    nativeCarrierWidthPx = nativeCarrierWidthPx,
-                    leadingSlackPx = leadingSlackPx,
-                    reservationDeltaPx = widthDeltaPx,
+            if (params.width <= 0 || params.width != baselineWidthPx) {
+                onFailNative("fake-carrier-width-contract-unavailable")
+                return null
+            }
+            val capacityDeltaPx =
+                EndReservationPolicy.resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = baselineWidthPx,
+                    parentContentWidthPx = parentContentWidthPx,
                 ) ?: run {
-                    onFailNative("fake-carrier-leading-slack-insufficient")
-                    return false
+                    onFailNative("fake-carrier-capacity-unavailable")
+                    return null
                 }
 
-            if (params.width != targetWidthPx) {
-                params.width = targetWidthPx
+            nativeFakeCarrierLayoutWidthPx = params.width
+            nativeFakeCarrierParentContentWidthPx = parentContentWidthPx
+            fakeCarrierCapacityDeltaPx = capacityDeltaPx
+
+            if (params.width != parentContentWidthPx) {
+                params.width = parentContentWidthPx
                 hostView.layoutParams = params
+                fakeCarrierCapacityLeaseAwaitingLayout = true
             }
-            if (hostView.layoutParams?.width != targetWidthPx) {
-                onFailNative("fake-carrier-width-apply-failed")
-                return false
+            if (hostView.layoutParams?.width != parentContentWidthPx) {
+                clearFakeCarrierCapacityLeaseSnapshot()
+                onFailNative("fake-carrier-capacity-lease-apply-failed")
+                return null
             }
-            appliedFakeCarrierWidthPx = targetWidthPx
-            return true
+            appliedFakeCarrierWidthPx = parentContentWidthPx
+            onEvent(
+                eventPrefix +
+                    " fakeCarrierCapacity lease=active" +
+                    " nativeWidth=" + baselineWidthPx +
+                    " leasedWidth=" + parentContentWidthPx +
+                    " capacityDelta=" + capacityDeltaPx +
+                    " owner=control-center-fake-session",
+            )
+            return capacityDeltaPx
         }
 
-        private fun restoreFakeCarrierReservation(): Boolean {
+        private fun isFakeCarrierEndAnchored(
+            hostView: View,
+            parent: ViewGroup,
+        ): Boolean {
+            val contentLeft = parent.paddingLeft
+            val contentRight = parent.width - parent.paddingRight
+            if (contentRight <= contentLeft) return false
+            return if (hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                hostView.left == contentLeft
+            } else {
+                hostView.right == contentRight
+            }
+        }
+
+        private fun restoreFakeCarrierCapacityLease(): Boolean {
             if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return true
 
             val appliedWidthPx = appliedFakeCarrierWidthPx
             if (appliedWidthPx == null) {
-                clearFakeCarrierReservationSnapshot()
+                clearFakeCarrierCapacityLeaseSnapshot()
                 return true
             }
             val hostView = host.get()
             val baselineLayoutWidthPx = nativeFakeCarrierLayoutWidthPx
             if (hostView == null || baselineLayoutWidthPx == null) {
-                clearFakeCarrierReservationSnapshot()
+                clearFakeCarrierCapacityLeaseSnapshot()
                 return false
             }
             val params = hostView.layoutParams
             if (params == null) {
-                clearFakeCarrierReservationSnapshot()
+                clearFakeCarrierCapacityLeaseSnapshot()
                 return false
             }
             if (params.width != appliedWidthPx) {
                 onEvent(
                     eventPrefix +
-                        " fakeCarrierReservation restore=skipped reason=writer-changed" +
+                        " fakeCarrierCapacity restore=skipped reason=writer-changed" +
                         " liveWidth=" + params.width +
                         " appliedWidth=" + appliedWidthPx,
                 )
-                clearFakeCarrierReservationSnapshot()
+                clearFakeCarrierCapacityLeaseSnapshot()
                 return false
             }
 
             params.width = baselineLayoutWidthPx
             hostView.layoutParams = params
             val restored = hostView.layoutParams?.width == baselineLayoutWidthPx
-            clearFakeCarrierReservationSnapshot()
+            clearFakeCarrierCapacityLeaseSnapshot()
             return restored
         }
 
-        private fun clearFakeCarrierReservationSnapshot() {
+        private fun clearFakeCarrierCapacityLeaseSnapshot() {
             nativeFakeCarrierLayoutWidthPx = null
-            nativeFakeCarrierWidthPx = null
-            nativeFakeCarrierLeadingSlackPx = null
+            nativeFakeCarrierParentContentWidthPx = null
             appliedFakeCarrierWidthPx = null
+            fakeCarrierCapacityDeltaPx = null
+            fakeCarrierCapacityLeaseAwaitingLayout = false
         }
 
         fun isLayoutCutoverReady(): Boolean =
@@ -1628,6 +1649,9 @@ internal object SystemUiHomePresentationOwner {
             if (!syncEndReservation()) {
                 return null
             }
+            if (fakeCarrierCapacityLeaseAwaitingLayout) {
+                return null
+            }
             val masked = refreshClipMasks()
             if (compactLayoutReady) {
                 return masked
@@ -1643,6 +1667,38 @@ internal object SystemUiHomePresentationOwner {
             return masked
         }
 
+        fun validateNativeLayoutBeforeVisualMask(): Boolean {
+            if (!active || !started) return false
+            if (!fakeCarrierCapacityLeaseAwaitingLayout) return true
+
+            val hostView =
+                host.get()
+                    ?: run {
+                        onFailNative("fake-carrier-post-lease-host-released")
+                        return false
+                    }
+            val parent =
+                hostView.parent as? ViewGroup
+                    ?: run {
+                        onFailNative("fake-carrier-post-lease-parent-unavailable")
+                        return false
+                    }
+            val expectedWidthPx =
+                appliedFakeCarrierWidthPx
+                    ?: run {
+                        onFailNative("fake-carrier-post-lease-state-invalid")
+                        return false
+                    }
+            if (
+                hostView.layoutParams?.width != expectedWidthPx ||
+                !isFakeCarrierEndAnchored(hostView, parent)
+            ) {
+                onFailNative("fake-carrier-post-lease-layout-invalid")
+                return false
+            }
+            return true
+        }
+
         fun onNativeLayoutCompleted(maskedViews: Int) {
             if (
                 !active ||
@@ -1652,6 +1708,7 @@ internal object SystemUiHomePresentationOwner {
             ) {
                 return
             }
+            fakeCarrierCapacityLeaseAwaitingLayout = false
             compactLayoutReady = true
             val callback = layoutReadyCallback
             layoutReadyCallback = null
@@ -1797,12 +1854,14 @@ internal object SystemUiHomePresentationOwner {
             deferVisualMaskUntilLayout: Boolean,
             laidOut: Boolean,
             layoutRequested: Boolean,
+            capacityLeaseAwaitingLayout: Boolean = false,
             width: Int,
             height: Int,
         ): Boolean =
             deferVisualMaskUntilLayout &&
                 laidOut &&
                 !layoutRequested &&
+                !capacityLeaseAwaitingLayout &&
                 width > 0 &&
                 height > 0
     }
@@ -1838,36 +1897,13 @@ internal object SystemUiHomePresentationOwner {
             }
         }
 
-        fun resolveEndAnchoredLeadingSlack(
-            parentWidthPx: Int,
-            parentPaddingStartPx: Int,
-            parentPaddingEndPx: Int,
-            carrierLeftPx: Int,
-            carrierRightPx: Int,
-            isRtl: Boolean,
-        ): Int? {
-            if (parentWidthPx <= 0 || carrierRightPx <= carrierLeftPx) return null
-            val contentStart = parentPaddingStartPx.coerceAtLeast(0)
-            val contentEnd =
-                (parentWidthPx - parentPaddingEndPx.coerceAtLeast(0))
-                    .coerceAtLeast(contentStart)
-            if (carrierLeftPx < contentStart || carrierRightPx > contentEnd) return null
-            return if (isRtl) {
-                if (carrierLeftPx != contentStart) null else contentEnd - carrierRightPx
-            } else {
-                if (carrierRightPx != contentEnd) null else carrierLeftPx - contentStart
-            }
-        }
-
-        fun resolveExpandedFakeCarrierWidth(
+        fun resolveFakeCarrierCapacityDelta(
             nativeCarrierWidthPx: Int,
-            leadingSlackPx: Int,
-            reservationDeltaPx: Int,
+            parentContentWidthPx: Int,
         ): Int? {
-            if (nativeCarrierWidthPx <= 0 || leadingSlackPx < 0) return null
-            val delta = reservationDeltaPx.coerceAtLeast(0)
-            if (delta > leadingSlackPx || delta > Int.MAX_VALUE - nativeCarrierWidthPx) return null
-            return nativeCarrierWidthPx + delta
+            if (nativeCarrierWidthPx <= 0 || parentContentWidthPx <= 0) return null
+            if (nativeCarrierWidthPx > parentContentWidthPx) return null
+            return parentContentWidthPx - nativeCarrierWidthPx
         }
     }
 

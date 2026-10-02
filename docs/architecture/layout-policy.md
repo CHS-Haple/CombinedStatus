@@ -123,7 +123,7 @@ Do not replace this with permanent `GONE`, alpha racing or translation writes me
 
 ## Home end-reservation contract
 
-The module-owned render child does not participate in native measurement. Steady Home therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary. During the bounded QS_FAKE transition, the same host-scoped reservation owner may additionally expand the native `system_icon_area` width by the same positive reservation delta, but only into live, verified end-anchored unused parent space. This preserves the native peer row's measurement capacity while `paddingEnd` moves those peers toward their final positions; it is one coordinated reservation operation, not a second motion timeline.
+The module-owned render child does not participate in native measurement. Steady Home therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary. QS_FAKE adds one bounded capacity lease before visual cutover: after HyperOS has established the fake `system_icon_area` baseline width, Guiyuan may temporarily expand that sole child to its existing parent's content width. The lease is fixed for the session and does not follow expansion progress; only `statusIcons.paddingEnd` remains the per-progress layout writer.
 
 Inputs:
 - requested replacement-slot width from `ResolvedLayout`;
@@ -144,10 +144,11 @@ The reservation:
 - snapshots the pre-session relative padding;
 - reacts only to low-frequency Battery/carrier layout and native hide-state events;
 - rejects unexpected competing padding writers;
-- for QS_FAKE width expansion, requires a concrete native carrier width, the carrier as the parent's sole direct child, exact end anchoring, sufficient live leading slack, and no competing carrier-width writer;
-- applies carrier width before `paddingEnd` and restores `paddingEnd` before carrier width so no transient peer underflow is introduced by Guiyuan's own ordering;
+- on QS_FAKE, acquires carrier-width ownership only when the carrier is the parent's sole child, has zero horizontal margins, is already end-anchored in the parent, has a concrete native pixel width, and fits inside the already-existing parent content width;
+- treats the expanded fake-carrier width as a session lease rather than motion: it is applied once before compact cutover, never animated, and only supplies leading measurement capacity for the existing progress-driven `paddingEnd`; compact cutover must wait for the resulting native status-icon layout to complete and re-confirm the end anchor before pixels are masked;
+- treats any live carrier-width change during that lease as a competing writer, relinquishes ownership, and fails native rather than racing HyperOS;
 - restores only the exact module-applied padding/width state;
-- fails native when the carrier, width, slack, hide-state or writer contract is unavailable.
+- fails native when the carrier, width, parent-capacity, hide-state or writer contract is unavailable.
 
 ## Motion ownership
 

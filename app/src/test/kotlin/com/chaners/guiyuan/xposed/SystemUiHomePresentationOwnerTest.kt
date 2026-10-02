@@ -2,7 +2,6 @@ package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -113,57 +112,29 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
-    fun fakeCarrierExpansionUsesOnlyVerifiedEndAnchoredSlack() {
+    fun fakeCarrierCapacityLeaseUsesOnlyVerifiedParentContentWidth() {
         assertEquals(
             250,
             SystemUiHomePresentationOwner.EndReservationPolicy
-                .resolveEndAnchoredLeadingSlack(
-                    parentWidthPx = 837,
-                    parentPaddingStartPx = 0,
-                    parentPaddingEndPx = 0,
-                    carrierLeftPx = 250,
-                    carrierRightPx = 837,
-                    isRtl = false,
+                .resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = 587,
+                    parentContentWidthPx = 837,
                 ),
         )
         assertEquals(
-            250,
+            0,
             SystemUiHomePresentationOwner.EndReservationPolicy
-                .resolveEndAnchoredLeadingSlack(
-                    parentWidthPx = 837,
-                    parentPaddingStartPx = 0,
-                    parentPaddingEndPx = 0,
-                    carrierLeftPx = 0,
-                    carrierRightPx = 587,
-                    isRtl = true,
-                ),
-        )
-        assertNull(
-            SystemUiHomePresentationOwner.EndReservationPolicy
-                .resolveEndAnchoredLeadingSlack(
-                    parentWidthPx = 837,
-                    parentPaddingStartPx = 0,
-                    parentPaddingEndPx = 0,
-                    carrierLeftPx = 250,
-                    carrierRightPx = 836,
-                    isRtl = false,
+                .resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = 587,
+                    parentContentWidthPx = 587,
                 ),
         )
         assertEquals(
-            836,
+            null,
             SystemUiHomePresentationOwner.EndReservationPolicy
-                .resolveExpandedFakeCarrierWidth(
-                    nativeCarrierWidthPx = 587,
-                    leadingSlackPx = 250,
-                    reservationDeltaPx = 249,
-                ),
-        )
-        assertNull(
-            SystemUiHomePresentationOwner.EndReservationPolicy
-                .resolveExpandedFakeCarrierWidth(
-                    nativeCarrierWidthPx = 587,
-                    leadingSlackPx = 250,
-                    reservationDeltaPx = 251,
+                .resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = 588,
+                    parentContentWidthPx = 587,
                 ),
         )
     }
@@ -209,6 +180,16 @@ class SystemUiHomePresentationOwnerTest {
                 deferVisualMaskUntilLayout = true,
                 laidOut = true,
                 layoutRequested = true,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = false,
+                capacityLeaseAwaitingLayout = true,
                 width = 478,
                 height = 108,
             ),
