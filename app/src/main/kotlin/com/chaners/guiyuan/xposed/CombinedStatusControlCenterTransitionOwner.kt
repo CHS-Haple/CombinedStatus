@@ -357,12 +357,24 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ).roundToInt().coerceAtLeast(compact)
         }
 
+        private const val TINT_TRANSITION_START = 0.35f
+        private const val TINT_TRANSITION_END = 0.65f
+
+        fun transitionTintProgress(progress: Float): Float {
+            val phase =
+                (
+                    (progress.coerceIn(0f, 1f) - TINT_TRANSITION_START) /
+                        (TINT_TRANSITION_END - TINT_TRANSITION_START)
+                ).coerceIn(0f, 1f)
+            return phase * phase * (3f - 2f * phase)
+        }
+
         fun interpolateColor(
             source: Int,
             target: Int,
             progress: Float,
         ): Int {
-            val p = progress.coerceIn(0f, 1f)
+            val p = transitionTintProgress(progress)
             fun channel(from: Int, to: Int): Int =
                 (from + (to - from) * p)
                     .roundToInt()
