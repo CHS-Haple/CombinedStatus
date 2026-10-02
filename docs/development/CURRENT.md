@@ -10,7 +10,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 - Build 617 / `20261002-617` is the latest runtime-affecting checkpoint.
 - Build 618 changes only version/public-documentation identity; runtime behavior remains Build 617.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- GPL-3.0-or-later remains the project license.
+- GPL-3.0-only remains the project license.
 
 ## Integrated Build 617 scope
 
