@@ -1051,8 +1051,23 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     @Synchronized
-    internal fun currentAppliedStatusIconTintForGroup(group: ViewGroup): Int? =
-        resolveAppliedStatusIconTint(group)
+    internal fun currentAppliedStatusIconTintForGroup(group: ViewGroup): Int? {
+        val peerTint = resolveAppliedStatusIconTint(group)
+        val tintAnchor = resolveTintAnchorView(group)
+        val locationAwareTint =
+            resolveLocationAwareManagerTint(
+                manager = activeManager,
+                anchorView = tintAnchor,
+            )
+        val managerFallbackTint =
+            resolveManagerFallbackTint(activeManager)
+        return selectStatusIconTint(
+            locationAwareTint = locationAwareTint,
+            peerAppliedTint = peerTint,
+            managerFallbackTint = managerFallbackTint,
+            fallbackTint = lastStatusPresentation.appliedTint,
+        )
+    }
 
     private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
         val visiblePeers =
