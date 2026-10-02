@@ -1,7 +1,13 @@
 package com.chaners.guiyuan.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -208,7 +214,7 @@ internal fun FeaturesScreen(
                 enabled = featureSettings.enabled,
                 onCheckedChange = visualRepository::setBatteryTopReadoutEnabled,
             )
-            if (visualSettings.batteryTopReadoutEnabled) {
+            AnimatedPreferenceGroup(visible = visualSettings.batteryTopReadoutEnabled) {
                 val textUiScale =
                     batteryTopTextUiScale(
                         visualSettings.batteryTopTextScale,
@@ -272,7 +278,7 @@ internal fun FeaturesScreen(
                 enabled = featureSettings.enabled,
                 onCheckedChange = visualRepository::setBatteryTopChargingIconEnabled,
             )
-            if (visualSettings.batteryTopChargingIconEnabled) {
+            AnimatedPreferenceGroup(visible = visualSettings.batteryTopChargingIconEnabled) {
                 val chargingIconUiScale =
                     batteryTopChargingIconUiScale(
                         visualSettings.batteryTopChargingIconScale,
@@ -310,9 +316,10 @@ internal fun FeaturesScreen(
                 )
             }
 
-            if (
-                visualSettings.batteryTopReadoutEnabled ||
-                visualSettings.batteryTopChargingIconEnabled
+            AnimatedPreferenceGroup(
+                visible =
+                    visualSettings.batteryTopReadoutEnabled ||
+                        visualSettings.batteryTopChargingIconEnabled,
             ) {
                 val verticalOffsetUi =
                     batteryTopVerticalOffsetUi(
@@ -561,6 +568,20 @@ internal fun SettingsHubScreen(
             checked = swipeBackEnabled,
             onCheckedChange = onSwipeBackEnabledChange,
         )
+    }
+}
+
+@Composable
+internal fun AnimatedPreferenceGroup(
+    visible: Boolean,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn() + expandVertically(),
+        exit = fadeOut() + shrinkVertically(),
+    ) {
+        Column(content = content)
     }
 }
 
