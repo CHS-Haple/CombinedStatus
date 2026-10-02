@@ -1405,12 +1405,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     ",mobile=" +
                     tintHex(currentSnapshot.colors.mobileTint) + "->" +
                     tintHex(transitionColors.mobileTint) +
-                    ",chargingVisible=" +
-                    CombinedStatusPainter.BatteryNumberFollowerPolicy
-                        .chargingVisibleFraction(
-                            progress = motionProgress,
-                            targetAvailable = true,
-                        ) +
+                    ",tintPhase=" + Policy.transitionTintProgress(motionProgress) +
                     "}"
 
             val refreshWitnessDiagnostic =
