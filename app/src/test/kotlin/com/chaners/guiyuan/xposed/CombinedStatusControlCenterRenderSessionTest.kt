@@ -16,6 +16,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
+                islandNativeFallbackLatched = false,
             ),
         )
         assertFalse(
@@ -27,6 +28,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
+                islandNativeFallbackLatched = false,
             ),
         )
         assertFalse(
@@ -38,6 +40,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = false,
+                islandNativeFallbackLatched = false,
             ),
         )
         assertFalse(
@@ -49,9 +52,52 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
+                islandNativeFallbackLatched = false,
             ),
         )
     }
+
+    @Test
+    fun islandNativeFallbackLatchesForTheActiveGesture() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeFallbackLatched(
+                currentLatched = false,
+                islandShowing = true,
+                requestedVisible = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeFallbackLatched(
+                currentLatched = true,
+                islandShowing = false,
+                requestedVisible = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeFallbackLatched(
+                currentLatched = true,
+                islandShowing = false,
+                requestedVisible = false,
+            ),
+        )
+    }
+
+    @Test
+    fun islandFallbackAlwaysBlocksGuiyuanControlCenterProjection() {
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                sceneEligible = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+                nativePresentationReady = true,
+                islandNativeFallbackLatched = true,
+            ),
+        )
+    }
+
     @Test
     fun firstLayoutRetryOnlyCoversEarlyGeometryReadinessFailures() {
         assertTrue(
