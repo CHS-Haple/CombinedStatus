@@ -1255,14 +1255,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             source: Int,
                             tinted: Boolean,
                         ): Int =
-                            if (tinted) {
-                                Policy.interpolateColor(
-                                    source = source,
-                                    target = tint,
-                                    progress = motionProgress,
-                                )
-                            } else {
-                                tint
+                            when {
+                                !tinted -> tint
+                                !currentSnapshot.visualSettings
+                                    .controlCenterTintTransitionEnabled -> source
+                                else ->
+                                    Policy.interpolateColor(
+                                        source = source,
+                                        target = tint,
+                                        progress = motionProgress,
+                                    )
                             }
 
                         currentSnapshot.colors.copy(
