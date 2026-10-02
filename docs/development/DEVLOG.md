@@ -2465,3 +2465,37 @@ No new animator, timer, independent geometry path, scale animation, guessed tint
 ### Review / tests
 
 Coverage locks clip fractions and edge anchoring, charging reveal timing, latent reveal policy, and final-Battery tint fallback. The pre-identity runtime source passed Runtime CI #2355; final exact-HEAD CI remains required after docs/build closure.
+
+
+## 2026-10-03 — Build 635 trace review; Build 637 tint-decision diagnostics
+
+**Type:** device evidence / diagnostic instrumentation  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 635 -> 637
+
+### Build-635 trace result
+
+The supplied detailed runtime log repeatedly reports `nativeTint=e6ffffff` with `nativeTintAuthority=final-battery-tint` across the pull-down. This confirms the final-Battery fallback introduced in Build 635 is active and eliminates the Build-633 failure mode where no reliable native target tint was available.
+
+No fatal/exception signature is present in the supplied log.
+
+### Remaining observability gap
+
+Build 635 did not log:
+- semantic colorized-state classification;
+- pull-down tint-transition switch value at draw time;
+- source versus resolved participant colors.
+
+Therefore the trace alone cannot distinguish a participation-classification issue from an actual rendering issue if the user still sees no visual color transition.
+
+### Build 637 diagnostics
+
+Add read-only `tintTransition` diagnostics containing:
+- `batteryTinted`;
+- switch enabled state;
+- motion progress;
+- target native tint;
+- source -> resolved battery, number, charging, center and mobile tint;
+- normalized tint-phase progress.
+
+No visual behavior or ownership semantics are changed.
