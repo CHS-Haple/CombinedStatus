@@ -32,6 +32,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Development display version advanced to **0.0.4** after integrating the accepted Build 612 product/runtime line into `dev`; this remains a pre-release development checkpoint and does not change the planned first formal release target of 1.0.0.
+
 - Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 or later (`GPL-3.0-or-later`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
 
 
@@ -43,7 +45,6 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - Refined Preview Sandbox hierarchy so all setting titles (slider and segmented-field titles) share the same primary MIUIX role as native preference titles, while control option rendering stays owned by MIUIX and soft spacing separates groups; simulation and production-renderer behavior are unchanged.
 - Diagnostics keeps the balanced mid-density information-card rhythm and Module runtime edge breathing room while leaving Diagnostics & reports unchanged. The background-free Guiyuan identity still uses the same launcher vector and 20-second counterclockwise motion, but is now drawn directly at its final optical size and only rotated, avoiding any post-draw or Canvas scale-up path.
 
-- Development display version advanced to **0.0.3** after integrating the accepted Home / Preview Sandbox UI line into `dev`; this remains a pre-release development line and does not change the planned first formal release target of 1.0.0.
 
 - Unified Preview Sandbox segmented controls to one balanced 300 dp maximum width so hierarchy is conveyed by labels and spacing rather than different control sizes.
 
