@@ -369,6 +369,24 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return phase * phase * (3f - 2f * phase)
         }
 
+        fun resolveTransitionTint(
+            source: Int,
+            target: Int,
+            progress: Float,
+            tinted: Boolean,
+            transitionEnabled: Boolean,
+        ): Int =
+            when {
+                !tinted -> target
+                !transitionEnabled -> source
+                else ->
+                    interpolateColor(
+                        source = source,
+                        target = target,
+                        progress = progress,
+                    )
+            }
+
         fun interpolateColor(
             source: Int,
             target: Int,
@@ -1255,17 +1273,15 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             source: Int,
                             tinted: Boolean,
                         ): Int =
-                            when {
-                                !tinted -> tint
-                                !currentSnapshot.visualSettings
-                                    .controlCenterTintTransitionEnabled -> source
-                                else ->
-                                    Policy.interpolateColor(
-                                        source = source,
-                                        target = tint,
-                                        progress = motionProgress,
-                                    )
-                            }
+                            Policy.resolveTransitionTint(
+                                source = source,
+                                target = tint,
+                                progress = motionProgress,
+                                tinted = tinted,
+                                transitionEnabled =
+                                    currentSnapshot.visualSettings
+                                        .controlCenterTintTransitionEnabled,
+                            )
 
                         currentSnapshot.colors.copy(
                             centerTint =
