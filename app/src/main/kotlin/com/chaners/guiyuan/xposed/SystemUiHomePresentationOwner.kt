@@ -31,7 +31,7 @@ internal object SystemUiHomePresentationOwner {
     private val representedSlots =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
 
-    private enum class KeyguardFamilySurface(
+    internal enum class KeyguardFamilySurface(
         val surfaceName: String,
         val eventPrefix: String,
     ) {
@@ -517,7 +517,12 @@ internal object SystemUiHomePresentationOwner {
         surface: KeyguardFamilySurface,
         source: String,
     ): StateResult {
-        if (keyguardFamilySurface != surface) {
+        if (
+            !KeyguardFamilyHandoffPolicy.shouldRelease(
+                activeSurface = keyguardFamilySurface,
+                requestedSurface = surface,
+            )
+        ) {
             return StateResult.Inactive(0)
         }
         val session = keyguardFamilyCurrent ?: return StateResult.Inactive(0)
@@ -1983,6 +1988,14 @@ internal object SystemUiHomePresentationOwner {
         fun shouldRequestLayoutOnRelease(
             continuousHandoff: Boolean,
         ): Boolean = !continuousHandoff
+    }
+
+    internal object KeyguardFamilyHandoffPolicy {
+        fun shouldRelease(
+            activeSurface: KeyguardFamilySurface?,
+            requestedSurface: KeyguardFamilySurface,
+        ): Boolean =
+            activeSurface == requestedSurface
     }
 
     internal object VisualMaskPolicy {
