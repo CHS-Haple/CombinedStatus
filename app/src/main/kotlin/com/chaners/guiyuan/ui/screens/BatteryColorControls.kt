@@ -1532,8 +1532,8 @@ private fun BatteryCommonColorButton(
     }
 }
 
-private const val BATTERY_SWATCH_BORDER_RATIO = 1f / 24f
-private const val BATTERY_SWATCH_BORDER_ALPHA = 0.12f
+private const val BATTERY_SWATCH_BORDER_RATIO = 1f / 14f
+private const val BATTERY_SWATCH_BORDER_ALPHA = 0.26f
 
 @Composable
 private fun batterySwatchBorder(size: Dp): BorderStroke =
