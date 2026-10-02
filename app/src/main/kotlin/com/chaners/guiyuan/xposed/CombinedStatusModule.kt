@@ -1840,13 +1840,17 @@ class CombinedStatusModule : XposedModule() {
                 reconcileReadiness = false,
             )
         }
-        CombinedStatusKeyguardRenderSession.onAodState(update)
+        // Decide and retarget the Keyguard/AOD family owner before the current
+        // scene consumes the same AOD state. Otherwise the outgoing scene can
+        // publish readiness=false and restore native represented slots for one
+        // frame before the incoming family scene acquires the same host.
         SystemUiKeyguardHostResolver.current()?.let { resolution ->
             onKeyguardHostResolution(
                 resolution = resolution,
                 source = "aod:" + update.source,
             )
         }
+        CombinedStatusKeyguardRenderSession.onAodState(update)
         if (detailedDiagnosticsEnabled) {
             logDiagnostic(
                 level = Log.INFO,
