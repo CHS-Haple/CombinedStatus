@@ -161,7 +161,7 @@ class CombinedStatusScenePolicyTest {
     @Test
     fun aodAnimationRoutesByVisiblePresentationOwnershipNotDirectionFields() {
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
@@ -173,7 +173,7 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
@@ -209,7 +209,7 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
@@ -260,6 +260,38 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = true,
+                aodPresentationOwned = true,
+            ),
+        )
+    }
+
+    @Test
+    fun disabledKeyguardChildCannotBeReplacedByAodOnSteadyKeyguard() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                homePresentationOwned = false,
+                keyguardPresentationOwned = false,
+                aodPresentationOwned = false,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                homePresentationOwned = false,
+                keyguardPresentationOwned = false,
                 aodPresentationOwned = true,
             ),
         )
