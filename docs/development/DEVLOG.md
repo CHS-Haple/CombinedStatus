@@ -2538,11 +2538,11 @@ No cross-host bridge, timer, delay, alpha patch, visibility patch, geometry writ
 This correction is lifecycle hygiene, not an attempt to eliminate native Home -> AOD visual switching. Future AOD work should only resume if device evidence shows Guiyuan adds an extra artifact beyond the stock transition.
 
 
-## 2026-10-03 — Build 641: single-child AOD handoff + authoritative unlock boundary
+## 2026-10-03 — Build 642: single-child AOD handoff + authoritative unlock boundary
 
 **Type:** device evidence / lifecycle root cause / performance isolation  
 **Branch / PR:** `feat/aod-display-control` / #196  
-**Builds:** 636 -> 641
+**Builds:** 636 -> 642
 
 ### Device evidence
 
@@ -2560,7 +2560,7 @@ Build 636 exposed three related lifecycle symptoms on the AOD branch:
 
 The existing ScenePolicy already rejects retaining a Keyguard Control Center lease for HOME; the defect was the module feeding it cached KEYGUARD state rather than honoring the newly verified HOME source.
 
-### Build 641 correction
+### Build 642 correction
 
 - Keyguard-only mode acquires Keyguard as soon as verified steady Keyguard is observed.
 - AOD-only mode releases AOD at the same verified steady-Keyguard boundary once Home no longer owns the source.
@@ -2582,3 +2582,12 @@ Validate:
 - Keyguard ON / AOD ON: lockscreen -> Home -> immediate fast pull-down repeatedly; first pull must stay Guiyuan-projected with no native-status-bar flash.
 - Repeated ordinary Home pull-downs: no intermittent stutter attributable to AOD lifecycle bookkeeping.
 - Dual-enabled Keyguard <-> AOD continuity remains unchanged.
+
+
+### Renderer-lifetime review correction
+
+A post-fix review found that the initial AOD hot-path flag was being cleared on presentation readiness loss / presentation failure even though the AOD RenderSession can remain attached. Build 642 corrects the flag semantics:
+- track renderer lifetime, not presentation readiness;
+- set true only after AOD renderer attach;
+- clear only on Keyguard retarget, explicit AOD detach, hot reload takeover, or old-generation teardown;
+- presentation readiness/failure does not suppress a later real renderer cleanup.
