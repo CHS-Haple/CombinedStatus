@@ -1955,6 +1955,31 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun resolveCurrentKeyguardAodProjection(
+        resolved: SystemUiKeyguardHostResolver.ResolvedHost,
+    ): CombinedStatusScenePolicy.KeyguardAodProjection? {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val aodState =
+            SystemUiKeyguardAodStateSource.currentState(resolved.battery)
+                ?: return null
+        return CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+            featureEnabled = settings.enabled,
+            keyguardEnabled = settings.keyguardEnabled,
+            aodEnabled = settings.aodEnabled,
+            toAod = aodState.toAod,
+            isAodAnimate = aodState.isAodAnimate,
+            steadySourceScene = steadyStatusSourceScene,
+            homePresentationOwned =
+                SystemUiHomePresentationOwner
+                    .currentHomeRepresentedSlotOwnership()
+                    .isNotEmpty(),
+            keyguardPresentationOwned =
+                SystemUiHomePresentationOwner.currentKeyguardPresentationClaimed(),
+            aodPresentationOwned =
+                SystemUiHomePresentationOwner.currentAodPresentationClaimed(),
+        )
+    }
+
     private fun onKeyguardHostResolution(
         resolution: SystemUiKeyguardHostResolver.ResolveResult,
         source: String,
@@ -1983,8 +2008,8 @@ class CombinedStatusModule : XposedModule() {
                     return
                 }
 
-                val aodState =
-                    SystemUiKeyguardAodStateSource.currentState(resolution.host.battery)
+                val projection =
+                    resolveCurrentKeyguardAodProjection(resolution.host)
                         ?: run {
                             deactivateAodRuntime("aod-state-unavailable")
                             deactivateKeyguardRuntime("aod-state-unavailable")
@@ -1998,24 +2023,7 @@ class CombinedStatusModule : XposedModule() {
                             )
                             return
                         }
-                when (
-                    CombinedStatusScenePolicy.resolveKeyguardAodProjection(
-                        featureEnabled = settings.enabled,
-                        keyguardEnabled = settings.keyguardEnabled,
-                        aodEnabled = settings.aodEnabled,
-                        toAod = aodState.toAod,
-                        isAodAnimate = aodState.isAodAnimate,
-                        steadySourceScene = steadyStatusSourceScene,
-                        homePresentationOwned =
-                            SystemUiHomePresentationOwner
-                                .currentHomeRepresentedSlotOwnership()
-                                .isNotEmpty(),
-                        keyguardPresentationOwned =
-                            SystemUiHomePresentationOwner.currentKeyguardPresentationClaimed(),
-                        aodPresentationOwned =
-                            SystemUiHomePresentationOwner.currentAodPresentationClaimed(),
-                    )
-                ) {
+                when (projection) {
                     CombinedStatusScenePolicy.KeyguardAodProjection.AOD -> {
                         if (
                             attachAodRenderer(
@@ -2080,6 +2088,7 @@ class CombinedStatusModule : XposedModule() {
             val result =
                 CombinedStatusKeyguardRenderSession.attach(
                     resolved = resolved,
+                    sceneEligible = true,
                     onEvent = { event ->
                         if (detailedDiagnosticsEnabled) {
                             log(Log.INFO, TAG, event)
@@ -2132,6 +2141,7 @@ class CombinedStatusModule : XposedModule() {
             val result =
                 CombinedStatusKeyguardRenderSession.attachAod(
                     resolved = resolved,
+                    sceneEligible = true,
                     onEvent = { event ->
                         if (detailedDiagnosticsEnabled) {
                             log(Log.INFO, TAG, event)
