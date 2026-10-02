@@ -3,7 +3,7 @@
 [![Build](https://github.com/CHS-Haple/Guiyuan/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/Guiyuan/actions/workflows/build.yml)
 ![Companion app: Android 13+](https://img.shields.io/badge/Companion%20app-Android%2013%2B-3DDC84?logo=android&logoColor=white)
 ![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 ![Status: pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
 **Guiyuan** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile-network, and Wi-Fi information into one compact status-bar indicator.
@@ -61,13 +61,17 @@ The project is still under active development, so wider device, system-version, 
 - [PRIVACY.md](PRIVACY.md) — local data, diagnostics, Root, export, and sharing.
 - [SECURITY.md](SECURITY.md) — private security-reporting policy.
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — direct dependencies and license notices.
-- [LICENSE](LICENSE) — Apache License 2.0.
+- [LICENSE](LICENSE) — GNU General Public License v3.0 or later (`GPL-3.0-or-later`).
 
 **Development / contribution**
 - [CONTRIBUTING.md](CONTRIBUTING.md) — engineering, validation, ownership, CI, and contribution rules.
 - [docs/README.md](docs/README.md) — documentation map and authority guide.
 - [docs/development/README.md](docs/development/README.md) — current state, roadmap, engineering history, and lightweight development workflow.
 - [docs/architecture](docs/architecture) — architecture policy and scene/layout boundaries.
+
+### License
+
+Guiyuan is free software licensed under the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (`GPL-3.0-or-later`). See [LICENSE](LICENSE).
 
 ---
 
@@ -120,13 +124,17 @@ The project is still under active development, so wider device, system-version, 
 - [PRIVACY.md](PRIVACY.md) — 本地数据、诊断、Root、导出与分享说明。
 - [SECURITY.md](SECURITY.md) — 安全问题私密报告规则。
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — 直接依赖与许可证说明。
-- [LICENSE](LICENSE) — Apache License 2.0。
+- [LICENSE](LICENSE) — GNU 通用公共许可证 v3.0 或更高版本（`GPL-3.0-or-later`）。
 
 **开发 / 贡献**
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 工程、验证、所有权、CI 与贡献规范。
 - [docs/README.md](docs/README.md) — 文档导航与权威关系说明。
 - [docs/development/README.md](docs/development/README.md) — 当前状态、路线图、工程历史与精简开发流程说明。
 - [docs/architecture](docs/architecture) — 架构策略与场景/布局边界。
+
+### 许可证
+
+归元是自由软件，按照自由软件基金会发布的 GNU 通用公共许可证第 3 版，或（由你选择）任何更高版本授权（`GPL-3.0-or-later`）。详见 [LICENSE](LICENSE)。
 
 ---
 
