@@ -2364,3 +2364,45 @@ No timing compensation, delay, timer, polling loop, direction guess, duplicate a
 - Build-625 family ownership, render-session reuse, pre-mask, compact-layout, child-gate and fail-native rules remain unchanged.
 - Runtime CI #2289 passed the exact source change before the Build-id bump.
 - Build 626 requires focused signed-Canary device validation because the defect is visible only across the live HyperOS AOD callback sequence.
+
+
+## 2026-10-03 — Build 626 device rejection; Build 628 single AOD eligibility authority
+
+**Type:** exact-device evidence / ownership authority / rejected hypothesis  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 626 -> 628
+
+### Device evidence
+
+Build 626 remains visually incorrect on Xiaomi 15 Pro / HyperOS SystemUI `17.03.260226.r`: during AOD enter/exit, the combined presentation gives way to native battery/status icons before Guiyuan returns.
+
+The detailed trace proves the failure occurs even after the Build-626 callback reorder:
+- Keyguard RenderSession reports `sceneEligible=false` during the native AOD animation, readiness drops, and `readiness-lost:aod:setIsAodAnimate` restores clip masks, reservation and ignored slots.
+- AOD can subsequently reach `presentation.cutover state=combined`, yet a later scene transfer still invokes `aod-not-eligible` and restores the same presentation state.
+- Both paths occur while the shared Keyguard-family host/session architecture is otherwise healthy.
+
+### Root cause
+
+Build 626 fixed event ordering but left multiple eligibility writers:
+1. Module/ScenePolicy selected the family projection from current ownership and native state.
+2. RenderSession attach/update independently re-derived scene eligibility from raw `blocksProjection` / stable-AOD fields.
+3. AOD readiness/cutover independently required stable AOD or Home prearm again.
+
+Those secondary rules could invalidate a projection that ScenePolicy intentionally retained for continuity. The defect is therefore authority duplication, not missing delay or another AOD direction signal.
+
+### Build 628 correction
+
+- Make `CombinedStatusScenePolicy.resolveKeyguardAodProjection()` the sole family projection authority.
+- Pass the selected scene eligibility into RenderSession instead of recomputing it there.
+- Raw AOD callbacks no longer mutate RenderSession eligibility or presentation readiness.
+- Keyguard/AOD readiness and final cutover query the same current ScenePolicy projection.
+- Keep one family presentation Session, one RenderView, same-host retarget and role-specific release guards.
+- Keep raw AOD fields for state evidence/diagnostics and Home pre-mask mode only where appropriate; they no longer constitute a second ownership policy.
+
+No timer, delay, polling, guessed direction, duplicate animation clock or new native translation/visibility writer is introduced.
+
+### Review / validation
+
+- Obsolete unit coverage for the removed RenderSession eligibility policy is deleted; ScenePolicy tests remain the projection-matrix contract.
+- Runtime CI passes the source-level Build-628 correction on the pinned target before the identity/docs closure.
+- Signed Canary/device evidence remains mandatory before integration.
