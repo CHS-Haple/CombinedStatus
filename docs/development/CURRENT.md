@@ -37,79 +37,51 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 624 remains the accepted ring/fill retract baseline.
+Build 635 is the current visual candidate:
+- opaque Clip hide/reveal for charging, unmatched exits, and latent reveals;
+- charging reveal begins at 85% while retaining the Build-633 full-display completion time;
+- selective pull-down reverse-tint transition remains default ON;
+- native reverse tint now resolves from final status-icons peer, then final Battery tint, then last valid cached tint.
 
-Build 633 established:
-- charging glyph remains number-relative while visible;
-- source hide boundary is tied to retained ring 60% -> 50%;
-- hidden target travel begins only after complete source hide;
-- final reveal started at 88%;
-- selective pull-down reverse-tint transition was added behind a default-ON global switch.
+Build-635 device diagnostics confirm the native tint authority problem from Build 633 is fixed:
+- repeated transition samples resolve `nativeTint=e6ffffff`;
+- the authority is consistently `final-battery-tint` when status-icons peer tint is unavailable;
+- no crash/exception is present in the supplied session.
 
-Device feedback on Build 633 identified two follow-ups:
-1. charging-glyph reappearance still looked too much like an alpha flash;
-2. the pull-down reverse-tint transition was effectively not visible.
+The remaining uncertainty is purely the participant/color-decision layer: the 635 log did not expose whether the current battery semantic state was classified as colorized, whether the switch was enabled at draw time, or what source -> resolved tint each participant received.
 
-Build 635 changes the transition language without changing the accepted geometry/path contracts.
-
-### Opaque clip transition
-
-- Charging glyph no longer changes alpha for its semantic hide/reveal.
-- Source remains fully opaque and number-relative while a horizontal clip consumes it over the existing retained-ring 60% -> 50% window.
-- After complete clipping, independent target travel remains hidden.
-- Target reveal now begins at 85% rather than 88%, but the **fully visible completion time remains the same as Build 633**, producing a longer/slower reveal.
-- The reveal is an inverse clip, not a fade.
-
-The same opaque visual language now applies to generic transition participants:
-- source exists, no target: fast clip-out replaces cubic alpha fade;
-- no source, target appears later (second mobile, airplane, no-SIM): existing space-separation and target-distance gates remain, but reveal uses clip-in rather than alpha fade;
-- alpha remains reserved for the transition layer/global fail-native opacity, not semantic participant disappearance.
-
-### Reverse-tint correction
-
-Build 633 depended only on the final `statusIcons` peer-tint cache. Device video showed native peers reaching the correct reverse tint while Guiyuan's colorized ring/readout remained colored, consistent with that cache being unavailable on the active path.
-
-Build 635 resolves the target tint from:
-1. live final status-icons peer tint;
-2. final native battery's current `SystemUiTintStateSource` status/applied tint;
-3. last valid cached native tint.
-
-Transparent/invalid candidates are rejected. No black/white tint is guessed.
-
-The existing **下拉反色过渡 / Pull-down tint transition** switch remains default ON:
-- ON: only currently colorized participants hold source color through 35%, smoothstep to the native target tint over 35%-65%, then hold target tint;
-- OFF: colorized participants keep their source color throughout the pull-down;
-- participants already following native tint remain on the native tint path.
+Build 637 is a diagnostic-only follow-up:
+- no visual, geometry, alpha, Clip, timing, target, or tint-selection behavior changes;
+- transition diagnostics now include:
+  - `batteryTinted`;
+  - `controlCenterTintTransitionEnabled`;
+  - handoff motion progress and tint phase;
+  - native target tint;
+  - source -> resolved tint for battery ring, number, charging glyph, center, and mobile.
+- diagnostic values are evidence-only; no assumed target availability or synthetic visibility values are logged.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003635` / Build `20261003-635`.
-- Existing Build-624 ring/fill motion remains untouched.
-- Charging exact-target geometry and number-relative follower transform remain unchanged.
-- Tests cover:
-  - opaque charging clip hide/reveal;
-  - 85% reveal start with Build-633 completion time retained;
-  - hidden-only target travel;
-  - generic unmatched clip-out;
-  - clip edge anchoring;
-  - latent reveal gating;
-  - final-battery tint fallback selection;
-  - selective tint switch and 35%-65% color curve.
-- The runtime source before final identity/docs closure already passed Runtime CI #2355.
+- Candidate identity: `0.0.5` / versionCode `261003637` / Build `20261003-637`.
+- Build 635 Runtime #2361 and signed Canary #668 passed.
+- Build-635 supplied trace proves the final Battery fallback provides `e6ffffff` through the active pull-down.
+- Build 637 requires exact-HEAD Runtime CI before a diagnostic Canary.
 
 ## Device gate
 
-Focused Build-635 validation:
-- charging glyph should look physically clipped/ revealed rather than faded;
-- final charging reveal should begin slightly earlier but finish at the same time as 633;
-- unmatched and latent participants should stay visually opaque while being clipped, with no obvious scale collapse;
-- **下拉反色过渡 ON** must visibly transition colorized ring/dots/center/readout/charging participants to the actual native reverse tint;
-- switch OFF must preserve their source color;
-- no wrong-side wipe, clipping of matched target participants, color jump, guessed tint, or geometry regression.
+Only needed if the visible reverse-tint behavior is still questionable:
+- perform one slow pull-down while a visibly colorized battery state is active;
+- export the detailed diagnostic from the same session;
+- inspect `tintTransition={...}` at progress buckets around 0.35 / 0.50 / 0.65.
+
+Expected when enabled:
+- source colors remain unchanged before tint phase start;
+- resolved colors move toward native target through the middle phase;
+- resolved colors equal native target after the phase completes.
 
 ## Immediate next step
 
-Run final exact-HEAD Runtime CI for Build 635 after docs/version closure. If clean, produce one signed Canary for device validation.
+Run exact-HEAD Runtime CI for Build 637. If clean, produce a signed diagnostic Canary only if another device trace is required.
 
 ## Reference priority
 
