@@ -24,6 +24,7 @@ class CombinedStatusModule : XposedModule() {
     private var controlCenterSceneVisible = false
     private var controlCenterSceneEligible = false
     private var controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+    private var steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
     private var keyguardPresentationReadyObserved = false
@@ -258,6 +259,7 @@ class CombinedStatusModule : XposedModule() {
             controlCenterSceneVisible = false
             controlCenterSceneEligible = false
             controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+            steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
             keyguardPresentationReadyObserved = false
@@ -1882,11 +1884,31 @@ class CombinedStatusModule : XposedModule() {
         }
 
         val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
+            steadyStatusSourceScene = sourceScene
+        }
         val retainKeyguardLease =
             sourceScene == CombinedStatusSourceScene.HOME &&
                 shouldRetainKeyguardControlCenterLease()
         if (sourceScene == CombinedStatusSourceScene.HOME) {
-            deactivateAodRuntime("home-source-active")
+            val retainAodHandoff =
+                SystemUiHomePresentationOwner
+                    .currentAodRepresentedSlotOwnership()
+                    .isNotEmpty()
+            if (!retainAodHandoff) {
+                deactivateAodRuntime("home-source-active")
+            } else {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "scene.defer",
+                    component = "aodPresentation",
+                    state = "retained",
+                    "source" to "steady-source-view",
+                    "observedScene" to sourceScene.name,
+                    "reason" to "aod-to-home-continuous-handoff",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
             if (retainKeyguardLease) {
                 logDiagnostic(
                     level = Log.INFO,
@@ -1984,6 +2006,19 @@ class CombinedStatusModule : XposedModule() {
                         aodEnabled = settings.aodEnabled,
                         toAod = aodState.toAod,
                         isAodAnimate = aodState.isAodAnimate,
+                        steadySourceScene = steadyStatusSourceScene,
+                        homePresentationOwned =
+                            SystemUiHomePresentationOwner
+                                .currentHomeRepresentedSlotOwnership()
+                                .isNotEmpty(),
+                        keyguardPresentationOwned =
+                            SystemUiHomePresentationOwner
+                                .currentKeyguardRepresentedSlotOwnership()
+                                .isNotEmpty(),
+                        aodPresentationOwned =
+                            SystemUiHomePresentationOwner
+                                .currentAodRepresentedSlotOwnership()
+                                .isNotEmpty(),
                     )
                 ) {
                     CombinedStatusScenePolicy.KeyguardAodProjection.AOD -> {
@@ -2323,13 +2358,19 @@ class CombinedStatusModule : XposedModule() {
                     deactivateAodRuntime("aod-state-unavailable")
                     return
                 }
-        if (
-            !SystemUiKeyguardAodStateSource.isStableAod(
+        val stableAod =
+            SystemUiKeyguardAodStateSource.isStableAod(
                 toAod = aodState.toAod,
                 isAodAnimate = aodState.isAodAnimate,
             )
-        ) {
-            deactivateAodRuntime("aod-not-stable")
+        val homeTransitionPrearm =
+            aodState.isAodAnimate &&
+                steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
+                SystemUiHomePresentationOwner
+                    .currentHomeRepresentedSlotOwnership()
+                    .isNotEmpty()
+        if (!stableAod && !homeTransitionPrearm) {
+            deactivateAodRuntime("aod-not-eligible")
             return
         }
 
@@ -2412,11 +2453,18 @@ class CombinedStatusModule : XposedModule() {
                     isAodAnimate = state.isAodAnimate,
                 )
             } == true
+        val homeTransitionPrearm =
+            aodState?.isAodAnimate == true &&
+                steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
+                SystemUiHomePresentationOwner
+                    .currentHomeRepresentedSlotOwnership()
+                    .isNotEmpty()
         if (
             !CombinedStatusScenePolicy.aodProjectionEligible(
                 featureEnabled = settings.enabled,
                 aodEnabled = settings.aodEnabled,
                 stableAod = stableAod,
+                homeTransitionPrearm = homeTransitionPrearm,
             )
         ) {
             deactivateAodRuntime("cutover-feature-ineligible")
@@ -2432,7 +2480,7 @@ class CombinedStatusModule : XposedModule() {
             "source" to source,
             "representedSlots" to result.representedSlots,
             "maskedViews" to result.maskedViews,
-            "motion" to "stable-aod-only",
+            "motion" to "native-aod-host-inherited",
             "aodOwned" to true,
         )
     }
@@ -2494,6 +2542,7 @@ class CombinedStatusModule : XposedModule() {
         controlCenterSceneVisible = false
         controlCenterSceneEligible = false
         controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+        steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
         keyguardPresentationReadyObserved = false
