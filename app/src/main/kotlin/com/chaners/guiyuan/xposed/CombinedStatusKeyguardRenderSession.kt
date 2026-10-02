@@ -196,17 +196,6 @@ internal object CombinedStatusKeyguardRenderSession {
             sceneEligible = !aodBlocked,
         )
 
-    internal fun resolveAodOverlayVisible(
-        featureEnabled: Boolean,
-        nativeHandoffActive: Boolean,
-        stableAod: Boolean,
-    ): Boolean =
-        resolveSceneOverlayVisible(
-            featureEnabled = featureEnabled,
-            nativeHandoffActive = nativeHandoffActive,
-            sceneEligible = stableAod,
-        )
-
     private fun resolveSceneOwnerReady(
         featureEnabled: Boolean,
         modelReady: Boolean,
@@ -237,23 +226,6 @@ internal object CombinedStatusKeyguardRenderSession {
             layoutReady = layoutReady,
             hostAttached = hostAttached,
             sceneEligible = !aodBlocked,
-        )
-
-    internal fun resolveAodOwnerReady(
-        featureEnabled: Boolean,
-        modelReady: Boolean,
-        tintReady: Boolean,
-        layoutReady: Boolean,
-        hostAttached: Boolean,
-        stableAod: Boolean,
-    ): Boolean =
-        resolveSceneOwnerReady(
-            featureEnabled = featureEnabled,
-            modelReady = modelReady,
-            tintReady = tintReady,
-            layoutReady = layoutReady,
-            hostAttached = hostAttached,
-            sceneEligible = stableAod,
         )
 
     private enum class Scene(
