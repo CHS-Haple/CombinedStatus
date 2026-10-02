@@ -190,6 +190,18 @@ class CombinedStatusScenePolicyTest {
                 featureEnabled = true,
                 keyguardEnabled = false,
                 aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.UNKNOWN,
+                aodPresentationOwned = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
                 toAod = false,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.HOME,
