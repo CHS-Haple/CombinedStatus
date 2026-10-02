@@ -1000,6 +1000,8 @@ class CombinedStatusModule : XposedModule() {
                 "islandPresentation reconcile showing=" + showing +
                     " nativeBatteryHide=" + (nativeBatteryHide ?: "unknown") +
                     " occupancyReconciled=" + (occupancyReconciled ?: "not-applicable") +
+                    " occupancy=" +
+                    SystemUiNativeCombinedParticipantOwner.currentIslandOccupancyDiagnostic() +
                     " controlCenter=" +
                     if (showing) "native-fallback-latched" else "resume-when-safe",
             )
