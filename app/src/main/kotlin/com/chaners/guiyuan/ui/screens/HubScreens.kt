@@ -492,6 +492,13 @@ internal fun FeaturesScreen(
             magnetThreshold = 0.035f,
             enabled = featureSettings.enabled,
         )
+        SwitchPreference(
+            title = stringResource(R.string.control_center_tint_transition),
+            summary = stringResource(R.string.control_center_tint_transition_summary),
+            checked = visualSettings.controlCenterTintTransitionEnabled,
+            enabled = featureSettings.enabled,
+            onCheckedChange = visualRepository::setControlCenterTintTransitionEnabled,
+        )
     }
 }
 
