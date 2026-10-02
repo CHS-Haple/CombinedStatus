@@ -127,6 +127,7 @@ private val COMMON_BATTERY_COLORS =
 private val BATTERY_COLOR_PREVIEW_SLOTS = CombinedStatusBatteryColorSlot.entries
 
 private const val BATTERY_COLOR_SHEET_HEIGHT_FRACTION = 0.84f
+private val BATTERY_SCHEME_VERTICAL_GAP = 12.dp
 
 private sealed interface BatterySchemePage {
     val key: String
@@ -663,7 +664,7 @@ private fun BatterySchemeHeader(
             }
         }
     }
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(BATTERY_SCHEME_VERTICAL_GAP))
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
@@ -680,14 +681,14 @@ private fun BatterySchemeHeader(
 private fun BatterySchemeActionArea(
     content: @Composable () -> Unit,
 ) {
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(BATTERY_SCHEME_VERTICAL_GAP))
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
     ) {
         content()
     }
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(BATTERY_SCHEME_VERTICAL_GAP))
 }
 
 @Composable
