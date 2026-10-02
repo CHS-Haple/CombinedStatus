@@ -409,28 +409,29 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
-        private const val CHARGING_FADE_START_REMAINING = 0.60f
-        private const val CHARGING_FADE_END_REMAINING = 0.50f
+        private const val CHARGING_HIDE_START_REMAINING = 0.60f
+        private const val CHARGING_HIDE_END_REMAINING = 0.50f
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
-        private const val CHARGING_TARGET_REVEAL_START = 0.88f
+        private const val CHARGING_TARGET_REVEAL_START = 0.85f
+        private const val CHARGING_TARGET_REVEAL_COMPLETE_BASE_START = 0.88f
 
-        private val chargingFadeStartProgress =
-            firstProgressAtOrBelowRemaining(CHARGING_FADE_START_REMAINING)
-        private val chargingFadeEndProgress =
-            firstProgressAtOrBelowRemaining(CHARGING_FADE_END_REMAINING)
-        private val chargingFadeProgressSpan =
-            (chargingFadeEndProgress - chargingFadeStartProgress)
+        private val chargingHideStartProgress =
+            firstProgressAtOrBelowRemaining(CHARGING_HIDE_START_REMAINING)
+        private val chargingHideEndProgress =
+            firstProgressAtOrBelowRemaining(CHARGING_HIDE_END_REMAINING)
+        private val chargingHideProgressSpan =
+            (chargingHideEndProgress - chargingHideStartProgress)
                 .coerceAtLeast(0.001f)
         private val chargingTargetRevealComplete =
-            (CHARGING_TARGET_REVEAL_START + chargingFadeProgressSpan)
+            (CHARGING_TARGET_REVEAL_COMPLETE_BASE_START + chargingHideProgressSpan)
                 .coerceAtMost(0.98f)
 
-        fun chargingOpacity(
+        fun chargingVisibleFraction(
             progress: Float,
             targetAvailable: Boolean,
         ): Float {
-            val sourceOpacity = chargingSourceOpacity(progress)
-            if (sourceOpacity > 0f) return sourceOpacity
+            val sourceVisible = chargingSourceVisibleFraction(progress)
+            if (sourceVisible > 0f) return sourceVisible
             if (!targetAvailable) return 0f
             val reveal =
                 (
@@ -440,23 +441,23 @@ internal class CombinedStatusPainter(
             return smooth(reveal)
         }
 
-        internal fun chargingSourceOpacity(progress: Float): Float {
+        internal fun chargingSourceVisibleFraction(progress: Float): Float {
             val retained =
                 (
-                    (chargingFadeEndProgress - progress.coerceIn(0f, 1f)) /
-                        chargingFadeProgressSpan
+                    (chargingHideEndProgress - progress.coerceIn(0f, 1f)) /
+                        chargingHideProgressSpan
                 ).coerceIn(0f, 1f)
             return smooth(retained)
         }
 
         fun chargingMotionProgress(progress: Float): Float {
             // Source and number remain one visual group until the charging glyph
-            // is fully transparent. Target travel begins only after that boundary.
-            if (chargingSourceOpacity(progress) > 0f) return 0f
+            // is fully clipped. Target travel begins only after that boundary.
+            if (chargingSourceVisibleFraction(progress) > 0f) return 0f
             val hiddenTravel =
                 (
-                    (progress.coerceIn(0f, 1f) - chargingFadeEndProgress) /
-                        (CHARGING_TARGET_TRAVEL_COMPLETE - chargingFadeEndProgress)
+                    (progress.coerceIn(0f, 1f) - chargingHideEndProgress) /
+                        (CHARGING_TARGET_TRAVEL_COMPLETE - chargingHideEndProgress)
                 ).coerceIn(0f, 1f)
             return smooth(hiddenTravel)
         }
@@ -467,8 +468,8 @@ internal class CombinedStatusPainter(
             return CombinedStatusBatteryRingTransitionPolicy.remainingFraction(ringProgress)
         }
 
-        internal fun sourceFadeWindow(): Pair<Float, Float> =
-            Pair(chargingFadeStartProgress, chargingFadeEndProgress)
+        internal fun sourceHideWindow(): Pair<Float, Float> =
+            Pair(chargingHideStartProgress, chargingHideEndProgress)
 
         internal fun targetRevealWindow(): Pair<Float, Float> =
             Pair(CHARGING_TARGET_REVEAL_START, chargingTargetRevealComplete)
