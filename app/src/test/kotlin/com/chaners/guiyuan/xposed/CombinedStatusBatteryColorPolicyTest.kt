@@ -4,8 +4,11 @@ import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorModes
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorOverrides
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CombinedStatusBatteryColorPolicyTest {
