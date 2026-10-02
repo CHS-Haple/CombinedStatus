@@ -43,12 +43,13 @@ Established:
 - runtime state and diagnostics UI;
 - Preview Sandbox using the production renderer;
 - language, launcher visibility, navigation appearance, diagnostics export/share;
+- battery-top percentage/native charging-glyph presentation with profile-scoped size, weight and offset controls;
+- profile-scoped combined size, outer ring/dot weight, Wi-Fi size, and mobile-type size/weight controls;
+- battery color scheme library with built-in/custom schemes and per-semantic fixed/follow/custom color sources;
 - battery semantic colors and color-link controls.
 
 Planned/deferred:
-- adaptive Guiyuan sizing/spacing without native geometry hacks;
-- proportional ring/dot thickness controls after visual rules are stable;
-- optional per-state custom colors while retaining System default/status-tint choices;
+- further adaptive layout/spacing compatibility only where live native geometry requires it;
 - additional Preview scenarios only when they improve real configuration usability.
 
 Do not add controls merely because a renderer parameter exists.

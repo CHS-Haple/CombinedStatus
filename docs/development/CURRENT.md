@@ -5,24 +5,27 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.4.
-- `dev` integrates the accepted Build 612 product/runtime line and the Build 613 version checkpoint.
+- `main` and `dev` are synchronized on the promoted 0.0.4 / Build 613 development baseline.
 - Version identity: `0.0.4` / versionCode `261002413` / Build `20261002-613`.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
 - Build 612 is the latest runtime-affecting checkpoint and is maintainer device-accepted with no reported anomaly.
 - Build 613 changes only version/build metadata and documentation; Runtime/SystemUI behavior remains Build 612.
 - GPL-3.0-or-later is the project license; third-party components retain their upstream licenses.
 
-## Current objective
+## Current state
 
-Promote the exact validated 0.0.4 / Build 613 `dev` state to `main`, then perform repository-wide consistency review.
+The 0.0.4 promotion is complete.
 
-Promotion evidence:
-- PR #181 integrated the accepted product/runtime line into `dev` as `359db16fb3c9cd86d484766a2647093672c70f2b`.
-- PR #190 integrated the 0.0.4 / Build 613 version checkpoint into `dev` as `6859f8d549022e929b224d33c2de2dae6346de04`.
-- Build 612 exact-head Runtime validation passed before integration.
-- Maintainer device validation accepted Build 612 with no reported anomaly.
-- 0.0.4 PR Full validation passed.
-- `dev` integration Run #2205 passed target-profile checks, unit/build validation, Modern Xposed metadata, Haple APK signature verification, Canary non-debuggable validation, and artifact upload.
+Promotion / validation evidence:
+- PR #181 integrated the accepted product/runtime line into `dev`.
+- PR #190 advanced the development line to 0.0.4 / Build 613.
+- PR #191 promoted the exact validated `dev` state to `main`.
+- Build 612 exact-head Runtime validation and focused maintainer device validation passed.
+- 0.0.4 version PR Full validation passed.
+- `dev` integration Run #2205 passed target-profile, unit/build, Modern Xposed metadata, Haple signature, Canary non-debuggable, and artifact checks.
+- stable-boundary PR Run #2207 passed.
+- promoted `main` Run #2208 and recreated `dev` Run #2209 both passed the trusted signed Full path.
+- repository consistency review aligned current version/public docs, GPL metadata, package/Xposed identity, MIUIX notice metadata, and Phase-4 roadmap state.
 
 ## Current transition contract
 
@@ -42,16 +45,17 @@ Promotion evidence:
 ## Validation state
 
 Confirmed:
-- 0.0.4 public/version metadata is internally aligned.
-- Build 613 `dev` integration validation is green.
-- No new runtime delta exists after the accepted Build 612 device checkpoint.
-- No additional device gate is required for stable promotion.
+- `gradle.properties`, README, CHANGELOG and CURRENT agree on 0.0.4 / Build 613.
+- public/contributor license metadata agrees on GPL-3.0-or-later while dependency notices retain upstream licenses.
+- Android namespace/applicationId is `com.chaners.guiyuan`.
+- Modern Xposed metadata remains API 102, static scope `com.android.systemui`, one Java entry, and Hot Reload enabled.
+- MIUIX dependency notice now matches the pinned project snapshot/revision.
+- ROADMAP no longer lists delivered Phase-4 color/weight controls as future work.
+- no new runtime delta exists after the accepted Build 612 device checkpoint.
 
-Pending:
-- Full validation of the exact `dev -> main` promotion head;
-- merge to `main`;
-- verify/recreate long-lived `dev` at the promoted `main` commit as required;
-- final repository consistency audit.
+Independent maintenance remains:
+- Dependabot PRs #157, #182 and #183 remain separate build/dependency proposals and are not part of the 0.0.4 baseline.
+- obsolete historical branch cleanup is repository hygiene only and does not block development.
 
 ## Non-negotiable boundaries
 
@@ -65,10 +69,7 @@ Pending:
 
 ## Immediate next step
 
-1. run the exact `dev -> main` stable-boundary Full validation;
-2. merge the validated 0.0.4 / Build 613 state to `main`;
-3. ensure `dev` exists and matches the promoted `main`;
-4. audit version, license, branch, CI, documentation, package/Xposed identity, and stale work-line consistency.
+Start the next bounded feature/fix branch from current `dev`. Preserve the accepted Build 612 runtime contract unless new contradictory device evidence appears.
 
 ## Reference priority
 
