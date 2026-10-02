@@ -254,6 +254,13 @@ internal fun FeaturesScreen(
                 },
             )
             SwitchPreference(
+                title = stringResource(R.string.battery_fill_follow_retract),
+                summary = stringResource(R.string.battery_fill_follow_retract_summary),
+                checked = visualSettings.batteryFillFollowsRetractEndpoint,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setBatteryFillFollowsRetractEndpoint,
+            )
+            SwitchPreference(
                 title = stringResource(R.string.battery_top_readout),
                 summary = stringResource(R.string.battery_top_readout_summary),
                 checked = visualSettings.batteryTopReadoutEnabled,
