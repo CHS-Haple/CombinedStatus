@@ -2356,3 +2356,28 @@ No additional animator, wall-clock timer, guessed coordinate or native target wr
 - Fade-window tests verify 60%/50% ring thresholds, late 92% reveal and equal source/target fade durations.
 - Dense source-opacity sampling still guarantees charging-target motion remains zero while any source alpha is present.
 - Build 624 ring progress/easing remains untouched.
+
+
+## 2026-10-03 — Build 631 device timing refinement; Build 632 slightly earlier target reveal
+
+**Type:** device visual timing / charging target reveal  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 631 -> 632
+
+### Device feedback
+
+Build 631's source-side behavior is retained. The only requested refinement is that the final native charging-glyph reveal may begin slightly earlier.
+
+### Build 632 correction
+
+- Move charging target reveal start from overall handoff progress 92% to 88%.
+- Preserve the source fade boundary at retained ring 60% -> 50%.
+- Preserve number-relative follower geometry while the source glyph remains visible/fading.
+- Preserve hidden target travel and exact native `mBatteryChargingView` target geometry.
+- Preserve equal fade-in/fade-out progress duration and the same smoothstep easing.
+- No ring-curve, percentage-layout, target geometry, native writer, timer or additional animation clock change.
+
+### Validation
+
+- Unit coverage locks the 88% reveal start and equal fade-window duration.
+- Exact Build-632 Runtime CI and signed Canary remain required before device validation.
