@@ -404,12 +404,20 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
+        private const val CHARGING_FADE_START_REMAINING = 0.60f
+        private const val CHARGING_FADE_END_REMAINING = 0.50f
+
         fun chargingOpacity(progress: Float): Float {
-            val normalized =
-                ((progress.coerceIn(0f, 1f) - 0.58f) / 0.30f)
-                    .coerceIn(0f, 1f)
-            val fade = normalized * normalized * (3f - 2f * normalized)
-            return 1f - fade
+            val ringProgress =
+                CombinedStatusBatteryRingTransitionPolicy.transitionProgress(progress)
+            val remaining =
+                CombinedStatusBatteryRingTransitionPolicy.remainingFraction(ringProgress)
+            val retained =
+                (
+                    (remaining - CHARGING_FADE_END_REMAINING) /
+                        (CHARGING_FADE_START_REMAINING - CHARGING_FADE_END_REMAINING)
+                ).coerceIn(0f, 1f)
+            return retained * retained * (3f - 2f * retained)
         }
     }
 
