@@ -10,6 +10,8 @@ class RuntimeFeaturePreferencesOwnerTest {
     fun clearNotificationParticipatesInFeatureRuntimeSync() {
         assertEquals(true, isCombinedStatusFeaturePreferenceKey(null))
         assertEquals(true, isCombinedStatusFeaturePreferenceKey("combined_status_enabled"))
+        assertEquals(true, isCombinedStatusFeaturePreferenceKey("combined_status_keyguard_enabled"))
+        assertEquals(true, isCombinedStatusFeaturePreferenceKey("combined_status_aod_enabled"))
         assertEquals(false, isCombinedStatusFeaturePreferenceKey("unrelated"))
     }
 
@@ -18,6 +20,7 @@ class RuntimeFeaturePreferencesOwnerTest {
         val settings = com.chaners.guiyuan.settings.CombinedStatusFeatureSettings()
         assertEquals(true, settings.enabled)
         assertEquals(false, settings.keyguardEnabled)
+        assertEquals(false, settings.aodEnabled)
     }
 
     @Test

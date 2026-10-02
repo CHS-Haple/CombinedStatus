@@ -73,7 +73,7 @@ internal object CombinedStatusScenePolicy {
             CombinedStatusScene.AOD to
                 CombinedStatusSceneCapability(
                     scene = CombinedStatusScene.AOD,
-                    renderMode = CombinedStatusRenderMode.NATIVE_ONLY,
+                    renderMode = CombinedStatusRenderMode.PROJECTED,
                     motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
                     evidence = CombinedStatusSceneEvidence.STATIC_VERIFIED,
                 ),
@@ -121,6 +121,17 @@ internal object CombinedStatusScenePolicy {
         widthPx > 0 &&
             heightPx > 0 &&
             hostAttached
+
+    fun aodProjectionEligible(
+        featureEnabled: Boolean,
+        aodEnabled: Boolean,
+        stableAod: Boolean,
+    ): Boolean =
+        featureEnabled &&
+            aodEnabled &&
+            stableAod &&
+            capability(CombinedStatusScene.AOD).renderMode ==
+                CombinedStatusRenderMode.PROJECTED
 
     fun controlCenterProjectionEligible(
         featureEnabled: Boolean,

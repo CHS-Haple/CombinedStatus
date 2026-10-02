@@ -54,7 +54,9 @@
     <string name="combined_status_feature_title">Combined status indicator</string>
     <string name="combined_status_feature_summary">Master switch for the unified status indicator across all supported SystemUI scenes. Turning it off restores native status icons.</string>
     <string name="keyguard_combined_status_title">Show on lock screen</string>
-    <string name="keyguard_combined_status_summary">Show in the lock-screen status bar; AOD is not supported yet</string>
+    <string name="keyguard_combined_status_summary">Show in the lock-screen status bar</string>
+    <string name="aod_combined_status_title">Show on AOD</string>
+    <string name="aod_combined_status_summary">Show in stable Always-on Display; native SystemUI keeps AOD enter/exit transitions</string>
     <string name="mobile_follow_battery_color">Match mobile signal color to battery ring</string>
     <string name="mobile_follow_battery_color_summary">Signal dots and the unavailable mark follow the battery ring color</string>
     <string name="center_follow_battery_color">Match network status color to battery ring</string>

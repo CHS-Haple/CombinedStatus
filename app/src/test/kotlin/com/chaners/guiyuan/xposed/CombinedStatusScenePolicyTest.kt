@@ -73,15 +73,45 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun keyguardIsProjectedCandidateWhileAodRemainsNativeOnly() {
+    fun keyguardAndStableAodAreIndependentProjectedCandidates() {
         val keyguard = CombinedStatusScenePolicy.capability(CombinedStatusScene.KEYGUARD)
         assertEquals(CombinedStatusRenderMode.PROJECTED, keyguard.renderMode)
         assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, keyguard.motionOwnership)
         assertEquals(CombinedStatusSceneEvidence.STATIC_VERIFIED, keyguard.evidence)
 
         val aod = CombinedStatusScenePolicy.capability(CombinedStatusScene.AOD)
-        assertEquals(CombinedStatusRenderMode.NATIVE_ONLY, aod.renderMode)
+        assertEquals(CombinedStatusRenderMode.PROJECTED, aod.renderMode)
         assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, aod.motionOwnership)
+        assertEquals(CombinedStatusSceneEvidence.STATIC_VERIFIED, aod.evidence)
+
+        assertTrue(
+            CombinedStatusScenePolicy.aodProjectionEligible(
+                featureEnabled = true,
+                aodEnabled = true,
+                stableAod = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.aodProjectionEligible(
+                featureEnabled = true,
+                aodEnabled = false,
+                stableAod = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.aodProjectionEligible(
+                featureEnabled = false,
+                aodEnabled = true,
+                stableAod = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.aodProjectionEligible(
+                featureEnabled = true,
+                aodEnabled = true,
+                stableAod = false,
+            ),
+        )
     }
 
     @Test
