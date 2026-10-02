@@ -2205,3 +2205,16 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - Build 612 keeps Build 611's fixed session capacity lease because it solved the Build-609 native-peer underflow. Instead it freezes the native source motion-carrier width and, for transition sampling only, maps the live fake row to an end-anchored logical sub-carrier of that width. Lease-only leading capacity therefore participates in native measurement but not motion.
 - The correction is geometry-semantic rather than numeric compensation: no 125px offset is hard-coded, no device width is assumed, RTL uses the matching start/end anchor, and the logical width comes from the live frozen source witness.
 - No native View width/padding/translation/alpha/visibility writer is added. The existing capacity lease and raw-HyperOS-progress `statusIcons.paddingEnd` reservation remain unchanged.
+
+## 2026-10-02 — Build 619 airplane / no-SIM sizing accepted on device
+
+**Type:** device evidence / visual-geometry acceptance
+
+- Signed Work Branch Canary #650 validated Build `20261002-619` on the exact work-branch tree; the later merge of current `dev` ancestry into the feature branch changed no files or APK/runtime bytes.
+- Device evidence is from Xiaomi 15 Pro (`haotian`), Android 17 / SDK 37, HyperOS SystemUI `17.03.260226.r`.
+- Maintainer device review reports the independent Airplane mode and No-SIM size controls behave as expected, including the requested 40%-125% range and separate content-layout memory, with no visible regression requiring another runtime change.
+- The returned detailed diagnostic reports `overall=healthy`; module, compatibility, presentation runtime, renderer/session, airplane observer, native-network suppression, panel transition, and Keyguard renderer paths remain ready. No `FATAL EXCEPTION`, `AndroidRuntime`, `state=failed`, `state=error`, or generic exception marker is present in the collected report.
+- AOD remains on the existing native/read-only path in this Build; the future independent AOD control recorded in ROADMAP is not implemented here.
+- Diagnostic limitation noted: the current `visualSettings.changed` summary does not yet emit `airplaneSizeScale` / `noSimSizeScale`, so exact per-profile value evidence comes from the profile-key/unit coverage plus maintainer visual validation rather than the runtime summary line itself.
+- Build 619 is accepted for integration into `dev`; no further runtime change is required for this feature.
+
