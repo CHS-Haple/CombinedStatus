@@ -2252,3 +2252,35 @@ No timer, delayed cleanup, polling, copied AOD animation, native translation wri
 - Runtime CI #2245 passed Build 621 code/test compilation and the pinned HyperOS target-profile checks.
 - Focused real-device validation remains mandatory before integration.
 
+## 2026-10-02 — Build 621 transition-direction hypothesis rejected; Build 623 ownership-driven AOD handoff
+
+**Type:** exact-target device evidence / AOD-Keyguard-Home presentation ownership  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 621 -> 623
+
+### Device evidence
+
+Build 621 still visibly restored native represented status icons during both non-Keyguard Home <-> AOD switching and Keyguard <-> AOD switching.
+
+The detailed exact-target trace shows why the Build-621 rule was invalid: while AOD animation is active, HyperOS can expose `toAod=true` together with `animToAod=false`, and later publish `toggleAodMode(false)`. Build 621 used `toAod` as transition direction, causing the actually owned scene to become ineligible, readiness to drop, and the presentation session to restore ignored slots / clip masks / reservation before the destination scene was ready.
+
+Historical architecture already classifies `mAnimToAod` as diagnostic-only, so replacing one direction guess with another is rejected.
+
+### Build 623 correction
+
+- Track the authoritative steady Home/Keyguard source from the existing native scene callback.
+- During `isAodAnimate=true`, resolve continuity from actual Home/Keyguard/AOD presentation ownership rather than `toAod` direction.
+- Keep an already-owned AOD scene eligible for the whole native animation while AOD remains enabled.
+- Keep visible Keyguard ownership during Keyguard -> AOD when AOD is enabled.
+- When Home is the actual source, allow AOD render/presentation prearm during the native AOD animation so the AOD host does not expose its native represented icons first.
+- When Home appears while AOD still owns presentation, defer AOD cleanup to the AOD lifecycle boundary.
+- Stable scene resolution still releases unsupported/disabled destinations to native and keeps AOD out of Control Center source ownership.
+
+No timer, delay, polling, copied AOD motion, alpha/translation writer, or project-owned animation clock is introduced.
+
+### Validation
+
+- Unit coverage now verifies ownership-driven animation routing, Home->AOD prearm eligibility, AOD-owner retention across scene callback ordering, and direction-independent render-session retention.
+- Runtime CI #2257 passes Build 623 on the pinned HyperOS target profile.
+- Signed Canary and focused device validation are still required before integration.
+
