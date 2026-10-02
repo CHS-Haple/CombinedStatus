@@ -234,11 +234,15 @@ internal object CombinedStatusScenePolicy {
         if (
             singleAod &&
             steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            aodPresentationOwned
+            aodPresentationOwned &&
+            !homePresentationOwned
         ) {
             // Symmetric edge: once the verified steady source has returned to
-            // Keyguard, release the only enabled AOD child even if HyperOS keeps
-            // isAodAnimate=true for a few more callbacks.
+            // Keyguard and Home is no longer the still-owned source, release the
+            // only enabled AOD child even if HyperOS keeps isAodAnimate=true for
+            // a few more callbacks. Home ownership distinguishes the verified
+            // Home -> AOD prearm path without consulting unreliable direction
+            // fields.
             return KeyguardAodProjection.NATIVE
         }
         if (aodPresentationOwned) {
