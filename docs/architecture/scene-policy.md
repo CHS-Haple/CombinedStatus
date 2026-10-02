@@ -204,4 +204,3 @@ Build 620 promotes only **stable AOD** to a projected candidate. It does not rei
 - any missing/ambiguous AOD state or host contract restores native Keyguard/AOD presentation.
 
 This is a candidate ownership change and remains pending focused device validation. The accepted Build 619 baseline still treats AOD as native-only.
-
