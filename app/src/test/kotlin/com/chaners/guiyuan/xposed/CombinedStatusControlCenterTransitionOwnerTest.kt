@@ -58,8 +58,8 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(previous633RevealComplete, revealEnd, 0.001f)
         assertTrue(revealEnd - revealStart > hideEnd - hideStart)
 
-        assertEquals(0.60f, policy.chargingRingRemaining(hideStart), 0.01f)
-        assertEquals(0.50f, policy.chargingRingRemaining(hideEnd), 0.01f)
+        assertEquals(0.26f, policy.chargingRingRemaining(hideStart), 0.01f)
+        assertEquals(0.20f, policy.chargingRingRemaining(hideEnd), 0.01f)
         assertEquals(
             1f,
             policy.chargingVisibleFraction(
@@ -218,9 +218,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun pullDownTintSwitchOnlyControlsColorizedParticipants() {
+    fun pullDownTintSwitchOnlyFreezesColorizedParticipants() {
         val policy = CombinedStatusControlCenterTransitionOwner.Policy
-        val source = 0xffff6600.toInt()
+        val source = 0xff202020.toInt()
         val target = 0xffeeeeee.toInt()
 
         assertEquals(
@@ -234,11 +234,11 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             ),
         )
         assertEquals(
-            target,
+            policy.interpolateColor(source, target, 0.50f),
             policy.resolveTransitionTint(
                 source = source,
                 target = target,
-                progress = 0.20f,
+                progress = 0.50f,
                 tinted = false,
                 transitionEnabled = false,
             ),
@@ -250,6 +250,16 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 target = target,
                 progress = 0.50f,
                 tinted = true,
+                transitionEnabled = true,
+            ),
+        )
+        assertEquals(
+            source,
+            policy.resolveTransitionTint(
+                source = source,
+                target = target,
+                progress = 0.20f,
+                tinted = false,
                 transitionEnabled = true,
             ),
         )
@@ -669,6 +679,36 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 anchorRight = true,
             ),
         )
+    }
+
+    @Test
+    fun latentMobileClipEnvelopeCoversExactTargetAxisExpansion() {
+        val source =
+            CombinedStatusPainter.TransitionBounds(
+                left = 10f,
+                top = 20f,
+                right = 50f,
+                bottom = 60f,
+            )
+        val expanded =
+            CombinedStatusControlCenterTransitionOwner.Policy.expandedClipBounds(
+                bounds = source,
+                widthScale = 1.5f,
+                heightScale = 1.25f,
+            )
+
+        assertEquals(0f, expanded.left, 0.0001f)
+        assertEquals(10f, expanded.top, 0.0001f)
+        assertEquals(60f, expanded.right, 0.0001f)
+        assertEquals(70f, expanded.bottom, 0.0001f)
+
+        val unchanged =
+            CombinedStatusControlCenterTransitionOwner.Policy.expandedClipBounds(
+                bounds = source,
+                widthScale = 0.75f,
+                heightScale = Float.NaN,
+            )
+        assertEquals(source, unchanged)
     }
 
     @Test
