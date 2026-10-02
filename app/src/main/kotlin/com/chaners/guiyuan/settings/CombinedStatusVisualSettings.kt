@@ -192,6 +192,8 @@ internal data class CombinedStatusVisualSettings(
     val combinedScale: Float = COMBINED_SCALE_DEFAULT,
     val outerWeightScale: Float = OUTER_WEIGHT_SCALE_DEFAULT,
     val wifiSizeScale: Float = WIFI_SIZE_SCALE_DEFAULT,
+    val airplaneSizeScale: Float = AIRPLANE_SIZE_SCALE_DEFAULT,
+    val noSimSizeScale: Float = NO_SIM_SIZE_SCALE_DEFAULT,
     val mobileTypeSizeScale: Float = mobileTypeSizeScaleDefault(contentLayout),
     val mobileTypeWeight: Int = MOBILE_TYPE_WEIGHT_DEFAULT,
     val batteryColorPreset: CombinedStatusBatteryColorPreset =
@@ -228,6 +230,10 @@ internal fun CombinedStatusVisualSettings.normalized(): CombinedStatusVisualSett
         outerWeightScale =
             outerWeightScale.coerceIn(OUTER_WEIGHT_SCALE_MIN, OUTER_WEIGHT_SCALE_MAX),
         wifiSizeScale = wifiSizeScale.coerceIn(WIFI_SIZE_SCALE_MIN, WIFI_SIZE_SCALE_MAX),
+        airplaneSizeScale =
+            airplaneSizeScale.coerceIn(AIRPLANE_SIZE_SCALE_MIN, AIRPLANE_SIZE_SCALE_MAX),
+        noSimSizeScale =
+            noSimSizeScale.coerceIn(NO_SIM_SIZE_SCALE_MIN, NO_SIM_SIZE_SCALE_MAX),
         mobileTypeSizeScale =
             mobileTypeSizeScale.coerceIn(MOBILE_TYPE_SIZE_SCALE_MIN, MOBILE_TYPE_SIZE_SCALE_MAX),
         mobileTypeWeight =
@@ -408,6 +414,24 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
             .putFloat(
                 activeProfileKey(WIFI_SIZE_SCALE_KEY),
                 scale.coerceIn(WIFI_SIZE_SCALE_MIN, WIFI_SIZE_SCALE_MAX),
+            )
+            .apply()
+    }
+
+    fun setAirplaneSizeScale(scale: Float) {
+        preferences.edit()
+            .putFloat(
+                activeProfileKey(AIRPLANE_SIZE_SCALE_KEY),
+                scale.coerceIn(AIRPLANE_SIZE_SCALE_MIN, AIRPLANE_SIZE_SCALE_MAX),
+            )
+            .apply()
+    }
+
+    fun setNoSimSizeScale(scale: Float) {
+        preferences.edit()
+            .putFloat(
+                activeProfileKey(NO_SIM_SIZE_SCALE_KEY),
+                scale.coerceIn(NO_SIM_SIZE_SCALE_MIN, NO_SIM_SIZE_SCALE_MAX),
             )
             .apply()
     }
@@ -621,6 +645,10 @@ internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatu
             profileFloat(layout, OUTER_WEIGHT_SCALE_KEY, OUTER_WEIGHT_SCALE_DEFAULT),
         wifiSizeScale =
             profileFloat(layout, WIFI_SIZE_SCALE_KEY, WIFI_SIZE_SCALE_DEFAULT),
+        airplaneSizeScale =
+            profileFloat(layout, AIRPLANE_SIZE_SCALE_KEY, AIRPLANE_SIZE_SCALE_DEFAULT),
+        noSimSizeScale =
+            profileFloat(layout, NO_SIM_SIZE_SCALE_KEY, NO_SIM_SIZE_SCALE_DEFAULT),
         mobileTypeSizeScale =
             profileFloat(
                 layout,
@@ -732,6 +760,12 @@ internal fun SharedPreferences.Editor.putCombinedStatusVisualSettings(
         combinedStatusProfileKey(layout, WIFI_SIZE_SCALE_KEY),
         normalized.wifiSizeScale,
     ).putFloat(
+        combinedStatusProfileKey(layout, AIRPLANE_SIZE_SCALE_KEY),
+        normalized.airplaneSizeScale,
+    ).putFloat(
+        combinedStatusProfileKey(layout, NO_SIM_SIZE_SCALE_KEY),
+        normalized.noSimSizeScale,
+    ).putFloat(
         combinedStatusProfileKey(layout, MOBILE_TYPE_SIZE_SCALE_KEY),
         normalized.mobileTypeSizeScale,
     ).putInt(
@@ -762,6 +796,8 @@ internal const val BATTERY_TOP_CHARGING_ICON_SCALE_KEY = "battery_top_charging_i
 internal const val COMBINED_SCALE_KEY = "combined_scale"
 internal const val OUTER_WEIGHT_SCALE_KEY = "outer_weight_scale"
 internal const val WIFI_SIZE_SCALE_KEY = "wifi_size_scale"
+internal const val AIRPLANE_SIZE_SCALE_KEY = "airplane_size_scale"
+internal const val NO_SIM_SIZE_SCALE_KEY = "no_sim_size_scale"
 internal const val MOBILE_TYPE_SIZE_SCALE_KEY = "mobile_type_size_scale"
 internal const val MOBILE_TYPE_WEIGHT_KEY = "mobile_type_weight"
 internal const val BATTERY_COLOR_PRESET_KEY = "battery_color_preset"
@@ -794,6 +830,8 @@ private val PROFILE_VISUAL_BASE_KEYS =
         COMBINED_SCALE_KEY,
         OUTER_WEIGHT_SCALE_KEY,
         WIFI_SIZE_SCALE_KEY,
+        AIRPLANE_SIZE_SCALE_KEY,
+        NO_SIM_SIZE_SCALE_KEY,
         MOBILE_TYPE_SIZE_SCALE_KEY,
         MOBILE_TYPE_WEIGHT_KEY,
     )
@@ -1020,6 +1058,12 @@ internal const val OUTER_WEIGHT_SCALE_MAX = 1.30f
 internal const val WIFI_SIZE_SCALE_DEFAULT = 1f
 internal const val WIFI_SIZE_SCALE_MIN = 0.40f
 internal const val WIFI_SIZE_SCALE_MAX = 1.25f
+internal const val AIRPLANE_SIZE_SCALE_DEFAULT = 1f
+internal const val AIRPLANE_SIZE_SCALE_MIN = WIFI_SIZE_SCALE_MIN
+internal const val AIRPLANE_SIZE_SCALE_MAX = WIFI_SIZE_SCALE_MAX
+internal const val NO_SIM_SIZE_SCALE_DEFAULT = 1f
+internal const val NO_SIM_SIZE_SCALE_MIN = WIFI_SIZE_SCALE_MIN
+internal const val NO_SIM_SIZE_SCALE_MAX = WIFI_SIZE_SCALE_MAX
 internal const val MOBILE_TYPE_SIZE_SCALE_DEFAULT = 1f
 internal const val MOBILE_TYPE_SIZE_SCALE_MIN = 0.40f
 internal const val MOBILE_TYPE_SIZE_SCALE_MAX = 1.25f
