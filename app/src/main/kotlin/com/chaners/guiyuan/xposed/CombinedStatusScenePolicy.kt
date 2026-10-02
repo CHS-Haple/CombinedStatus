@@ -133,6 +133,48 @@ internal object CombinedStatusScenePolicy {
             capability(CombinedStatusScene.AOD).renderMode ==
                 CombinedStatusRenderMode.PROJECTED
 
+    enum class KeyguardAodProjection {
+        NATIVE,
+        KEYGUARD,
+        AOD,
+    }
+
+    fun resolveKeyguardAodProjection(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        toAod: Boolean,
+        isAodAnimate: Boolean,
+    ): KeyguardAodProjection {
+        if (!featureEnabled) return KeyguardAodProjection.NATIVE
+        if (
+            SystemUiKeyguardAodStateSource.isStableAod(
+                toAod = toAod,
+                isAodAnimate = isAodAnimate,
+            )
+        ) {
+            return if (aodEnabled) {
+                KeyguardAodProjection.AOD
+            } else {
+                KeyguardAodProjection.NATIVE
+            }
+        }
+        if (
+            SystemUiKeyguardAodStateSource.blocksKeyguardProjection(
+                toAod = toAod,
+                isAodAnimate = isAodAnimate,
+                animToAod = null,
+            )
+        ) {
+            return KeyguardAodProjection.NATIVE
+        }
+        return if (keyguardEnabled) {
+            KeyguardAodProjection.KEYGUARD
+        } else {
+            KeyguardAodProjection.NATIVE
+        }
+    }
+
     fun controlCenterProjectionEligible(
         featureEnabled: Boolean,
         sourceScene: CombinedStatusSourceScene,

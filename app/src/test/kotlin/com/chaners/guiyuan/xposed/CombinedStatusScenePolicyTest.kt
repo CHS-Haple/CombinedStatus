@@ -115,6 +115,52 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun keyguardAndAodProjectionMatrixKeepsChildPreferencesIndependent() {
+        val resolve = { feature: Boolean, keyguard: Boolean, aod: Boolean, toAod: Boolean, animate: Boolean ->
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = feature,
+                keyguardEnabled = keyguard,
+                aodEnabled = aod,
+                toAod = toAod,
+                isAodAnimate = animate,
+            )
+        }
+
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            resolve(true, true, false, false, false),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(true, false, true, false, false),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            resolve(true, false, true, true, false),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(true, true, false, true, false),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            resolve(true, true, true, true, false),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(true, true, true, true, true),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(false, true, true, false, false),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(false, true, true, true, false),
+        )
+    }
+
+    @Test
     fun controlCenterProjectionInheritsVerifiedSourceSceneCapability() {
         assertTrue(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(

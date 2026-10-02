@@ -1977,46 +1977,36 @@ class CombinedStatusModule : XposedModule() {
                             )
                             return
                         }
-                val stableAod =
-                    SystemUiKeyguardAodStateSource.isStableAod(
+                when (
+                    CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                        featureEnabled = settings.enabled,
+                        keyguardEnabled = settings.keyguardEnabled,
+                        aodEnabled = settings.aodEnabled,
                         toAod = aodState.toAod,
                         isAodAnimate = aodState.isAodAnimate,
                     )
-
-                if (stableAod) {
-                    deactivateKeyguardRuntime("aod-stable")
-                    if (
-                        !CombinedStatusScenePolicy.aodProjectionEligible(
-                            featureEnabled = settings.enabled,
-                            aodEnabled = settings.aodEnabled,
-                            stableAod = true,
+                ) {
+                    CombinedStatusScenePolicy.KeyguardAodProjection.AOD -> {
+                        deactivateKeyguardRuntime("aod-stable")
+                        attachAodRenderer(
+                            resolved = resolution.host,
+                            source = source,
                         )
-                    ) {
-                        deactivateAodRuntime("aod-feature-ineligible")
-                        return
                     }
-                    attachAodRenderer(
-                        resolved = resolution.host,
-                        source = source,
-                    )
-                    return
-                }
 
-                if (aodState.blocksProjection) {
-                    deactivateAodRuntime("aod-transition")
-                    deactivateKeyguardRuntime("aod-transition")
-                    return
-                }
+                    CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD -> {
+                        deactivateAodRuntime("keyguard-active")
+                        attachKeyguardRenderer(
+                            resolved = resolution.host,
+                            source = source,
+                        )
+                    }
 
-                deactivateAodRuntime("keyguard-active")
-                if (!settings.keyguardEnabled) {
-                    deactivateKeyguardRuntime("keyguard-feature-ineligible")
-                    return
+                    CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE -> {
+                        deactivateAodRuntime("keyguard-aod-native")
+                        deactivateKeyguardRuntime("keyguard-aod-native")
+                    }
                 }
-                attachKeyguardRenderer(
-                    resolved = resolution.host,
-                    source = source,
-                )
             }
 
             is SystemUiKeyguardHostResolver.ResolveResult.Inactive -> {
