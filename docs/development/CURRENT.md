@@ -37,7 +37,7 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 646 is the current device candidate after Build-638 feedback.
+Build 647 is the current device candidate after Build-638 feedback.
 
 Confirmed Build-638 root causes:
 - `FOLLOW_SYSTEM` is correctly classified as non-colorized; only resolved `Custom` semantic sources are treated as battery-colorized;
@@ -46,7 +46,7 @@ Confirmed Build-638 root causes:
 - supplemental Airplane / No-SIM reveal resolved real native optical target geometry but used `SHRINK_ONLY`, preventing growth when the native target drawable is larger than the Guiyuan source;
 - the Build-638 charging Clip window (retained ring 26% -> 20%) kept the source charging glyph visible too long.
 
-Build 646 correction:
+Build 647 correction:
 - pull-down native tint now reads the already-applied tint from visible, non-represented native peers in `QS_FAKE / fakeStatusIcons`, the same native transition presentation moving beside Guiyuan;
 - non-colorized / FOLLOW_SYSTEM participants directly follow that live native peer tint; custom battery-colorized participants alone use the optional 35%-65% source -> native interpolation;
 - final Battery tint is removed as a generic status-icon tint fallback; if a live QS_FAKE peer is temporarily unavailable, only the last valid QS_FAKE peer tint is retained;
@@ -54,13 +54,13 @@ Build 646 correction:
 - latent additional-mobile Clip remains expanded from exact target-axis compensation;
 - source charging-glyph Clip starts when ring retract starts (100% remaining) and completes exactly when 50% remains; while source-visible it keeps following the number, then travels only while hidden;
 - charging target reveal now keeps the same 0.85 start but completes within the first 35% of the former 0.85-0.98 reveal window, matching the accelerated latent-resource cadence instead of taking the full late window;
-- custom-color pull-down tint interpolation moves from 0.35-0.65 to 0.45-0.80, delaying the start and lengthening the transition; FOLLOW_SYSTEM still directly follows live QS_FAKE native tint.
+- custom-color pull-down tint no longer uses an independent fixed window: it starts with battery-ring retract and completes exactly when the ring retract completes; the color phase uses its own smoothstep over the shared ring lifetime so it stays visually gentler than the ring's front-loaded shrink. FOLLOW_SYSTEM still directly follows live QS_FAKE native tint.
 
 No new animator, timer, native tint/geometry writer, guessed pixel offset, or second transition clock is added.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003646` / Build `20261003-646`.
+- Candidate identity: `0.0.5` / versionCode `261003647` / Build `20261003-647`.
 - Work branch remains based on current `dev` with no behind commits at the latest checkpoint.
 - Focused coverage locks:
   - FOLLOW_SYSTEM -> live native target tint and custom-color switch semantics;
@@ -96,7 +96,7 @@ After exact-HEAD Runtime CI passes, validate one signed Build-644 Canary:
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 646. If green, request one signed Canary and freeze #197 runtime for focused device validation.
+Run exact-HEAD Runtime CI for Build 647. If green, request one signed Canary and freeze #197 runtime for focused device validation.
 
 ## Reference priority
 
