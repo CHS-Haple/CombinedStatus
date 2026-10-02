@@ -229,6 +229,44 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun pullDownTintSwitchOnlyControlsColorizedParticipants() {
+        val policy = CombinedStatusControlCenterTransitionOwner.Policy
+        val source = 0xffff6600.toInt()
+        val target = 0xffeeeeee.toInt()
+
+        assertEquals(
+            source,
+            policy.resolveTransitionTint(
+                source = source,
+                target = target,
+                progress = 0.50f,
+                tinted = true,
+                transitionEnabled = false,
+            ),
+        )
+        assertEquals(
+            target,
+            policy.resolveTransitionTint(
+                source = source,
+                target = target,
+                progress = 0.20f,
+                tinted = false,
+                transitionEnabled = false,
+            ),
+        )
+        assertEquals(
+            policy.interpolateColor(source, target, 0.50f),
+            policy.resolveTransitionTint(
+                source = source,
+                target = target,
+                progress = 0.50f,
+                tinted = true,
+                transitionEnabled = true,
+            ),
+        )
+    }
+
+    @Test
     fun mobileTypeWeightInterpolatesToNativeTarget() {
         assertEquals(
             800,
