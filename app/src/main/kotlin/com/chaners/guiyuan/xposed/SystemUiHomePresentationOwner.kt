@@ -83,6 +83,16 @@ internal object SystemUiHomePresentationOwner {
         }
 
     @Synchronized
+    internal fun currentKeyguardPresentationClaimed(): Boolean =
+        keyguardFamilySurface == KeyguardFamilySurface.KEYGUARD &&
+            keyguardFamilyCurrent?.hasPresentationClaim() == true
+
+    @Synchronized
+    internal fun currentAodPresentationClaimed(): Boolean =
+        keyguardFamilySurface == KeyguardFamilySurface.AOD &&
+            keyguardFamilyCurrent?.hasPresentationClaim() == true
+
+    @Synchronized
     fun onVisualSettingsChanged() {
         current?.syncEndReservation()
         keyguardFamilyCurrent?.syncEndReservation()
@@ -1103,6 +1113,14 @@ internal object SystemUiHomePresentationOwner {
             this.surfaceName = surfaceName
             this.eventPrefix = eventPrefix
         }
+
+        fun hasPresentationClaim(): Boolean =
+            active &&
+                (
+                    persistentIgnoredSlotsApplied ||
+                        clipStates.isNotEmpty() ||
+                        appliedPadding != null
+                )
 
         fun ownedRepresentedSlots(): Set<String> {
             if (!active || !compactLayoutReady) return emptySet()
