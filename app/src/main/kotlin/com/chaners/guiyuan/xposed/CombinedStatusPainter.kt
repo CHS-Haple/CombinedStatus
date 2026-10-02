@@ -413,7 +413,17 @@ internal class CombinedStatusPainter(
         private const val CHARGING_FADE_END_REMAINING = 0.50f
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
         private const val CHARGING_TARGET_REVEAL_START = 0.92f
-        private const val CHARGING_TARGET_REVEAL_COMPLETE = 0.942f
+
+        private val chargingFadeStartProgress =
+            firstProgressAtOrBelowRemaining(CHARGING_FADE_START_REMAINING)
+        private val chargingFadeEndProgress =
+            firstProgressAtOrBelowRemaining(CHARGING_FADE_END_REMAINING)
+        private val chargingFadeProgressSpan =
+            (chargingFadeEndProgress - chargingFadeStartProgress)
+                .coerceAtLeast(0.001f)
+        private val chargingTargetRevealComplete =
+            (CHARGING_TARGET_REVEAL_START + chargingFadeProgressSpan)
+                .coerceAtMost(0.98f)
 
         fun chargingOpacity(
             progress: Float,
@@ -425,18 +435,16 @@ internal class CombinedStatusPainter(
             val reveal =
                 (
                     (progress.coerceIn(0f, 1f) - CHARGING_TARGET_REVEAL_START) /
-                        (CHARGING_TARGET_REVEAL_COMPLETE - CHARGING_TARGET_REVEAL_START)
+                        (chargingTargetRevealComplete - CHARGING_TARGET_REVEAL_START)
                 ).coerceIn(0f, 1f)
             return smooth(reveal)
         }
 
         internal fun chargingSourceOpacity(progress: Float): Float {
-            val remaining = chargingRingRemaining(progress)
-            if (remaining <= CHARGING_FADE_END_REMAINING) return 0f
             val retained =
                 (
-                    (remaining - CHARGING_FADE_END_REMAINING) /
-                        (CHARGING_FADE_START_REMAINING - CHARGING_FADE_END_REMAINING)
+                    (chargingFadeEndProgress - progress.coerceIn(0f, 1f)) /
+                        chargingFadeProgressSpan
                 ).coerceIn(0f, 1f)
             return smooth(retained)
         }
@@ -445,15 +453,25 @@ internal class CombinedStatusPainter(
             // Source and number remain one visual group until the charging glyph
             // is fully transparent. Target travel begins only after that boundary.
             if (chargingSourceOpacity(progress) > 0f) return 0f
-            val fadeCompleteProgress =
-                firstProgressAtOrBelowRemaining(CHARGING_FADE_END_REMAINING)
             val hiddenTravel =
                 (
-                    (progress.coerceIn(0f, 1f) - fadeCompleteProgress) /
-                        (CHARGING_TARGET_TRAVEL_COMPLETE - fadeCompleteProgress)
+                    (progress.coerceIn(0f, 1f) - chargingFadeEndProgress) /
+                        (CHARGING_TARGET_TRAVEL_COMPLETE - chargingFadeEndProgress)
                 ).coerceIn(0f, 1f)
             return smooth(hiddenTravel)
         }
+
+        internal fun chargingRingRemaining(progress: Float): Float {
+            val ringProgress =
+                CombinedStatusBatteryRingTransitionPolicy.transitionProgress(progress)
+            return CombinedStatusBatteryRingTransitionPolicy.remainingFraction(ringProgress)
+        }
+
+        internal fun sourceFadeWindow(): Pair<Float, Float> =
+            Pair(chargingFadeStartProgress, chargingFadeEndProgress)
+
+        internal fun targetRevealWindow(): Pair<Float, Float> =
+            Pair(CHARGING_TARGET_REVEAL_START, chargingTargetRevealComplete)
 
         private fun firstProgressAtOrBelowRemaining(threshold: Float): Float {
             var low = 0f
@@ -467,12 +485,6 @@ internal class CombinedStatusPainter(
                 }
             }
             return high
-        }
-
-        internal fun chargingRingRemaining(progress: Float): Float {
-            val ringProgress =
-                CombinedStatusBatteryRingTransitionPolicy.transitionProgress(progress)
-            return CombinedStatusBatteryRingTransitionPolicy.remainingFraction(ringProgress)
         }
 
         private fun smooth(value: Float): Float =
