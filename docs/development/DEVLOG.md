@@ -2672,3 +2672,42 @@ Build 649 and Build 650 bracket the desired charging-source disappearance point:
 - Ring geometry/easing and tint timing are unchanged.
 
 No timer, animator, secondary transition clock, geometry writer, alpha fade, or scale animation is added.
+
+
+## 2026-10-03 — Build 653: restore HyperOS native island collision authority
+
+**Type:** device-feedback root-cause correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 652 -> 653
+
+### Device evidence
+
+Build 652 was otherwise broadly normal, but island-active pull-down exposed two related regressions:
+- charging-only island could collapse the expected dual-signal presentation to a single mobile presentation and allow left-side native status icons to overlap it;
+- native status-icon island avoidance / knife-hide behavior failed across island events.
+
+The Build-652 diagnostic captured `reservationMode=native-progress-fake-island-projected` with active deltas while the Control Center callback independently reported `batteryIsland=false`. The project therefore had two island authorities that could diverge.
+
+### Root cause
+
+The Control Center transition path expanded fake/native status-icon `paddingEnd` for Guiyuan's transition reservation. While a generic island was active, a dedicated hook intercepted `MiuiStatusIconContainer.getIslandTranslationX()` and subtracted the same padding delta from HyperOS' native island collision boundary.
+
+That bridge changed the value HyperOS itself uses to decide status-icon collision/avoidance. It could therefore alter native mobile-row capacity and island hiding decisions, violating single-writer/native-layout ownership.
+
+### Build-653 correction
+
+- Remove the `getIslandTranslationX()` return-value hook entirely.
+- Remove fake island-boundary projection/compensation state and lifecycle cleanup.
+- Block Guiyuan native transition-padding expansion whenever `genericIslandShowing == true`, for both Home and Keyguard.
+- If an island starts after native transition padding was already applied, clear Guiyuan's transition reservation on the next panel sample.
+- Keep ordinary no-island transition reservation unchanged.
+- Reduce the panel runtime hook count from 5 to 4.
+- Keep Build-652 overlay motion, tint, battery-ring/charging timing, target geometry, and target reveal unchanged.
+
+### Review
+
+Lifecycle review checked install failure rollback, Session stop, island-mid-gesture reservation release, and Hot Reload reset. No bridge state remains after removal. No timer, polling, delay, alpha/visibility patch, island-width writer, or additional geometry owner is added.
+
+### Device gate
+
+Validate charging-only island with dual SIM, another island event, and ordinary no-island pull-down. Native dual-signal layout and HyperOS island avoidance must remain authoritative; Build-652 charging/tint behavior must remain unchanged.
