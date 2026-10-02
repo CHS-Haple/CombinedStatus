@@ -164,8 +164,6 @@ internal object CombinedStatusScenePolicy {
         steadySourceScene: CombinedStatusSourceScene = CombinedStatusSourceScene.UNKNOWN,
         lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
         homePresentationOwned: Boolean = false,
-        keyguardPresentationOwned: Boolean = false,
-        aodPresentationOwned: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (isAodAnimate) {
