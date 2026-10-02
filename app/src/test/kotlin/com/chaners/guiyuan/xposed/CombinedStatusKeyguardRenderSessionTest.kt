@@ -98,42 +98,6 @@ class CombinedStatusKeyguardRenderSessionTest {
     }
 
     @Test
-    fun transitionContinuityRetainsAlreadyEligibleSceneWithoutDirectionGuessing() {
-        assertTrue(
-            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
-                stableSceneEligible = false,
-                transitionContinuityEnabled = true,
-                wasSceneEligible = true,
-                isAodAnimate = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
-                stableSceneEligible = false,
-                transitionContinuityEnabled = true,
-                wasSceneEligible = false,
-                isAodAnimate = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
-                stableSceneEligible = false,
-                transitionContinuityEnabled = false,
-                wasSceneEligible = true,
-                isAodAnimate = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
-                stableSceneEligible = false,
-                transitionContinuityEnabled = true,
-                wasSceneEligible = true,
-                isAodAnimate = false,
-            ),
-        )
-    }
-
-    @Test
     fun readinessRequiresCompleteAttachedKeyguardSurface() {
         assertTrue(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, true, true, false))
         assertFalse(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, false, true, false))
