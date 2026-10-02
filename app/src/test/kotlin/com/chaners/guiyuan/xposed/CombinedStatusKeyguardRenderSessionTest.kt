@@ -46,6 +46,37 @@ class CombinedStatusKeyguardRenderSessionTest {
     }
 
     @Test
+    fun dualEnabledTransitionContinuityKeepsOutgoingSceneUntilStableBoundary() {
+        assertTrue(
+            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
+                sceneIsAod = false,
+                stableSceneEligible = false,
+                transitionContinuityEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+            ),
+        )
+        assertTrue(
+            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
+                sceneIsAod = true,
+                stableSceneEligible = false,
+                transitionContinuityEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusKeyguardRenderSession.resolveTransitionSceneEligible(
+                sceneIsAod = false,
+                stableSceneEligible = false,
+                transitionContinuityEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+            ),
+        )
+    }
+
+    @Test
     fun readinessRequiresCompleteAttachedKeyguardSurface() {
         assertTrue(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, true, true, false))
         assertFalse(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, false, true, false))
