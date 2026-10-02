@@ -1056,8 +1056,14 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
-        handleControlCenterPanelUpdate(update)
-        CombinedStatusControlCenterTransitionOwner.onPanelUpdate(update)
+        val effectiveSourceScene = handleControlCenterPanelUpdate(update)
+        val transitionUpdate =
+            if (effectiveSourceScene != null) {
+                update.copy(controlCenterSourceScene = effectiveSourceScene)
+            } else {
+                update
+            }
+        CombinedStatusControlCenterTransitionOwner.onPanelUpdate(transitionUpdate)
 
         if (detailedDiagnosticsEnabled) {
             val batteryNumberProbe =
@@ -1118,10 +1124,10 @@ class CombinedStatusModule : XposedModule() {
 
     private fun handleControlCenterPanelUpdate(
         update: SystemUiPanelTransitionSource.Update,
-    ) {
+    ): CombinedStatusSourceScene? {
         update.fraction?.let(::onControlCenterExpansionFraction)
 
-        val visible = update.visible ?: return
+        val visible = update.visible ?: return null
         if (!visible) {
             controlCenterSceneVisible = false
             // Restore Home first. QS_FAKE compact presentation remains prearmed
@@ -1129,15 +1135,26 @@ class CombinedStatusModule : XposedModule() {
             // overlay visibility changes with Control Center visibility.
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             CombinedStatusControlCenterRenderSession.setRequestedVisible(false)
-            return
+            return null
         }
 
         controlCenterSceneVisible = true
+        val panelSourceScene =
+            update.controlCenterSourceScene
+                ?: CombinedStatusSourceScene.UNKNOWN
+        val effectiveSourceScene =
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = panelSourceScene,
+                steadySourceScene = steadyStatusSourceScene,
+            )
         updateControlCenterSourceSceneEligibility(
-            sourceScene =
-                update.controlCenterSourceScene
-                    ?: CombinedStatusSourceScene.UNKNOWN,
-            authority = "hyperos-realSystemIcons",
+            sourceScene = effectiveSourceScene,
+            authority =
+                if (effectiveSourceScene == panelSourceScene) {
+                    "hyperos-realSystemIcons"
+                } else {
+                    "steady-source-view-override"
+                },
         )
         val carrier = update.controlCenterPresentationHost
         if (carrier == null) {
@@ -1150,7 +1167,7 @@ class CombinedStatusModule : XposedModule() {
                 "reason" to "fake-presentation-root-unresolved",
                 "fallback" to "native-control-center",
             )
-            return
+            return effectiveSourceScene
         }
 
         when (prepareControlCenterFakePresentation(carrier, "visible-fallback")) {
@@ -1174,6 +1191,7 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
         }
+        return effectiveSourceScene
     }
 
     private fun updateControlCenterSourceSceneEligibility(
@@ -2660,6 +2678,8 @@ class CombinedStatusModule : XposedModule() {
         controlCenterSceneEligible = false
         controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
         steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
+        lastStableKeyguardAodScene =
+            CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
         aodRendererAttached = false
