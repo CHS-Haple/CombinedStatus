@@ -66,4 +66,18 @@ class CombinedStatusKeyguardRenderSessionTest {
         assertFalse(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, true, false, false))
         assertFalse(CombinedStatusKeyguardRenderSession.resolveOwnerReady(true, true, true, true, true, true))
     }
+
+    @Test
+    fun retargetOnlyForcesPresentationReadinessWhenFamilySceneChanges() {
+        assertFalse(
+            CombinedStatusKeyguardRenderSession.shouldForceReadinessDispatch(
+                sceneChanged = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusKeyguardRenderSession.shouldForceReadinessDispatch(
+                sceneChanged = true,
+            ),
+        )
+    }
 }
