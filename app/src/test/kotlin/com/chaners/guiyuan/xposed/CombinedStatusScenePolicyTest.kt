@@ -209,7 +209,7 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
