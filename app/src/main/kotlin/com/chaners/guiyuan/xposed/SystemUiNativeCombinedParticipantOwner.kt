@@ -2016,6 +2016,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     @Synchronized
+    fun currentIslandOccupancyDiagnostic(): String {
+        val root = rootRef?.get()
+        val visualWidth =
+            renderViewRef
+                ?.get()
+                ?.measuredWidth
+                ?.takeIf { width -> width > 0 }
+                ?: activeSlotWidth
+        return "{nativeBatteryHidden=" + nativeBatteryLayoutHidden +
+            ",rootWidth=" + (root?.layoutParams?.width ?: -1) +
+            ",visualWidth=" + visualWidth +
+            ",slotWidth=" + activeSlotWidth +
+            ",handoffCommitted=" + handoffCommitted +
+            "}"
+    }
+
+    @Synchronized
     fun onNativeBatteryLayoutHideChanged(hidden: Boolean): Boolean {
         nativeBatteryLayoutHidden = hidden
         val root = rootRef?.get() ?: return true
