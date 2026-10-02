@@ -43,6 +43,9 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
 import com.chaners.guiyuan.settings.COMBINED_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MAX
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
+import com.chaners.guiyuan.settings.AIRPLANE_SIZE_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.AIRPLANE_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.AIRPLANE_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.MOBILE_TYPE_WEIGHT_DEFAULT
@@ -51,6 +54,9 @@ import com.chaners.guiyuan.settings.MOBILE_TYPE_WEIGHT_MIN
 import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MAX
 import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MIN
+import com.chaners.guiyuan.settings.NO_SIM_SIZE_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.NO_SIM_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.NO_SIM_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN
@@ -143,6 +149,38 @@ internal fun FeaturesScreen(
                 steps = 16,
                 showKeyPoints = true,
                 keyPoints = listOf(WIFI_SIZE_SCALE_DEFAULT),
+                magnetThreshold = 0.035f,
+                enabled = featureSettings.enabled,
+            )
+            SliderPreference(
+                value = visualSettings.airplaneSizeScale,
+                onValueChange = visualRepository::setAirplaneSizeScale,
+                title = stringResource(R.string.airplane_size),
+                valueText =
+                    stringResource(
+                        R.string.percent_value,
+                        (visualSettings.airplaneSizeScale * 100f).roundToInt(),
+                    ),
+                valueRange = AIRPLANE_SIZE_SCALE_MIN..AIRPLANE_SIZE_SCALE_MAX,
+                steps = 16,
+                showKeyPoints = true,
+                keyPoints = listOf(AIRPLANE_SIZE_SCALE_DEFAULT),
+                magnetThreshold = 0.035f,
+                enabled = featureSettings.enabled,
+            )
+            SliderPreference(
+                value = visualSettings.noSimSizeScale,
+                onValueChange = visualRepository::setNoSimSizeScale,
+                title = stringResource(R.string.no_sim_size),
+                valueText =
+                    stringResource(
+                        R.string.percent_value,
+                        (visualSettings.noSimSizeScale * 100f).roundToInt(),
+                    ),
+                valueRange = NO_SIM_SIZE_SCALE_MIN..NO_SIM_SIZE_SCALE_MAX,
+                steps = 16,
+                showKeyPoints = true,
+                keyPoints = listOf(NO_SIM_SIZE_SCALE_DEFAULT),
                 magnetThreshold = 0.035f,
                 enabled = featureSettings.enabled,
             )
