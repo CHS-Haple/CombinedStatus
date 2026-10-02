@@ -506,6 +506,11 @@ private fun BatterySchemeOverview(
                         custom = page.scheme,
                         isActive = library.activeSchemeKey == page.key,
                         canCreateCustom = canCreateCustom,
+                        pageIndex = index,
+                        pageCount = pages.size,
+                        onNavigateTo = { target ->
+                            scope.launch { pagerState.springAnimateToPage(target) }
+                        },
                         onApply = { onApplyScheme(page.key) },
                         onSlotClick = { slot ->
                             onOpenCustomSlot(page.scheme.id, slot)
