@@ -152,6 +152,20 @@ Multi-host awareness alone does **not** prove keyguard/AOD compatibility. Each t
 
 ---
 
+### Same-host scene retargeting and cross-host pre-mask
+
+**Candidate for Guiyuan; Build 625 device validation pending.**
+
+When two scene semantics resolve to the same verified native host and consume the same represented-slot suppression/layout contract, switching between two project Session objects can create an artificial native interval even though SystemUI never changed the underlying host. In that case, one host-scoped presentation owner may retarget scene semantics while retaining its exact owned ignored-slot delta, visual mask and reservation. The render layer should likewise retain one module child View and retarget scene-specific visibility/tint semantics rather than creating simultaneous writers.
+
+This does not generalize across distinct native hosts. For a cross-host handoff such as Home -> AOD, target visual suppression may be prepared before compact layout only when it is reversible and explicitly scoped to the handoff; layout readiness and renderer ownership must remain false until the native target layout is actually valid. Visual masking is not layout ownership.
+
+Reusable boundary:
+- same verified host + same owned presentation contract -> retarget one owner;
+- distinct host -> acquire a bounded target claim without borrowing source layout readiness;
+- restore native only when the owning host family is exited, invalidated or fails;
+- never keep two project overlays or two mutable presentation writers alive merely to hide a handoff gap.
+
 ## 5. Slot size, glyph size, per-glyph scale, and optical adjustment are independent
 
 **Observed.**
