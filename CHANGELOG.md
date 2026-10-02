@@ -32,7 +32,6 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 or later (`GPL-3.0-or-later`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
 
 - Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses; QS_FAKE may take one fixed, reversible session lease on already-unused native parent width so the existing `statusIcons.paddingEnd` progress writer no longer forces native peer underflow before the HyperOS appearance handoff. Lease-only leading capacity is excluded from transition motion by sampling an end-anchored logical carrier frozen to the native source-carrier width, preventing capacity growth from shifting Guiyuan's motion origin. Mobile exact four-bar geometry remains shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
 
