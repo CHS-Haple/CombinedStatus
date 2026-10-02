@@ -31,12 +31,23 @@ The candidate does not add a second AOD animation timeline, timer, polling sourc
 - Candidate identity: `0.0.5` / versionCode `261002420` / Build `20261002-620`.
 - Existing exact-target AOD authority remains `MiuiBatteryMeterView.setIsAodAnimate(boolean)` + `toggleAodMode(boolean)` with `mToAod` / `mIsAodAnimate`.
 - Candidate stable-AOD boundary is `mToAod == true && mIsAodAnimate == false`; all AOD transition states stay native.
-- Draft Light CI is only repository validation; exact-head Runtime CI is required before a signed Canary.
-- Focused device evidence is mandatory because AOD scene ownership and native presentation suppression change.
+- Ready PR Runtime CI #2240 succeeded on runtime head `8e349e8a3b7a1731858ee94227007fbde133dcd0`.
+- Signed Work Branch Canary #651 independently resolved, checked out, tested, signed, verified non-debuggable, and uploaded Build 620 from that same runtime head.
+- Runtime is frozen at this checkpoint until focused device evidence returns because AOD scene ownership and native presentation suppression change.
+
+## Device gate
+
+Validate the four preference combinations and parent gate:
+- Keyguard on / AOD off: Keyguard uses Guiyuan; AOD remains native.
+- Keyguard off / AOD on: Keyguard remains native; stable AOD uses Guiyuan.
+- Keyguard on / AOD on: Keyguard and stable AOD each use Guiyuan in their own scene, with native AOD enter/exit animation between them.
+- Global Guiyuan off with either/both child switches still enabled: Home, Keyguard, and AOD all restore native immediately while child preference values remain stored.
+
+Also verify AOD enter/exit does not show duplicate native represented icons, stale slot suppression, a visible snap at the stable cutover, or leakage into Control Center.
 
 ## Immediate next step
 
-Complete code/document review, move PR #196 to Ready for exact-head Runtime CI, then request one signed Work Branch Canary. Freeze runtime after the Canary checkpoint until focused AOD device evidence returns.
+Await focused Build 620 device evidence. Do not change runtime or merge PR #196 before that evidence is reviewed.
 
 ## Reference priority
 
