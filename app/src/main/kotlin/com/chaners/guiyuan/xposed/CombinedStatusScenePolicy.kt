@@ -126,10 +126,11 @@ internal object CombinedStatusScenePolicy {
         featureEnabled: Boolean,
         aodEnabled: Boolean,
         stableAod: Boolean,
+        homeTransitionPrearm: Boolean = false,
     ): Boolean =
         featureEnabled &&
             aodEnabled &&
-            stableAod &&
+            (stableAod || homeTransitionPrearm) &&
             capability(CombinedStatusScene.AOD).renderMode ==
                 CombinedStatusRenderMode.PROJECTED
 
@@ -145,18 +146,21 @@ internal object CombinedStatusScenePolicy {
         aodEnabled: Boolean,
         toAod: Boolean,
         isAodAnimate: Boolean,
+        steadySourceScene: CombinedStatusSourceScene = CombinedStatusSourceScene.UNKNOWN,
+        homePresentationOwned: Boolean = false,
+        keyguardPresentationOwned: Boolean = false,
+        aodPresentationOwned: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (isAodAnimate) {
-            return if (keyguardEnabled && aodEnabled) {
-                if (toAod) {
-                    KeyguardAodProjection.KEYGUARD
-                } else {
-                    KeyguardAodProjection.AOD
-                }
-            } else {
-                KeyguardAodProjection.NATIVE
-            }
+            return resolveAnimatingKeyguardAodProjection(
+                keyguardEnabled = keyguardEnabled,
+                aodEnabled = aodEnabled,
+                steadySourceScene = steadySourceScene,
+                homePresentationOwned = homePresentationOwned,
+                keyguardPresentationOwned = keyguardPresentationOwned,
+                aodPresentationOwned = aodPresentationOwned,
+            )
         }
         if (
             SystemUiKeyguardAodStateSource.isStableAod(
@@ -179,11 +183,62 @@ internal object CombinedStatusScenePolicy {
         ) {
             return KeyguardAodProjection.NATIVE
         }
-        return if (keyguardEnabled) {
+        if (steadySourceScene == CombinedStatusSourceScene.HOME) {
+            return KeyguardAodProjection.NATIVE
+        }
+        return if (
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            keyguardEnabled
+        ) {
             KeyguardAodProjection.KEYGUARD
         } else {
             KeyguardAodProjection.NATIVE
         }
+    }
+
+    internal fun resolveAnimatingKeyguardAodProjection(
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        steadySourceScene: CombinedStatusSourceScene,
+        homePresentationOwned: Boolean,
+        keyguardPresentationOwned: Boolean,
+        aodPresentationOwned: Boolean,
+    ): KeyguardAodProjection {
+        if (aodPresentationOwned) {
+            return when (steadySourceScene) {
+                CombinedStatusSourceScene.HOME -> KeyguardAodProjection.AOD
+                CombinedStatusSourceScene.KEYGUARD ->
+                    if (keyguardEnabled) {
+                        KeyguardAodProjection.AOD
+                    } else {
+                        KeyguardAodProjection.NATIVE
+                    }
+                CombinedStatusSourceScene.UNKNOWN ->
+                    if (keyguardEnabled) {
+                        KeyguardAodProjection.AOD
+                    } else {
+                        KeyguardAodProjection.NATIVE
+                    }
+            }
+        }
+        if (
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            keyguardPresentationOwned
+        ) {
+            return if (aodEnabled) {
+                KeyguardAodProjection.KEYGUARD
+            } else {
+                KeyguardAodProjection.NATIVE
+            }
+        }
+        if (
+            steadySourceScene == CombinedStatusSourceScene.HOME &&
+            homePresentationOwned &&
+            aodEnabled
+        ) {
+            return KeyguardAodProjection.AOD
+        }
+        return KeyguardAodProjection.NATIVE
     }
 
     fun controlCenterProjectionEligible(
