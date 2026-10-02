@@ -1,3 +1,24 @@
+## 2026-10-02 — Build 595 embedded MIUIX FAB visual in Add Card
+
+**Type:** App UI / MIUIX interaction visual  
+**Display version:** 0.0.3  
+**Build:** 595 / `20261002-595`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+Restore the previous blue FAB / white plus visual, but embed it in the center of the full clickable white Add Card so Card Tilt moves the entire surface and visual together. Remove the FAB shadow.
+
+### Change
+- Full white Add Card remains the sole click owner and uses `PressFeedbackType.Tilt`.
+- Center visual uses MIUIX FAB metrics: 60dp circle, primary background, white Add glyph.
+- Limit state reuses the prior MIUIX disabled FAB semantic colors.
+- Center visual has no independent click behavior.
+- Shadow elevation is fixed to 0dp in both enabled and disabled states.
+- Remove the temporary custom-drawn gray circle/plus and limit-copy treatment.
+
+### Validation
+Run exact-head Runtime CI and Work Branch Canary. Device review should verify the embedded visual moves with the Card tilt, has no floating shadow, and disabled state is as clear as the previous FAB.
+
 ## 2026-10-02 — Build 594 Canvas composable-context correction
 
 **Type:** App UI compile fix  
