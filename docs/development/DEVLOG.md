@@ -2498,3 +2498,41 @@ No visual behavior, ownership, masking, scene policy, geometry, timer, animator,
 ### Decision gate
 
 One detailed Home -> AOD device trace from Build 634 is required. The first ancestor whose effective visibility collapses during the flash determines the correct bridge host. Do not introduce a root-level bridge before that evidence identifies the failing native layer.
+
+
+## 2026-10-03 — Build 634 device audit; Build 636 same-scene lifecycle dedupe
+
+**Type:** AOD lifecycle audit / ownership hygiene  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 634 -> 636
+
+### Device evidence
+
+The Build-634 trace captures repeated Home -> AOD transitions. The early transfer passes through KEYGUARD while `MiuiKeyguardStatusBarView` is not yet shown; later native AOD callbacks show the complete Keyguard host/content/system-icons chain visible with effective alpha 1.
+
+The same device observation also confirms stock HyperOS performs a visible Home -> AOD status-bar transition because the visual style changes across that boundary. Therefore a single flash is not by itself proof of a Guiyuan bug.
+
+### Lifecycle audit
+
+Across the captured session there is no:
+- Keyguard/AOD RenderSession detach;
+- Keyguard/AOD presentation cleanup or inactive event;
+- host replacement;
+- fail-native path;
+- represented-slot suppression release/reacquire.
+
+The family renderer and presentation both reuse their existing same-host Session objects. Repeated `renderer.attach` / `presentation.cutover=combined` diagnostics are therefore not real re-attachments.
+
+One unnecessary lifecycle action remains: `CombinedStatusKeyguardRenderSession.Session.retarget()` always calls `dispatchPresentationReadiness(..., force=true)`, even when the target family scene has not changed. That causes repeated cutover work and mask/reservation refreshes under multiple callbacks, although the Session itself remains stable.
+
+### Build 636 correction
+
+- Force readiness dispatch only when the family scene actually changes.
+- Same-scene retargets rely on the normal readiness-delta check.
+- KEYGUARD <-> AOD role changes still force dispatch so the presentation surface can retarget while readiness remains true.
+
+No cross-host bridge, timer, delay, alpha patch, visibility patch, geometry writer, or native animation override is introduced.
+
+### Review intent
+
+This correction is lifecycle hygiene, not an attempt to eliminate native Home -> AOD visual switching. Future AOD work should only resume if device evidence shows Guiyuan adds an extra artifact beyond the stock transition.
