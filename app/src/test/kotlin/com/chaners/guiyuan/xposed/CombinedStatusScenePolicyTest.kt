@@ -246,10 +246,11 @@ class CombinedStatusScenePolicyTest {
         )
     }
 
+
     @Test
-    fun latchedFamilySceneNeverRoutesIntoDisabledChild() {
+    fun animatingFamilyRetainsEnabledOutgoingChildWhenDestinationIsDisabled() {
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
@@ -262,7 +263,7 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = false,
@@ -277,12 +278,32 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun steadySceneOverridesStaleFirstControlCenterSourceAfterLifecycleBoundary() {
+    fun controlCenterSourceConflictUsesStableFamilyHistoryAsDirectionEvidence() {
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.HOME,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+            ),
+        )
         assertEquals(
             CombinedStatusSourceScene.HOME,
             CombinedStatusScenePolicy.resolveControlCenterSourceScene(
                 panelSourceScene = CombinedStatusSourceScene.KEYGUARD,
                 steadySourceScene = CombinedStatusSourceScene.HOME,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.KEYGUARD,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
             ),
         )
         assertEquals(
@@ -290,6 +311,8 @@ class CombinedStatusScenePolicyTest {
             CombinedStatusScenePolicy.resolveControlCenterSourceScene(
                 panelSourceScene = CombinedStatusSourceScene.HOME,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
             ),
         )
         assertEquals(
@@ -300,7 +323,6 @@ class CombinedStatusScenePolicyTest {
             ),
         )
     }
-
     @Test
     fun singleEnabledFamilyUsesSteadyKeyguardBoundaryInsteadOfAodAnimationTail() {
         assertEquals(
@@ -340,36 +362,41 @@ class CombinedStatusScenePolicyTest {
         )
     }
 
+
     @Test
-    fun disabledKeyguardChildCannotBeReplacedByAodOnSteadyKeyguard() {
+    fun latchedAodOriginBeatsStaleHomeOwnershipDuringAodToKeyguard() {
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
-                keyguardEnabled = false,
+                keyguardEnabled = true,
                 aodEnabled = true,
                 toAod = false,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                homePresentationOwned = false,
-            ),
-        )
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
-                featureEnabled = true,
-                keyguardEnabled = false,
-                aodEnabled = true,
-                toAod = false,
-                isAodAnimate = true,
-                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                homePresentationOwned = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                homePresentationOwned = true,
             ),
         )
     }
 
     @Test
-    fun aodOnlyPrearmsAcrossTransientKeyguardSourceWhileHomeStillOwnsPresentation() {
+    fun aodOnlyPrearmRequiresAnActualAnimationSignal() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = true,
+            ),
+        )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -377,25 +404,14 @@ class CombinedStatusScenePolicyTest {
                 keyguardEnabled = false,
                 aodEnabled = true,
                 toAod = false,
-                isAodAnimate = false,
+                isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
                 homePresentationOwned = true,
             ),
         )
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
-                featureEnabled = true,
-                keyguardEnabled = false,
-                aodEnabled = true,
-                toAod = false,
-                isAodAnimate = false,
-                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                homePresentationOwned = false,
-            ),
-        )
     }
-
     @Test
     fun aodPrearmRequiresAodFeatureAndVisibleHomeOwnership() {
         assertTrue(

@@ -1146,6 +1146,7 @@ class CombinedStatusModule : XposedModule() {
             CombinedStatusScenePolicy.resolveControlCenterSourceScene(
                 panelSourceScene = panelSourceScene,
                 steadySourceScene = steadyStatusSourceScene,
+                lastStableFamilyScene = lastStableKeyguardAodScene,
             )
         updateControlCenterSourceSceneEligibility(
             sourceScene = effectiveSourceScene,

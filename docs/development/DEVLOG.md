@@ -2683,3 +2683,47 @@ Lifecycle review additionally verified:
 - no `toAod/animToAod` direction inference is restored.
 
 No timer, delay, polling, extra owner, native visibility/alpha/geometry write, or copied SystemUI animation is introduced.
+
+## 2026-10-03 — Build 652: direction-aware first-pull source and outgoing-child retention
+
+**Type:** device evidence / lifecycle boundary correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 651 -> 652
+
+### Problem
+
+Build-651 device validation found three related boundary failures:
+- with both child features enabled, AOD -> Keyguard or Keyguard -> Home followed by an immediate fast Control Center pull can begin native and recover only after the gesture is held;
+- with Keyguard projection disabled, steady Keyguard can still be occupied by the AOD child and Home Control Center can become native;
+- with AOD projection disabled, Keyguard -> AOD restores native represented icons while the visible Keyguard scene is still outgoing.
+
+### Evidence
+
+The returned diagnostic captures Control Center becoming `state=native` with effective `sourceScene=KEYGUARD` and `keyguardRuntimeReady=false`, immediately while the native panel callback already reports `sourceScene=HOME`. A later stable-family callback restores Keyguard readiness and reattaches the projection, matching the visible late recovery.
+
+Code review also found:
+- the non-animating AOD-only shortcut treated `homePresentationOwned` as sufficient evidence to attach AOD on a steady Keyguard source;
+- the animating route let stale Home ownership override a latched family origin;
+- a disabled destination child forced Native at animation start rather than at the stable destination boundary.
+
+### Conclusion
+
+Neither native source witness is globally newest. A HOME/KEYGUARD disagreement needs transition direction, not a fixed winner. The existing non-animating stable-family latch supplies that direction without borrowing mutable ownership: a latched KEYGUARD/AOD child is outgoing toward Home, while UNKNOWN is the stable-Home origin entering the family.
+
+AOD prearm must require an actual animation plus UNKNOWN family origin. During a native Keyguard/AOD animation, a disabled destination does not justify restoring native beneath a still-visible enabled outgoing child; retain the outgoing child until stable target evidence, then enforce the disabled child.
+
+### Change
+
+- Resolve HOME/KEYGUARD Control Center conflicts from stable-family history.
+- Feed the same resolved source to projection eligibility and TransitionOwner.
+- Remove non-animating speculative AOD prearm.
+- Restrict transient-Keyguard AOD prearm to UNKNOWN family origin.
+- Retain the enabled outgoing family child when the destination child is disabled, only for the native animation interval.
+- Keep stable disabled child states native.
+
+No timer, delay, polling, duplicate owner, native geometry/alpha/visibility writer, or `animToAod` direction inference is added.
+
+### Validation
+
+Focused tests cover both unlock and lock conflict directions, prearm gating, stale Home ownership, and disabled-destination outgoing retention. Exact-HEAD Runtime is required, followed by signed Canary device validation because the change affects scene ownership and first-pull lifecycle ordering.
+

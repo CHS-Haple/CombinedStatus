@@ -188,19 +188,6 @@ internal object CombinedStatusScenePolicy {
             }
         }
         if (
-            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            !keyguardEnabled &&
-            aodEnabled &&
-            homePresentationOwned
-        ) {
-            // Home -> AOD crosses a short native KEYGUARD source interval on the
-            // pinned HyperOS target. When Keyguard projection is intentionally
-            // disabled, keep the still-owned Home presentation continuous by
-            // prearming the enabled AOD family owner instead of exposing native
-            // represented icons until the AOD animation callback catches up.
-            return KeyguardAodProjection.AOD
-        }
-        if (
             SystemUiKeyguardAodStateSource.blocksKeyguardProjection(
                 toAod = toAod,
                 isAodAnimate = isAodAnimate,
@@ -247,12 +234,14 @@ internal object CombinedStatusScenePolicy {
 
         if (
             steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
             homePresentationOwned &&
             aodEnabled
         ) {
-            // HyperOS briefly exposes KEYGUARD ancestry while Home still owns
-            // the visible source on Home -> AOD. Home ownership is stronger
-            // evidence than family history for this one boundary.
+            // Home -> AOD can briefly expose KEYGUARD ancestry before the AOD
+            // callback catches up. Only an UNKNOWN family origin may use Home
+            // ownership as prearm evidence. A latched AOD/Keyguard origin is
+            // stronger and must not be overridden by stale Home ownership.
             return KeyguardAodProjection.AOD
         }
 
@@ -264,17 +253,17 @@ internal object CombinedStatusScenePolicy {
         // frozen for the whole animation.
         return when (lastStableFamilyScene) {
             StableKeyguardAodScene.KEYGUARD ->
-                if (aodEnabled) {
-                    KeyguardAodProjection.AOD
-                } else {
-                    KeyguardAodProjection.NATIVE
+                when {
+                    aodEnabled -> KeyguardAodProjection.AOD
+                    keyguardEnabled -> KeyguardAodProjection.KEYGUARD
+                    else -> KeyguardAodProjection.NATIVE
                 }
 
             StableKeyguardAodScene.AOD ->
-                if (keyguardEnabled) {
-                    KeyguardAodProjection.KEYGUARD
-                } else {
-                    KeyguardAodProjection.NATIVE
+                when {
+                    keyguardEnabled -> KeyguardAodProjection.KEYGUARD
+                    aodEnabled -> KeyguardAodProjection.AOD
+                    else -> KeyguardAodProjection.NATIVE
                 }
 
             StableKeyguardAodScene.UNKNOWN ->
@@ -295,16 +284,25 @@ internal object CombinedStatusScenePolicy {
     fun resolveControlCenterSourceScene(
         panelSourceScene: CombinedStatusSourceScene,
         steadySourceScene: CombinedStatusSourceScene,
-    ): CombinedStatusSourceScene =
-        when (steadySourceScene) {
-            // SceneState's steady source is the lifecycle authority once known.
-            // In particular, an UNLOCKED_STATUS_BAR/HOME boundary must not be
-            // overwritten by a stale realSystemIcons KEYGUARD identity on the
-            // first Control Center callback after unlock.
-            CombinedStatusSourceScene.HOME -> CombinedStatusSourceScene.HOME
-            CombinedStatusSourceScene.KEYGUARD -> CombinedStatusSourceScene.KEYGUARD
-            CombinedStatusSourceScene.UNKNOWN -> panelSourceScene
+        lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
+    ): CombinedStatusSourceScene {
+        if (panelSourceScene == steadySourceScene) return panelSourceScene
+        if (panelSourceScene == CombinedStatusSourceScene.UNKNOWN) return steadySourceScene
+        if (steadySourceScene == CombinedStatusSourceScene.UNKNOWN) return panelSourceScene
+
+        // A HOME/KEYGUARD disagreement is a lifecycle-boundary race between two
+        // native witnesses. Family history provides direction without borrowing
+        // mutable presentation ownership:
+        // - a latched family child means Keyguard/AOD is the outgoing side, so
+        //   HOME is the unlock target;
+        // - UNKNOWN means stable Home was the prior family state, so KEYGUARD
+        //   is the lock/AOD target.
+        return if (lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN) {
+            CombinedStatusSourceScene.KEYGUARD
+        } else {
+            CombinedStatusSourceScene.HOME
         }
+    }
 
     fun controlCenterProjectionEligible(
         featureEnabled: Boolean,

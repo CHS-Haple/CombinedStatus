@@ -209,3 +209,16 @@ Build 620 promotes only **stable AOD** to a projected candidate. It does not rei
 - any missing/ambiguous AOD state or host contract restores native Keyguard/AOD presentation.
 
 This is a candidate ownership change and remains pending focused device validation. The accepted Build 619 baseline still treats AOD as native-only.
+
+### Build 652 lifecycle-boundary correction
+
+Build-651 device evidence refines the Keyguard/AOD family contract without adding a new owner:
+
+- a disabled child is a hard **stable-state** boundary; steady Keyguard cannot be occupied by AOD solely because Home presentation ownership is still observable, and steady AOD cannot be occupied when the AOD child is disabled;
+- Home -> AOD prearm requires an actual native AOD animation, UNKNOWN prior family history, an enabled AOD child, and still-owned Home presentation. Home ownership by itself is not transition direction;
+- during a native Keyguard <-> AOD animation, the single family owner may retain the enabled outgoing child when the destination child is disabled. This retention ends at stable-target evidence, where the disabled destination fails native. HyperOS remains the only alpha/visibility/translation/timing owner;
+- a Control Center HOME/KEYGUARD conflict is resolved from the existing stable-family lifecycle latch rather than assigning permanent priority to either callback source: latched KEYGUARD/AOD history selects HOME as the unlock target, while UNKNOWN history selects KEYGUARD as the lock/AOD-entry target;
+- the one resolved Control Center source is shared by projection eligibility and TransitionOwner.
+
+This supersedes Build-651 assumptions that a disabled destination must force Native at animation start and that steady scene identity always outranks the panel source. It does not restore mutable presentation ownership as direction evidence.
+
