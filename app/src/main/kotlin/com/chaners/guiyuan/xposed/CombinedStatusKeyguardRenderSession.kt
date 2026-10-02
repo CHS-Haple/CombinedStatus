@@ -170,6 +170,9 @@ internal object CombinedStatusKeyguardRenderSession {
 
     internal fun resolveFamilyChildAlpha(): Float = 1f
 
+    internal fun shouldForceReadinessDispatch(sceneChanged: Boolean): Boolean =
+        sceneChanged
+
     private fun readViewField(
         owner: Any,
         name: String,
