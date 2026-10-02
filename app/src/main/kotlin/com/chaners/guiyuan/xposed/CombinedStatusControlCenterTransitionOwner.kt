@@ -833,6 +833,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
                 ",iconCapacity=" + statusIconCapacitySummary() +
+                ",fakeCarrier=" + fakeCarrierHierarchySummary() +
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
@@ -863,6 +864,36 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
             return "{fake=" + summary(fakeStatusIcons) +
                 ",final=" + summary(finalStatusIcons) + "}"
+        }
+
+        private fun fakeCarrierHierarchySummary(): String {
+            fun token(view: View): String {
+                val entry =
+                    NativeParticipantRuntimeAccess.resourceEntryName(view)
+                        ?: "no-id"
+                return view.javaClass.simpleName + ":" + entry +
+                    "(l=" + view.left +
+                    ",r=" + view.right +
+                    ",w=" + view.width +
+                    ",v=" + view.visibility + ")"
+            }
+
+            val area = fakeStatusIcons.parent as? View ?: return "{area=none}"
+            val row = area.parent as? ViewGroup
+            val children =
+                row?.let { parent ->
+                    buildList {
+                        val limit = minOf(parent.childCount, 8)
+                        for (index in 0 until limit) {
+                            add(token(parent.getChildAt(index)))
+                        }
+                    }.joinToString(",")
+                }.orEmpty()
+            val fakeRoot = fakeRootRef.get()
+            return "{root=" + (fakeRoot?.let(::token) ?: "none") +
+                ",area=" + token(area) +
+                ",parent=" + (row?.let(::token) ?: "none") +
+                ",children=[" + children + "]}"
         }
 
         fun matches(
