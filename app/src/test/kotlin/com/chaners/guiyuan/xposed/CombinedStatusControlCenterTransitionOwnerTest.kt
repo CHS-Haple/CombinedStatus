@@ -47,29 +47,60 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingGlyphFollowsNumberUntilLateHandoffFade() {
+    fun chargingGlyphHidesBeforeMovementAndOnlyReappearsWithTarget() {
+        val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
         assertEquals(
             1f,
-            CombinedStatusPainter.BatteryNumberFollowerPolicy
-                .chargingOpacity(0f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusPainter.BatteryNumberFollowerPolicy
-                .chargingOpacity(0.58f),
+            policy.chargingOpacity(
+                progress = 0f,
+                targetAvailable = true,
+            ),
             0.0001f,
         )
         assertTrue(
-            CombinedStatusPainter.BatteryNumberFollowerPolicy
-                .chargingOpacity(0.72f) in 0f..1f,
+            policy.chargingOpacity(
+                progress = 0.12f,
+                targetAvailable = true,
+            ) in 0f..1f,
         )
+
+        // Once the ring has crossed the 50% retained point the source glyph is
+        // already fully hidden; only then may its independent target motion start.
         assertEquals(
             0f,
-            CombinedStatusPainter.BatteryNumberFollowerPolicy
-                .chargingOpacity(0.88f),
+            policy.chargingOpacity(
+                progress = 0.14f,
+                targetAvailable = true,
+            ),
             0.0001f,
         )
+        assertTrue(policy.chargingMotionProgress(0.14f) > 0f)
+
+        // Fail-native target policy: without a reliable native charging target,
+        // the glyph stays hidden after the source-side fade and never reappears.
+        assertEquals(
+            0f,
+            policy.chargingOpacity(
+                progress = 0.30f,
+                targetAvailable = false,
+            ),
+            0.0001f,
+        )
+        assertTrue(
+            policy.chargingOpacity(
+                progress = 0.30f,
+                targetAvailable = true,
+            ) > 0f,
+        )
+        assertEquals(
+            1f,
+            policy.chargingOpacity(
+                progress = 0.45f,
+                targetAvailable = true,
+            ),
+            0.0001f,
+        )
+        assertEquals(1f, policy.chargingMotionProgress(0.45f), 0.0001f)
     }
 
     @Test
