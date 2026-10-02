@@ -414,6 +414,7 @@ internal class CombinedStatusPainter(
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
         private const val CHARGING_TARGET_REVEAL_START = 0.85f
         private const val CHARGING_TARGET_REVEAL_COMPLETE_BASE_START = 0.88f
+        private const val CHARGING_TARGET_REVEAL_COMPLETE_FRACTION = 0.35f
 
         private val chargingHideStartProgress =
             firstProgressAtOrBelowRemaining(CHARGING_HIDE_START_REMAINING)
@@ -422,9 +423,15 @@ internal class CombinedStatusPainter(
         private val chargingHideProgressSpan =
             (chargingHideEndProgress - chargingHideStartProgress)
                 .coerceAtLeast(0.001f)
-        private val chargingTargetRevealComplete =
+        private val chargingTargetRevealBaseComplete =
             (CHARGING_TARGET_REVEAL_COMPLETE_BASE_START + chargingHideProgressSpan)
                 .coerceAtMost(0.98f)
+        private val chargingTargetRevealComplete =
+            (
+                CHARGING_TARGET_REVEAL_START +
+                    (chargingTargetRevealBaseComplete - CHARGING_TARGET_REVEAL_START) *
+                        CHARGING_TARGET_REVEAL_COMPLETE_FRACTION
+            ).coerceIn(CHARGING_TARGET_REVEAL_START, chargingTargetRevealBaseComplete)
 
         fun chargingVisibleFraction(
             progress: Float,
