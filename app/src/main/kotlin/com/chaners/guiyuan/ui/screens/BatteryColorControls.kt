@@ -2,7 +2,6 @@ package com.chaners.guiyuan.ui.screens
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,7 +36,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
@@ -73,6 +71,7 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.FloatingActionButtonDefaults
 import top.yukonga.miuix.kmp.basic.HsvHueSlider
 import top.yukonga.miuix.kmp.basic.HsvSaturationSlider
 import top.yukonga.miuix.kmp.basic.HsvValueSlider
@@ -97,6 +96,7 @@ import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.ChevronBackward
 import top.yukonga.miuix.kmp.icon.extended.ChevronForward
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.overlay.OverlayListPopup
@@ -768,66 +768,46 @@ private fun BatteryAddSchemePage(
                     },
                 onClick = if (enabled) onClick else null,
             ) {
-                Column(
+                Box(
                     modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                    contentAlignment = Alignment.Center,
                 ) {
-                    val plusColor =
-                        if (enabled) {
-                            Color.White
-                        } else {
-                            MiuixTheme.colorScheme.disabledOnSecondaryVariant
-                        }
                     Surface(
-                        modifier = Modifier.size(60.dp),
+                        modifier =
+                            Modifier.size(
+                                width = FloatingActionButtonDefaults.MinWidth,
+                                height = FloatingActionButtonDefaults.MinHeight,
+                            ),
                         shape = CircleShape,
                         color =
                             if (enabled) {
-                                MiuixTheme.colorScheme.onSurfaceVariantActions
+                                MiuixTheme.colorScheme.primary
                             } else {
-                                MiuixTheme.colorScheme.disabledSecondaryVariant
+                                MiuixTheme.colorScheme.disabledPrimaryButton
+                            },
+                        shadowElevation =
+                            if (enabled) {
+                                FloatingActionButtonDefaults.ShadowElevation
+                            } else {
+                                0.dp
                             },
                     ) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Canvas(
-                                modifier = Modifier.size(30.dp),
-                            ) {
-                                val stroke = 3.5.dp.toPx()
-                                val inset = 5.dp.toPx()
-                                val midX = size.width / 2f
-                                val midY = size.height / 2f
-                                drawLine(
-                                    color = plusColor,
-                                    start = androidx.compose.ui.geometry.Offset(inset, midY),
-                                    end = androidx.compose.ui.geometry.Offset(size.width - inset, midY),
-                                    strokeWidth = stroke,
-                                    cap = StrokeCap.Round,
-                                )
-                                drawLine(
-                                    color = plusColor,
-                                    start = androidx.compose.ui.geometry.Offset(midX, inset),
-                                    end = androidx.compose.ui.geometry.Offset(midX, size.height - inset),
-                                    strokeWidth = stroke,
-                                    cap = StrokeCap.Round,
-                                )
-                            }
+                            Icon(
+                                imageVector = MiuixIcons.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp),
+                                tint =
+                                    if (enabled) {
+                                        MiuixTheme.colorScheme.onPrimary
+                                    } else {
+                                        MiuixTheme.colorScheme.disabledOnPrimaryButton
+                                    },
+                            )
                         }
-                    }
-                    if (!enabled) {
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.battery_custom_scheme_limit,
-                                    BATTERY_COLOR_SCHEME_CUSTOM_MAX,
-                                ),
-                            modifier = Modifier.padding(top = 12.dp),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.disabledOnSecondaryVariant,
-                        )
                     }
                 }
             }
