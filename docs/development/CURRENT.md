@@ -48,13 +48,13 @@ Build 631 corrects the handoff contract while preserving the accepted ring path:
 - while source alpha is non-zero, target motion is still forbidden, but glyph geometry follows the battery-number participant through the same affine transform so their relative offset/scale stays fixed;
 - after source alpha reaches zero, the glyph may travel invisibly to exact native `mBatteryChargingView` target geometry;
 - target travel completes before the late reveal phase;
-- target reveal begins only near overall handoff progress 92%;
+- target reveal begins near overall handoff progress 88%;
 - reveal duration is exactly the same progress span as source fade and uses the same smoothstep easing, giving symmetric fade-out/fade-in speed;
 - no reliable target still means source fade only, with no guessed motion or reveal.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003631` / Build `20261003-631`.
+- Candidate identity: `0.0.5` / versionCode `261003632` / Build `20261003-632`.
 - Build 629 device video confirms the incorrect root-coordinate freeze, source visibility beyond the 50% ring point, and target reappearance too close to ring completion.
 - Unit coverage locks:
   - ring 60% -> 50% as the source fade window;
@@ -62,7 +62,7 @@ Build 631 corrects the handoff contract while preserving the accepted ring path:
   - zero charging-target motion while any source alpha remains;
   - battery-number-relative follower geometry during the visible/fading source phase;
   - equal fade-out/fade-in progress duration;
-  - no target-side reveal before the late 92% handoff phase;
+  - no target-side reveal before the late 88% handoff phase;
   - no-target fail-native behavior.
 - The accepted Build-624 main ring/fill curve remains unchanged; the terminal ROUND-cap cleanup from 629 remains intact.
 
@@ -82,7 +82,7 @@ Focused Build-631 charging validation:
 
 ## Immediate next step
 
-Finish exact-HEAD Runtime CI and final geometry review for Build 631. If clean, freeze runtime and produce one signed Work Branch Canary for focused device validation.
+Finish exact-HEAD Runtime CI and final geometry review for Build 632. If clean, freeze runtime and produce one signed Work Branch Canary for focused device validation.
 
 ## Reference priority
 
