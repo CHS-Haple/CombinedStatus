@@ -86,6 +86,8 @@
     <string name="combined_size">Overall size</string>
     <string name="outer_weight">Outer weight</string>
     <string name="outer_weight_summary">Adjusts the ring, signal dots, and unavailable mark together</string>
+    <string name="control_center_tint_transition">Pull-down tint transition</string>
+    <string name="control_center_tint_transition_summary">While opening Control Center, smoothly return colorized elements to the system status-bar tint</string>
     <string name="wifi_size">Wi-Fi size</string>
     <string name="airplane_size">Airplane mode size</string>
     <string name="no_sim_size">No SIM size</string>
