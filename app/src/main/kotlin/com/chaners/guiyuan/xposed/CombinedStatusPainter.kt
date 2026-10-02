@@ -1522,6 +1522,8 @@ internal class CombinedStatusPainter(
                     batteryPercent = model.batteryPercent,
                     progress = ringRetractProgress,
                     exitDirection = ringRetractExitDirection,
+                    followRetractEndpoint =
+                        visualSettings.batteryFillFollowsRetractEndpoint,
                 )
 
             stroke(batteryTint, 48, geometry.ringStroke, opacity)
