@@ -2,7 +2,9 @@ package com.chaners.guiyuan.xposed
 
 import kotlin.math.acos
 import kotlin.math.asin
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 
 internal object CombinedStatusBatteryTopArcPolicy {
     internal data class Arc(
@@ -65,10 +67,24 @@ internal object CombinedStatusBatteryTopArcPolicy {
             top > bottom ||
             bottom <= ringTop ||
             top >= ringBottom ||
-            right <= ringCenterX ||
-            left >= ringCenterX
+            right <= ringCenterX - ringRadius ||
+            left >= ringCenterX + ringRadius
         ) {
             return Gap(TOP_DEGREES, 0f)
+        }
+
+        if (right <= ringCenterX || left >= ringCenterX) {
+            return resolveOffCenterGap(
+                left = left,
+                top = top,
+                right = right,
+                bottom = bottom,
+                ringCenterX = ringCenterX,
+                ringCenterY = ringCenterY,
+                ringRadius = ringRadius,
+                startDegrees = startDegrees,
+                maxSweep = maxSweep,
+            )
         }
 
         val availableLeft =
@@ -107,6 +123,102 @@ internal object CombinedStatusBatteryTopArcPolicy {
 
         val gapStart = TOP_DEGREES - leftHalf
         val gapEnd = TOP_DEGREES + rightHalf
+        return Gap(
+            centerDegrees = (gapStart + gapEnd) / 2f,
+            sweepDegrees = (gapEnd - gapStart).coerceAtLeast(0f),
+        )
+    }
+
+    private fun resolveOffCenterGap(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        ringCenterX: Float,
+        ringCenterY: Float,
+        ringRadius: Float,
+        startDegrees: Float,
+        maxSweep: Float,
+    ): Gap {
+        val arcStart = startDegrees
+        val arcEnd = startDegrees + maxSweep
+        val boundaries = ArrayList<Float>(10)
+        boundaries += arcStart
+        boundaries += arcEnd
+
+        fun addEquivalentAngles(rawDegrees: Float) {
+            if (!rawDegrees.isFinite()) return
+            for (turn in -2..2) {
+                val candidate = rawDegrees + turn * FULL_TURN_DEGREES
+                if (candidate >= arcStart - ANGLE_EPSILON && candidate <= arcEnd + ANGLE_EPSILON) {
+                    boundaries += candidate.coerceIn(arcStart, arcEnd)
+                }
+            }
+        }
+
+        fun addCosBoundary(x: Float) {
+            val ratio = ((x - ringCenterX) / ringRadius)
+            if (ratio < -1f || ratio > 1f) return
+            val base =
+                Math.toDegrees(
+                    acos(ratio.coerceIn(-1f, 1f)).toDouble(),
+                ).toFloat()
+            addEquivalentAngles(base)
+            addEquivalentAngles(FULL_TURN_DEGREES - base)
+        }
+
+        fun addSinBoundary(y: Float) {
+            val ratio = ((y - ringCenterY) / ringRadius)
+            if (ratio < -1f || ratio > 1f) return
+            val base =
+                Math.toDegrees(
+                    asin(ratio.coerceIn(-1f, 1f)).toDouble(),
+                ).toFloat()
+            addEquivalentAngles(base)
+            addEquivalentAngles(HALF_TURN_DEGREES - base)
+        }
+
+        addCosBoundary(left)
+        addCosBoundary(right)
+        addSinBoundary(top)
+        addSinBoundary(bottom)
+
+        val ordered =
+            boundaries
+                .sorted()
+                .fold(ArrayList<Float>()) { result, value ->
+                    if (result.isEmpty() || kotlin.math.abs(result.last() - value) > ANGLE_EPSILON) {
+                        result += value
+                    }
+                    result
+                }
+        if (ordered.size < 2) return Gap(TOP_DEGREES, 0f)
+
+        val covered = ArrayList<Arc>()
+        for (index in 0 until ordered.lastIndex) {
+            val segmentStart = ordered[index]
+            val segmentEnd = ordered[index + 1]
+            if (segmentEnd - segmentStart <= ANGLE_EPSILON) continue
+            val midpoint = (segmentStart + segmentEnd) / 2f
+            val radians = Math.toRadians(midpoint.toDouble())
+            val x = ringCenterX + ringRadius * cos(radians).toFloat()
+            val y = ringCenterY + ringRadius * sin(radians).toFloat()
+            if (
+                x >= left - POSITION_EPSILON &&
+                x <= right + POSITION_EPSILON &&
+                y >= top - POSITION_EPSILON &&
+                y <= bottom + POSITION_EPSILON
+            ) {
+                covered += Arc(segmentStart, segmentEnd - segmentStart)
+            }
+        }
+        if (covered.isEmpty()) return Gap(TOP_DEGREES, 0f)
+
+        val gapStart = covered.first().startDegrees
+        val gapEnd =
+            covered.last().let { arc ->
+                arc.startDegrees + arc.sweepDegrees
+            }
         return Gap(
             centerDegrees = (gapStart + gapEnd) / 2f,
             sweepDegrees = (gapEnd - gapStart).coerceAtLeast(0f),
@@ -194,4 +306,8 @@ internal object CombinedStatusBatteryTopArcPolicy {
     }
 
     private const val TOP_DEGREES = 270f
+    private const val HALF_TURN_DEGREES = 180f
+    private const val FULL_TURN_DEGREES = 360f
+    private const val ANGLE_EPSILON = 0.0001f
+    private const val POSITION_EPSILON = 0.0001f
 }

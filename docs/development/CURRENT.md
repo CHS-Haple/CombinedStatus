@@ -14,13 +14,13 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `fix/wifi-ring-shape-avoidance`.
 
-Build 616 / `20261002-616` supersedes the branch's 614/615 checkpoints and carries all of their fixes:
+Build 617 / `20261002-617` supersedes the branch's 614/615/616 checkpoints and carries all of their fixes:
 - shape-aware Wi-Fi battery-ring avoidance;
 - overall 60%-100%, Wi-Fi/mobile-type 40%-125% ranges;
 - 5G/5GA following user overall scale while host viewport scale remains compensated;
 - SystemUI-main-thread visual-settings commits with stale slider snapshots coalesced.
 
-Build 616 adds profile-default and top-information semantics requested after Build 615.
+Build 616 added profile-default and top-information semantics requested after Build 615. Build 617 fixes off-center Wi-Fi badge avoidance exposed by Preview Sandbox hotspot/no-internet states.
 
 ### Profile defaults
 
@@ -47,6 +47,21 @@ Implementation contract:
 - UI control lives in the Global section and is always available, independent of number/charging switches;
 - the value remains independently remembered for Network centered and Battery centered profiles.
 
+### Off-center Wi-Fi badge avoidance
+
+Preview Sandbox uses the real HyperOS `stat_sys_hotspot_signal_*` and `stat_sys_wifi_signal_unavailable_*` resources and the same painter/native optical probe as runtime, so the reproduced overlap is representative of the shared geometry path.
+
+Root cause:
+- Build 614 preserved disconnected drawable components;
+- however `resolveGap()` still inherited a legacy assumption that a component must cross the ring center X;
+- hotspot-link / no-internet badge components can sit fully on the right shoulder and were therefore skipped entirely.
+
+Build 617:
+- keeps the accepted center-crossing gap math unchanged;
+- routes only fully left/right components through an exact circle-vs-rectangle angular interval calculation;
+- merges the resulting badge interval with the central Wi-Fi components, extending only the occupied shoulder;
+- adds no hotspot/no-internet-specific size coefficient or screenshot-derived angle.
+
 No migration rewrites existing profile values, no new preference key is introduced, and no timer/animation/native-writer ownership changes are introduced.
 
 ## Validation state
@@ -60,11 +75,12 @@ Pre-commit review:
 - Build 615 scaling/main-thread fixes remain intact.
 
 Required next:
-1. exact-head Runtime CI for Build 616;
-2. signed Work Branch Canary;
-3. verify defaults after restore/switching profiles;
-4. verify Top information vertical offset: Network centered moves number+glyph only; Battery centered moves network only;
-5. repeat the Build-615 regression checks for scale dragging, 40% endpoints, Wi-Fi gap and numeric avoidance.
+1. exact-head Runtime CI for Build 617;
+2. signed Work Branch Canary for Build 617;
+3. verify hotspot and no-internet Wi-Fi keep a small clear right-shoulder gap without restoring the oversized ordinary-Wi-Fi opening;
+4. verify defaults after restore/switching profiles;
+5. verify Top information vertical offset: Network centered moves number+glyph only; Battery centered moves network only;
+6. repeat the Build-615 regression checks for scale dragging, 40% endpoints and numeric avoidance.
 
 ## Reference priority
 

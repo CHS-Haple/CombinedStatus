@@ -1,3 +1,27 @@
+## 2026-10-02 — Build 617 off-center Wi-Fi badge ring avoidance
+
+**Type:** Battery-ring optical geometry  
+**Display version:** 0.0.4  
+**Build:** 617 / `20261002-617`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Device/preview evidence
+Preview Sandbox hotspot and no-internet states showed the right-side native badge approaching the battery-ring right shoulder even though ordinary Wi-Fi component-aware avoidance was already improved.
+
+Preview uses the real HyperOS hotspot/unavailable drawable resources and the same `CombinedStatusPainter` native optical probe as runtime, so there is no separate preview-only badge overlay to patch.
+
+### Root cause
+`CombinedStatusBatteryTopArcPolicy.resolveGap()` retained an old early-return condition for content wholly left or right of `ringCenterX`. That assumption was valid only for centered text/Wi-Fi envelopes. A disconnected hotspot-link or no-internet badge can be entirely right of center, so its optical component was probed correctly but then discarded by the gap policy.
+
+### Correction
+- Preserve the accepted center-crossing gap formula unchanged.
+- For components wholly left/right of center, derive the exact angular intervals where the ring centerline lies inside the clearance-expanded component rectangle.
+- Merge that interval with the central Wi-Fi component intervals.
+- Add symmetric left/right badge tests and a regression asserting a right badge extends only the right shoulder.
+
+### Boundaries
+No badge-specific shrink/expand factor, fixed gap angle, resource-name special case, new renderer path, animation ownership, or SystemUI writer.
+
 ## 2026-10-02 — Build 616 profile defaults and top-information offset ownership
 
 **Type:** Visual defaults / layout-profile geometry / companion UI  
