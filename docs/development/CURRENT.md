@@ -37,84 +37,69 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 652 is the current device candidate after Build-638 feedback.
+Build 653 is the current device candidate, based directly on accepted Build 652 behavior.
 
-Confirmed Build-638 root causes:
-- `FOLLOW_SYSTEM` is correctly classified as non-colorized; only resolved `Custom` semantic sources are treated as battery-colorized;
-- the pull-down was sampling `finalStatusIcons`, the fully-expanded QS destination, as native tint authority. That destination is commonly white and is not the native transition carrier visible beside Guiyuan during the gesture;
-- Build 638 also attempted to preserve source tint for non-colorized participants, which diverged from the actual native QS_FAKE peer tint path;
-- supplemental Airplane / No-SIM reveal resolved real native optical target geometry but used `SHRINK_ONLY`, preventing growth when the native target drawable is larger than the Guiyuan source;
-- the Build-638 charging Clip window (retained ring 26% -> 20%) kept the source charging glyph visible too long.
+Build 652 device feedback:
+- normal Build-652 pull-down/tint/charging behavior showed no new major regression;
+- with an island event active, HyperOS native status-icon island avoidance no longer behaved authoritatively;
+- with charging-only island active, pull-down could collapse the expected dual-signal presentation to a single mobile presentation and allow left-side native status icons to overlap it.
 
-Build 652 correction:
-- pull-down native tint now reads the already-applied tint from visible, non-represented native peers in `QS_FAKE / fakeStatusIcons`, the same native transition presentation moving beside Guiyuan;
-- non-colorized / FOLLOW_SYSTEM participants directly follow that live native peer tint; custom battery-colorized participants alone use the optional 35%-65% source -> native interpolation;
-- final Battery tint is removed as a generic status-icon tint fallback; if a live QS_FAKE peer is temporarily unavailable, only the last valid QS_FAKE peer tint is retained;
-- supplemental Airplane and No-SIM use `TARGET` scale with the existing native drawable optical target geometry, matching the Wi-Fi exact-target principle without per-icon scale constants;
-- latent additional-mobile Clip remains expanded from exact target-axis compensation;
-- source charging-glyph Clip starts when ring retract starts (100% remaining) and completes exactly when 50% remains; while source-visible it keeps following the number, then travels only while hidden;
-- charging target reveal now keeps the same 0.85 start but completes within the first 35% of the former 0.85-0.98 reveal window, matching the accelerated latent-resource cadence instead of taking the full late window;
-- custom-color pull-down tint no longer uses an independent fixed window: it starts with battery-ring retract and completes exactly when the ring retract completes; the color phase uses its own smoothstep over the shared ring lifetime so it stays visually gentler than the ring's front-loaded shrink. FOLLOW_SYSTEM still directly follows live QS_FAKE native tint.
+Root cause confirmed from Build-652 diagnostics and source review:
+- the transition session was allowed to expand native `paddingEnd` while a generic island was showing;
+- a Guiyuan hook on `MiuiStatusIconContainer.getIslandTranslationX()` then subtracted the same transition padding delta from HyperOS' native island collision boundary;
+- Build-652 diagnostics recorded `reservationMode=native-progress-fake-island-projected` with large active deltas while HyperOS' separate `isAddBatteryIsland` callback still reported false. The two island authorities could therefore diverge;
+- this violated the native-layout ownership rule: Guiyuan transition width and overlay geometry are project-owned, while native status-icon capacity, dual-SIM layout decisions, and island collision/avoidance must remain HyperOS-owned.
 
-No new animator, timer, native tint/geometry writer, guessed pixel offset, or second transition clock is added.
+Build 653 correction:
+- removes the fake island-boundary hook entirely; Guiyuan no longer intercepts or modifies `getIslandTranslationX()`;
+- removes the fake island-width compensation state/bridge and its lifecycle state;
+- while `genericIslandShowing == true`, native transition padding expansion is always blocked for both Home and Keyguard;
+- if an island appears after a pull-down transition already expanded native padding, the next native panel sample clears Guiyuan's transition reservation immediately;
+- ordinary no-island pull-down keeps the existing Build-652 transition reservation behavior;
+- transition overlay geometry, battery-ring/charging timing, tint behavior, target geometry, and 0.85 -> 0.90 charging target reveal are unchanged;
+- panel runtime hook count is reduced from 5 to 4 because the only native island-boundary writer was removed.
 
-Build 648 Runtime failed only because a pre-change unit assertion still expected custom tint to remain fully at source color at progress 0.20. The runtime implementation already followed the approved ring-synced rule; Build 652 updates that test to hold source only at retract start (progress 0) and keeps the runtime behavior unchanged.
-
-
-Build 652 device-feedback correction:
-- Build 649 tied source charging-glyph disappearance to 50% **remaining ring arc**, but the ring retract curve is intentionally front-loaded; device video therefore showed the lightning fully gone before the retract animation itself reached halfway.
-- Build 652 instead uses the ring retract **lifetime** as the authority: clipping starts at lifetime 0%, is exactly 50% visible at lifetime 25%, and is fully clipped at lifetime 50%.
-- The source glyph remains number-relative while any source clip remains; only after complete clipping can hidden target travel begin.
-- The mechanism remains opaque horizontal Clip only (`opacity=1`), not alpha fade or scale.
-- Target reveal remains independently fixed at 0.85 -> 0.90.
-
-
-Build 652 device-video correction:
-- Build 649 ended the source charging Clip when retained ring arc reached 50%, which device video showed as too early.
-- Build 650 ended it at 50% of raw ring-retract lifetime, but the ring uses a strong front-loaded curve (0.92); at that point only about 18% of the arc remains, so device video showed the lightning disappearing near the end.
-- Build 652 calibrates the source Clip endpoint to 40% of ring-retract lifetime, corresponding to about 32% retained arc under the current ring curve. This visually falls between the two proven bad endpoints and matches the observed midpoint more closely.
-- Clip still starts exactly with ring retract, remains linear/opaque, stays locked to the number while visible, then hidden travel begins.
-- Target reveal remains fixed at 0.85 -> 0.90; tint timing and ring geometry are unchanged.
+No timer, delay, polling, new geometry patch, island-width writer, alpha patch, or second state machine is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003652` / Build `20261003-652`.
-- Work branch remains based on current `dev` with no behind commits at the latest checkpoint.
-- Focused coverage locks:
-  - FOLLOW_SYSTEM -> live native target tint and custom-color switch semantics;
-  - no Battery fallback in native transition tint selection;
-  - latent-mobile target Clip envelope;
-  - charging source Clip endpoints at ring remaining 100% and 50%;
-  - existing native optical target resolution for single-icon Airplane / No-SIM witnesses.
+- Candidate identity: `0.0.5` / versionCode `261003653` / Build `20261003-653`.
+- Work branch is based on current `dev`; exact ahead/behind must be rechecked before Canary.
+- Focused unit coverage now locks:
+  - generic island => no native padding expansion on Home;
+  - generic island => no native padding expansion on Keyguard;
+  - ordinary no-island Home/Keyguard can retain transition reservation;
+  - panel runtime hook count is 4 and contains no fake island-boundary hook.
 - Exact-HEAD Runtime CI is required before a signed Canary.
-- Device evidence is required for color, Airplane / No-SIM target-size continuity, and charging Clip timing.
+- Device evidence is required because this changes native layout/ownership behavior during island transitions.
 
 ## Device gate
 
-After exact-HEAD Runtime CI passes, validate one signed Build-644 Canary:
+After exact-HEAD Runtime CI passes, validate one signed Build-653 Canary:
 
-1. Pull-down tint
-   - use a scene where adjacent native status icons visibly change tint during pull-down;
-   - all Guiyuan participants configured as FOLLOW_SYSTEM must match those adjacent native QS_FAKE icons throughout the gesture, not default to white;
-   - custom battery-linked colors should transition only when the existing pull-down tint switch is enabled.
+1. Charging-only island
+   - with dual SIM / dual-signal presentation active, pull down Control Center;
+   - the native dual-signal presentation must remain intact instead of collapsing to one mobile presentation;
+   - left-side native status icons must not overlap the mobile presentation;
+   - native icon hiding/knife-avoidance must follow HyperOS' island boundary.
 
-2. Airplane / No-SIM
-   - trigger states where the icon appears only during Control Center expansion;
-   - projected icon size must converge continuously to the fully-expanded native icon with no final size jump;
-   - compare directly against the already-accepted Wi-Fi size continuity.
+2. Other island events
+   - repeat pull-down with at least one non-charging island event;
+   - HyperOS native status-icon island avoidance must work normally throughout the gesture;
+   - Guiyuan must not widen native status-icon capacity or defeat native hiding.
 
-3. Charging glyph
-   - Clip begins immediately with ring retract;
-   - source charging glyph is exactly gone when retained ring reaches 50%;
-   - it keeps its relative position to the battery number while source-visible, does not independently fade/shrink, travels only while hidden, and late-reveals at the native target.
+3. Mixed charging + another island event
+   - if available, verify the same native-authority behavior;
+   - lack of an easy mixed-event reproduction is not a blocker if charging-only and another island type both pass.
 
 4. Regression
-   - additional mobile signal remains unclipped;
-   - no regression in ring/fill retract, reservation, target alignment, or fail-native behavior.
+   - ordinary no-island pull-down remains Build-652 behavior;
+   - Build-652 charging lightning Clip/tint/target reveal remains unchanged;
+   - no new first-pull, lockscreen/AOD, Hot Reload, or target-alignment regression.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 652. If green, request one signed Canary and freeze #197 runtime for focused device validation.
+Run exact-HEAD Runtime CI for Build 653. If green, request one signed Canary and freeze #197 runtime for the focused island device gate.
 
 ## Reference priority
 
