@@ -785,12 +785,7 @@ private fun BatteryAddSchemePage(
                             } else {
                                 MiuixTheme.colorScheme.disabledPrimaryButton
                             },
-                        shadowElevation =
-                            if (enabled) {
-                                FloatingActionButtonDefaults.ShadowElevation
-                            } else {
-                                0.dp
-                            },
+                        shadowElevation = 0.dp,
                     ) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
