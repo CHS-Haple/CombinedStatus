@@ -15,37 +15,39 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 625 is device-rejected: repeated Keyguard/AOD switching still exposes the native Wi-Fi/mobile/battery represented set for a short interval even though Keyguard and AOD already share one host-scoped presentation/render family.
+Build 626 is device-rejected. The callback-order correction was necessary but insufficient: detailed device evidence shows both family roles can still be released during one native AOD transition because RenderSession/readiness code independently re-derives eligibility from raw AOD state after ScenePolicy has already selected the continuous family projection.
 
-Build 626 narrows the remaining root cause to callback ordering inside that shared family:
-- `SystemUiKeyguardAodStateSource` stores the new HyperOS AOD state before invoking Guiyuan;
-- Build 625 then delivered that state to the currently-labelled render scene first, allowing the outgoing Keyguard/AOD scene to publish `readiness=false` and restore native represented slots;
-- only afterwards did `onKeyguardHostResolution()` retarget the same family session to the destination scene;
-- Build 626 reverses only those two module-level steps: resolve/retarget the family owner first, then let the already-retargeted render session consume the same AOD update.
-
-This preserves the Build-625 single-owner architecture and adds no timer, delay, polling, duplicate animator, native translation writer, or guessed AOD direction.
+Build 628 removes those duplicate eligibility writers:
+- `CombinedStatusScenePolicy.resolveKeyguardAodProjection()` is the sole KEYGUARD / AOD / NATIVE projection authority;
+- RenderSession receives the selected scene eligibility from Module and no longer derives it again from `toAod`, `isAodAnimate` or `blocksProjection`;
+- raw AOD updates may refresh inherited visibility/alpha diagnostics but cannot change presentation readiness ownership;
+- Keyguard and AOD readiness/cutover validate against the same current ScenePolicy projection instead of applying a second stable-AOD rule;
+- same-host family retarget, role-specific cleanup guards, one presentation Session and one RenderView remain unchanged;
+- no timer, delay, polling, direction guess or duplicate native geometry/visibility writer is added.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003626` / Build `20261003-626`.
-- Build 625 device evidence rejects the prior ordering because native represented icons still flash during scene switching.
-- The Build-625 diagnostic sequence and video agree on the failure shape: outgoing readiness cleanup precedes incoming AOD/Keyguard cutover.
-- Build 626 changes no host topology, represented-slot set, compact-layout rule, AOD child semantics, or Control Center eligibility; it changes only family handoff ordering.
-- Runtime CI #2289 already passed the exact source-ordering change before the Build-id-only bump.
-- Current Build-626 Runtime CI is the final automated gate before a focused Canary/device check.
+- Candidate identity: `0.0.5` / versionCode `261003628` / Build `20261003-628`.
+- Build 626 device video still shows temporary native battery/status presentation during both directions of AOD switching.
+- Build-626 diagnostics prove two remaining cleanup paths:
+  - Keyguard scene-transfer becomes ineligible during `isAodAnimate=true`, then `readiness-lost:aod:setIsAodAnimate` restores ignored slots, clip masks and reservation;
+  - an already-active AOD presentation is later cleaned with `aod-not-eligible` when the raw animation state changes.
+- The Build-626 “retarget before readiness update” hypothesis is therefore rejected as a complete fix; the surviving root cause is duplicated eligibility authority.
+- Runtime CI passed the Build-628 source changes before the final identity/docs bump.
+- Final Runtime CI on the exact Build-628 HEAD is required before Canary.
 
 ## Device gate
 
-Validate Build 626 with emphasis on:
-- repeated Home -> AOD -> Home switching: no temporary native represented icons, blank interval or duplicate set;
-- repeated Keyguard -> AOD -> Keyguard with both child switches enabled: no temporary native represented icons, blank interval or duplicate set;
-- AOD on / Keyguard off and Keyguard on / AOD off still preserve independent child behavior;
-- global Guiyuan off still restores native presentation immediately;
-- no stuck outgoing frame, stale AOD alpha on Keyguard, or AOD leakage into Control Center.
+Validate Build 628 with emphasis on:
+- repeated Home -> AOD -> Home switching: no temporary native battery/network set, blank interval or duplicate set;
+- repeated Keyguard -> AOD -> Keyguard switching with both child switches enabled: no native represented-icon flash and no cleanup/reacquire gap;
+- AOD-only and Keyguard-only child settings still fall native for the disabled scene;
+- global Guiyuan off still releases family ownership immediately;
+- no stuck outgoing frame, stale AOD alpha on Keyguard or AOD leakage into Control Center.
 
 ## Immediate next step
 
-Finish Runtime CI and review. If clean, runtime is frozen and one signed Work Branch Canary is required because this fix targets a device-visible family handoff defect.
+Finish exact-HEAD Runtime CI and final ownership review. If clean, freeze runtime and produce one signed Work Branch Canary for focused device evidence.
 
 ## Reference priority
 
