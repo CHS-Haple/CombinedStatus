@@ -27,8 +27,6 @@ class CombinedStatusModule : XposedModule() {
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
     private var keyguardPresentationReadyObserved = false
-    private var aodRuntimeReady = false
-    private var aodPresentationReadyObserved = false
     private var keyguardControlCenterLeaseActive = false
     private var controlCenterGeometryProbeBucket = -1
     private var lastBatteryNumberProbeDiagnosticSummary: String? = null
@@ -263,8 +261,6 @@ class CombinedStatusModule : XposedModule() {
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
             keyguardPresentationReadyObserved = false
-            aodRuntimeReady = false
-            aodPresentationReadyObserved = false
             keyguardControlCenterLeaseActive = false
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
@@ -2315,7 +2311,6 @@ class CombinedStatusModule : XposedModule() {
         ready: Boolean,
         source: String,
     ) {
-        aodPresentationReadyObserved = ready
         if (!ready) {
             applyAodPresentationReadinessLost(source)
             return
@@ -2374,7 +2369,6 @@ class CombinedStatusModule : XposedModule() {
             }
 
             is SystemUiHomePresentationOwner.StateResult.Prepared -> {
-                aodRuntimeReady = false
                 CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
                 logDiagnostic(
                     level = Log.INFO,
@@ -2390,7 +2384,6 @@ class CombinedStatusModule : XposedModule() {
             }
 
             is SystemUiHomePresentationOwner.StateResult.Failure -> {
-                aodRuntimeReady = false
                 CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
                 SystemUiHomePresentationOwner.deactivateAod("activation-failed")
                 logDiagnostic(
@@ -2409,7 +2402,6 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun applyAodPresentationReadinessLost(source: String) {
-        aodRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod("readiness-lost:" + source)
     }
@@ -2441,8 +2433,6 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
-        aodRuntimeReady = true
-        aodPresentationReadyObserved = true
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(false)
         logDiagnostic(
             level = Log.INFO,
@@ -2458,8 +2448,6 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onAodPresentationRuntimeFailure(reason: String) {
-        aodPresentationReadyObserved = false
-        aodRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         logDiagnostic(
             level = Log.WARN,
@@ -2472,8 +2460,6 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun deactivateAodRuntime(source: String) {
-        aodPresentationReadyObserved = false
-        aodRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod(source)
         CombinedStatusKeyguardRenderSession.detachAod()
@@ -2521,8 +2507,6 @@ class CombinedStatusModule : XposedModule() {
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
         keyguardPresentationReadyObserved = false
-        aodRuntimeReady = false
-        aodPresentationReadyObserved = false
         keyguardControlCenterLeaseActive = false
         CombinedStatusControlCenterTransitionOwner.detach("hotReload-oldGeneration")
         CombinedStatusControlCenterRenderSession.detach(
