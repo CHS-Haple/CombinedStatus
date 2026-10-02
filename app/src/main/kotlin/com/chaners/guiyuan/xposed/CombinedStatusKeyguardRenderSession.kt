@@ -170,6 +170,49 @@ internal object CombinedStatusKeyguardRenderSession {
 
     internal fun resolveFamilyChildAlpha(): Float = 1f
 
+    private fun readViewField(
+        owner: Any,
+        name: String,
+    ): View? {
+        var type: Class<*>? = owner.javaClass
+        while (type != null) {
+            val current = type
+            val field =
+                runCatching {
+                    current.getDeclaredField(name).apply { isAccessible = true }
+                }.getOrNull()
+            if (field != null) {
+                return runCatching { field.get(owner) as? View }.getOrNull()
+            }
+            type = current.superclass
+        }
+        return null
+    }
+
+    private fun visualChainSummary(view: View?): String {
+        if (view == null) return "none"
+        var current: View? = view
+        var effectiveAlpha = 1f
+        var allVisible = true
+        val chain = ArrayList<String>(6)
+        var depth = 0
+        while (current != null && depth < 8) {
+            effectiveAlpha *= current.alpha
+            allVisible = allVisible && current.visibility == View.VISIBLE
+            chain +=
+                current.javaClass.simpleName +
+                    "(v=" + current.visibility +
+                    ",a=" + current.alpha +
+                    ",shown=" + current.isShown + ")"
+            current = current.parent as? View
+            depth += 1
+        }
+        return "effectiveAlpha=" + effectiveAlpha +
+            ",allVisible=" + allVisible +
+            ",leafShown=" + view.isShown +
+            ",chain=" + chain.joinToString(">")
+    }
+
     private fun resolveSceneOverlayVisible(
         featureEnabled: Boolean,
         nativeHandoffActive: Boolean,
@@ -429,6 +472,14 @@ internal object CombinedStatusKeyguardRenderSession {
                     " batteryAlphaReadOnly=" + battery.alpha +
                     " statusIconsAlphaReadOnly=" + (statusIcons.get()?.alpha ?: -1f) +
                     " systemIconsAlphaReadOnly=" + (systemIcons.get()?.alpha ?: -1f) +
+                    " hostVisual={" + visualChainSummary(host.get()) + "}" +
+                    " contentVisual={" +
+                    visualChainSummary(
+                        host.get()?.let { owner ->
+                            readViewField(owner, "mKeyguardStatusBarContent")
+                        },
+                    ) + "}" +
+                    " systemIconsVisual={" + visualChainSummary(systemIcons.get()) + "}" +
                     " nativeGeometryWrites=0"
             }
         }
