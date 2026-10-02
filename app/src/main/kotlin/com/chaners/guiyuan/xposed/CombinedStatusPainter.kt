@@ -409,9 +409,10 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
-        private const val CHARGING_FADE_START_REMAINING = 0.60f
-        private const val CHARGING_FADE_END_REMAINING = 0.50f
-        private const val CHARGING_TARGET_REVEAL_START = 0.80f
+        private const val CHARGING_FADE_START_REMAINING = 0.26f
+        private const val CHARGING_FADE_END_REMAINING = 0.20f
+        private const val CHARGING_MOTION_END_REMAINING = 0.04f
+        private const val CHARGING_TARGET_REVEAL_START = 0.82f
 
         fun chargingOpacity(
             progress: Float,
@@ -441,7 +442,7 @@ internal class CombinedStatusPainter(
             val hiddenTravel =
                 (
                     (CHARGING_FADE_END_REMAINING - remaining) /
-                        CHARGING_FADE_END_REMAINING
+                        (CHARGING_FADE_END_REMAINING - CHARGING_MOTION_END_REMAINING)
                 ).coerceIn(0f, 1f)
             return smooth(hiddenTravel)
         }
@@ -1579,29 +1580,42 @@ internal class CombinedStatusPainter(
                     followRetractEndpoint =
                         visualSettings.batteryFillFollowsRetractEndpoint,
                 )
+            val totalSweepDegrees =
+                drawableArcs
+                    .sumOf { arc -> arc.sweepDegrees.coerceAtLeast(0f).toDouble() }
+                    .toFloat()
+            val terminalCapDominated =
+                CombinedStatusBatteryRingTransitionPolicy.isTerminalCapDominated(
+                    remainingFraction = segments.remainingFraction,
+                    totalSweepDegrees = totalSweepDegrees,
+                    radiusPx = CombinedStatusOuterGeometry.RING_RADIUS,
+                    strokeWidthPx = geometry.ringStroke,
+                )
 
-            stroke(batteryTint, 48, geometry.ringStroke, opacity)
-            segments.background.forEach { arc ->
-                if (arc.sweepDegrees > 0f) {
-                    canvas.drawArc(
-                        batteryRing,
-                        arc.startDegrees,
-                        arc.sweepDegrees,
-                        false,
-                        paint,
-                    )
+            if (!terminalCapDominated) {
+                stroke(batteryTint, 48, geometry.ringStroke, opacity)
+                segments.background.forEach { arc ->
+                    if (arc.sweepDegrees > 0f) {
+                        canvas.drawArc(
+                            batteryRing,
+                            arc.startDegrees,
+                            arc.sweepDegrees,
+                            false,
+                            paint,
+                        )
+                    }
                 }
-            }
-            stroke(batteryTint, 255, geometry.ringStroke, opacity)
-            segments.active.forEach { arc ->
-                if (arc.sweepDegrees > 0f) {
-                    canvas.drawArc(
-                        batteryRing,
-                        arc.startDegrees,
-                        arc.sweepDegrees,
-                        false,
-                        paint,
-                    )
+                stroke(batteryTint, 255, geometry.ringStroke, opacity)
+                segments.active.forEach { arc ->
+                    if (arc.sweepDegrees > 0f) {
+                        canvas.drawArc(
+                            batteryRing,
+                            arc.startDegrees,
+                            arc.sweepDegrees,
+                            false,
+                            paint,
+                        )
+                    }
                 }
             }
         } else if (topContentAvoidance == null) {
