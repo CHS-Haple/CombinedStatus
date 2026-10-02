@@ -191,32 +191,39 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun transitionTintInterpolatesArgbChannels() {
+    fun transitionTintHoldsEndsAndChangesOnlyInMiddlePhase() {
+        val policy = CombinedStatusControlCenterTransitionOwner.Policy
         val source = 0xffff6600.toInt()
         val target = 0xe6ffffff.toInt()
 
+        assertEquals(0f, policy.transitionTintProgress(0.34f), 0.0001f)
+        assertEquals(0f, policy.transitionTintProgress(0.35f), 0.0001f)
+        assertEquals(0.5f, policy.transitionTintProgress(0.50f), 0.0001f)
+        assertEquals(1f, policy.transitionTintProgress(0.65f), 0.0001f)
+        assertEquals(1f, policy.transitionTintProgress(0.90f), 0.0001f)
+
         assertEquals(
             source,
-            CombinedStatusControlCenterTransitionOwner.Policy.interpolateColor(
+            policy.interpolateColor(
                 source = source,
                 target = target,
-                progress = 0f,
-            ),
-        )
-        assertEquals(
-            target,
-            CombinedStatusControlCenterTransitionOwner.Policy.interpolateColor(
-                source = source,
-                target = target,
-                progress = 1f,
+                progress = 0.20f,
             ),
         )
         assertEquals(
             0xf3ffb380.toInt(),
-            CombinedStatusControlCenterTransitionOwner.Policy.interpolateColor(
+            policy.interpolateColor(
                 source = source,
                 target = target,
-                progress = 0.5f,
+                progress = 0.50f,
+            ),
+        )
+        assertEquals(
+            target,
+            policy.interpolateColor(
+                source = source,
+                target = target,
+                progress = 0.80f,
             ),
         )
     }
