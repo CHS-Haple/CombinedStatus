@@ -289,6 +289,20 @@ internal object CombinedStatusScenePolicy {
         }
     }
 
+    fun resolveControlCenterSourceScene(
+        panelSourceScene: CombinedStatusSourceScene,
+        steadySourceScene: CombinedStatusSourceScene,
+    ): CombinedStatusSourceScene =
+        when (steadySourceScene) {
+            // SceneState's steady source is the lifecycle authority once known.
+            // In particular, an UNLOCKED_STATUS_BAR/HOME boundary must not be
+            // overwritten by a stale realSystemIcons KEYGUARD identity on the
+            // first Control Center callback after unlock.
+            CombinedStatusSourceScene.HOME -> CombinedStatusSourceScene.HOME
+            CombinedStatusSourceScene.KEYGUARD -> CombinedStatusSourceScene.KEYGUARD
+            CombinedStatusSourceScene.UNKNOWN -> panelSourceScene
+        }
+
     fun controlCenterProjectionEligible(
         featureEnabled: Boolean,
         sourceScene: CombinedStatusSourceScene,
