@@ -193,7 +193,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             policy.interpolateColor(
                 source = source,
                 target = target,
-                progress = 0.20f,
+                progress = 0f,
             ),
         )
         assertEquals(
