@@ -2328,3 +2328,39 @@ No native animation clock, timer, delay, polling loop, native translation writer
 - Manual ownership review confirms one family presentation owner and one family RenderView.
 - Signed Canary and focused device validation remain required before integration.
 
+
+
+## 2026-10-03 — Build 625 device rejection; Build 626 retarget-before-readiness handoff
+
+**Type:** device evidence / Keyguard-AOD family ordering / root-cause correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 625 -> 626
+
+### Device evidence
+
+Build 625 keeps one Keyguard-family presentation owner and one RenderView, but maintainer testing still shows a short restoration of native represented status icons while switching into/out of AOD. The supplied Build-625 diagnostics are otherwise healthy and repeatedly show an outgoing presentation/readiness cleanup followed by the destination AOD/Keyguard presentation taking over.
+
+### Root cause
+
+The shared owner removed the old stop/recreate topology, but module callback ordering still created an ownership gap:
+
+1. HyperOS AOD state is already stored by `SystemUiKeyguardAodStateSource`.
+2. `onKeyguardAodStateUpdate()` first called `CombinedStatusKeyguardRenderSession.onAodState(update)`.
+3. The session was still labelled as the outgoing family scene, so the new state could make that scene ineligible and publish `readiness=false`.
+4. That readiness loss restored native represented slots.
+5. Only after that did `onKeyguardHostResolution()` read the same new state and retarget the family session to the destination scene.
+
+Thus the remaining flash is an ordering bug inside a single owner, not evidence that separate Keyguard/AOD sessions should return.
+
+### Build 626 correction
+
+Build 626 resolves/retargets the Keyguard-family scene first and delivers the same AOD update to the render session second. The destination scene therefore consumes the update under the correct family role before any old-role readiness cleanup can run.
+
+No timing compensation, delay, timer, polling loop, direction guess, duplicate animator, new native visibility/translation writer, or host topology change is introduced.
+
+### Review / validation
+
+- The correction is limited to `CombinedStatusModule.onKeyguardAodStateUpdate()`.
+- Build-625 family ownership, render-session reuse, pre-mask, compact-layout, child-gate and fail-native rules remain unchanged.
+- Runtime CI #2289 passed the exact source change before the Build-id bump.
+- Build 626 requires focused signed-Canary device validation because the defect is visible only across the live HyperOS AOD callback sequence.
