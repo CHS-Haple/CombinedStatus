@@ -448,6 +448,68 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun fakeCapacityLeaseDoesNotChangeEndAnchoredMotionCarrierCenter() {
+        val expandedCarrier =
+            floatArrayOf(
+                872f,
+                129.5f,
+                728f,
+                0f,
+                0f,
+                169f,
+            )
+        val logicalCarrier =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .endAnchoredMotionCarrierGeometry(
+                    carrierGeometry = expandedCarrier,
+                    carrierWidth = 728,
+                    carrierHeight = 169,
+                    logicalWidth = 478,
+                    isRtl = false,
+                )
+        requireNotNull(logicalCarrier)
+
+        assertEquals(997f, logicalCarrier[0], 0.0001f)
+        assertEquals(478f, logicalCarrier[2], 0.0001f)
+
+        val source = floatArrayOf(1240f, 55f, 105f, 0f, 0f, 108f)
+        val sourceCarrier = floatArrayOf(997f, 54f, 478f, 0f, 0f, 108f)
+        val carried =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .rebaseSourceToCurrentCarrier(
+                    source = source,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = logicalCarrier,
+                )
+        assertEquals(1240f, carried[0], 0.0001f)
+    }
+
+    @Test
+    fun fakeCapacityLeaseKeepsRtlMotionCarrierStartAnchored() {
+        val expandedCarrier =
+            floatArrayOf(
+                872f,
+                129.5f,
+                728f,
+                0f,
+                0f,
+                169f,
+            )
+        val logicalCarrier =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .endAnchoredMotionCarrierGeometry(
+                    carrierGeometry = expandedCarrier,
+                    carrierWidth = 728,
+                    carrierHeight = 169,
+                    logicalWidth = 478,
+                    isRtl = true,
+                )
+        requireNotNull(logicalCarrier)
+        assertEquals(747f, logicalCarrier[0], 0.0001f)
+        assertEquals(478f, logicalCarrier[2], 0.0001f)
+    }
+
+    @Test
     fun carriedSourceUsesNativeCarrierMotionBeforeRootTargetInterpolation() {
         val source =
             floatArrayOf(75f, 70f, 10f, 0f, 0f, 10f)

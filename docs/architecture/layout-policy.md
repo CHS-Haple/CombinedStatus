@@ -146,6 +146,7 @@ The reservation:
 - rejects unexpected competing padding writers;
 - on QS_FAKE, acquires carrier-width ownership only when the carrier is the parent's sole child, has zero horizontal margins, is already end-anchored in the parent, has a concrete native pixel width, and fits inside the already-existing parent content width;
 - treats the expanded fake-carrier width as a session lease rather than motion: it is applied once before compact cutover, never animated, and only supplies leading measurement capacity for the existing progress-driven `paddingEnd`; compact cutover must wait for the resulting native status-icon layout to complete and re-confirm the end anchor before pixels are masked;
+- transition motion must not sample that leased leading capacity as carrier displacement. The motion matrix projects the live fake status-icon row back to an end-anchored logical carrier whose width equals the frozen native source motion-carrier width, so lease-only width growth changes measurement capacity but not the motion carrier center;
 - treats any live carrier-width change during that lease as a competing writer, relinquishes ownership, and fails native rather than racing HyperOS;
 - restores only the exact module-applied padding/width state;
 - fails native when the carrier, width, parent-capacity, hide-state or writer contract is unavailable.

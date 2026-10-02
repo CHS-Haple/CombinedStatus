@@ -426,6 +426,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun endAnchoredMotionCarrierGeometry(
+            carrierGeometry: FloatArray,
+            carrierWidth: Int,
+            carrierHeight: Int,
+            logicalWidth: Int,
+            isRtl: Boolean,
+        ): FloatArray? =
+            endAnchoredSlotGeometry(
+                hostGeometry = carrierGeometry,
+                hostWidth = carrierWidth,
+                hostHeight = carrierHeight,
+                slotWidth = logicalWidth,
+                isRtl = isRtl,
+            )
+
         fun endAnchoredSlotGeometry(
             hostGeometry: FloatArray,
             hostWidth: Int,
@@ -1077,15 +1092,29 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     ?.let(::endpointAlpha)
                     ?: 0f
             val carrierFrames =
-                frozenSource?.motionCarrierGeometry?.let { sourceCarrier ->
+                frozenSource?.let { frozen ->
                     sample(
                         view = fakeStatusIcons,
                         root = rootView,
-                    )?.geometry?.let { currentCarrier ->
-                        CarrierFrames(
-                            source = sourceCarrier,
-                            current = currentCarrier,
-                        )
+                    )?.geometry?.let { fullCurrentCarrier ->
+                        val currentCarrier =
+                            Policy.endAnchoredMotionCarrierGeometry(
+                                carrierGeometry = fullCurrentCarrier,
+                                carrierWidth = fakeStatusIcons.width,
+                                carrierHeight = fakeStatusIcons.height,
+                                logicalWidth = frozen.motionCarrierWidth,
+                                isRtl =
+                                    fakeStatusIcons.layoutDirection ==
+                                        View.LAYOUT_DIRECTION_RTL,
+                            )
+                        if (currentCarrier == null) {
+                            null
+                        } else {
+                            CarrierFrames(
+                                source = frozen.motionCarrierGeometry,
+                                current = currentCarrier,
+                            )
+                        }
                     }
                 }
             val model = currentSnapshot.model
@@ -3422,6 +3451,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val height: Int,
             val geometry: FloatArray,
             val motionCarrierGeometry: FloatArray,
+            val motionCarrierWidth: Int,
             val representedSlots: Set<String>,
             val source: String,
         )
@@ -3550,6 +3580,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                         basisAuthority = basisGeometry,
                                     ),
                                 motionCarrierGeometry = motionCarrierGeometry,
+                                motionCarrierWidth = witness.motionCarrier.width,
                                 representedSlots = witness.representedSlots.toSet(),
                                 source =
                                     steadySourceLabel +

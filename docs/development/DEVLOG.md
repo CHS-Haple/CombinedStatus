@@ -2067,3 +2067,14 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - The lease forces a fresh native status-icon layout before compact visual cutover. Existing-layout adoption and the Hot Reload transferred-layout shortcut are blocked while that layout is pending; the completed layout must still preserve the carrier's end anchor before masking can begin.
 - Any later native/third-party width change during the lease is treated as a competing writer. Cleanup never overwrites such a new value; it restores only the exact Guiyuan-applied padding/width state.
 - No peer visibleState, alpha, visibility, translation, appearance threshold, timer, polling path, new Hook, or second animator is added.
+
+
+## 2026-10-02 — Build 612 separate QS_FAKE capacity from motion geometry
+
+**Type:** runtime root cause / transition geometry ownership
+
+- Build-611 device video reports an all-scene left jump immediately after Control Center entry. The matching diagnostics show the fixed capacity lease activates before expansion samples, changing QS_FAKE `system_icon_area` 587 -> 837px and `MiuiStatusIconContainer` 478 -> 728px while preserving the same end edge.
+- The transition matrix still sampled the whole live fake `MiuiStatusIconContainer` as `currentCarrier`. A 250px leading-side width increase moves that View's center by 125px left, and `rebaseSourceToCurrentCarrier()` faithfully carried the whole Guiyuan source by the same amount. This is why the regression appears as a discrete initial left jump rather than a changed animation curve.
+- Build 612 keeps Build 611's fixed session capacity lease because it solved the Build-609 native-peer underflow. Instead it freezes the native source motion-carrier width and, for transition sampling only, maps the live fake row to an end-anchored logical sub-carrier of that width. Lease-only leading capacity therefore participates in native measurement but not motion.
+- The correction is geometry-semantic rather than numeric compensation: no 125px offset is hard-coded, no device width is assumed, RTL uses the matching start/end anchor, and the logical width comes from the live frozen source witness.
+- No native View width/padding/translation/alpha/visibility writer is added. The existing capacity lease and raw-HyperOS-progress `statusIcons.paddingEnd` reservation remain unchanged.
