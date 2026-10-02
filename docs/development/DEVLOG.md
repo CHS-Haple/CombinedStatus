@@ -2218,3 +2218,47 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - Diagnostic limitation noted: the current `visualSettings.changed` summary does not yet emit `airplaneSizeScale` / `noSimSizeScale`, so exact per-profile value evidence comes from the profile-key/unit coverage plus maintainer visual validation rather than the runtime summary line itself.
 - Build 619 is accepted for integration into `dev`; no further runtime change is required for this feature.
 
+
+
+## 2026-10-03 — Build 624 accepted ring baseline; Build 627 charging-glyph target handoff
+
+**Type:** device evidence / charging transition / target geometry  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 624 -> 627
+
+### Device baseline
+
+Maintainer device testing accepts Build 624 battery-ring/fill retract behavior. Further charging-glyph work must preserve that ring path rather than retune its geometry or easing.
+
+### Requested visual contract
+
+The charging glyph should look as if the retracting ring reaches and removes it:
+- stay fully visible while the retained ring is above 60%;
+- fade smoothly as retained ring falls from 60% to 50%;
+- be fully invisible at 50%;
+- do not move before it is fully invisible;
+- after that, travel invisibly toward the corresponding native charging target;
+- only near the target should it fade back in while converging to the target;
+- target size must follow native optical geometry, not a fixed Guiyuan size;
+- if no reliable target exists, stop after the source-side fade.
+
+The percentage number must not jump when the glyph disappears.
+
+### Implementation
+
+- Split `CHARGING_ICON` from `BATTERY_NUMBER` as an independent transition participant.
+- Preserve the readout layout/group geometry while only changing charging-glyph draw alpha, so percentage X placement is not recomputed at the 50% threshold.
+- Derive source fade from `CombinedStatusBatteryRingTransitionPolicy.transitionProgress()` plus the same `remainingFraction()` used by the ring.
+- Begin charging-glyph geometry progress only after retained ring reaches 50%; hidden travel maps the remaining 50% -> 0% ring interval to a smooth target-progress curve.
+- Reappearance starts only in the final 20% of charging-glyph target travel.
+- Resolve only exact-target `MiuiBatteryMeterView.mBatteryChargingView` when it is an attached, laid-out `ImageView` with a valid drawable.
+- Use existing drawable optical-geometry sampling and `TransitionScalePolicy.TARGET`, matching the Wi-Fi principle of translation plus target-derived uniform scaling.
+- If the charging target is missing or unreliable, target resolution returns null and the glyph remains hidden after the source fade; no synthetic/fallback coordinate is generated.
+
+No timer, delayed runnable, additional animation clock, native target mutation, or guessed geometry constant is added.
+
+### Review / tests
+
+- Unit coverage verifies the glyph is hidden before target motion becomes visible, cannot reappear without a target, and reaches full target opacity/motion at completion.
+- Ownership remains single-writer: Guiyuan only draws its transition participant; native charging target is read-only geometry evidence.
+- Build 624 ring/fill implementation is otherwise unchanged.
