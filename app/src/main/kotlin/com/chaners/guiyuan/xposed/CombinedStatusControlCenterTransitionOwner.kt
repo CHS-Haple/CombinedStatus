@@ -1,7 +1,6 @@
 package com.chaners.guiyuan.xposed
 
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
@@ -393,15 +392,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             progress: Float,
         ): Int {
             val p = transitionTintProgress(progress)
-            fun channel(from: Int, to: Int): Int =
-                (from + (to - from) * p)
+            fun channel(
+                fromShift: Int,
+                toShift: Int = fromShift,
+            ): Int {
+                val from = source ushr fromShift and 0xff
+                val to = target ushr toShift and 0xff
+                return (from + (to - from) * p)
                     .roundToInt()
                     .coerceIn(0, 255)
-            return Color.argb(
-                channel(Color.alpha(source), Color.alpha(target)),
-                channel(Color.red(source), Color.red(target)),
-                channel(Color.green(source), Color.green(target)),
-                channel(Color.blue(source), Color.blue(target)),
+            }
+            return (
+                channel(24) shl 24 or
+                    (channel(16) shl 16) or
+                    (channel(8) shl 8) or
+                    channel(0)
             )
         }
 
