@@ -65,15 +65,19 @@ internal object CombinedStatusKeyguardRenderSession {
             return AttachResult.Failure("aod-not-active")
         }
         val featureEnabled =
-            settings.enabled &&
-                if (scene == Scene.AOD) settings.aodEnabled else settings.keyguardEnabled
+            resolveFamilyFeatureEnabled(
+                featureEnabled = settings.enabled,
+                keyguardEnabled = settings.keyguardEnabled,
+                aodEnabled = settings.aodEnabled,
+                sceneIsAod = scene == Scene.AOD,
+            )
         val transitionContinuityEnabled =
-            settings.enabled &&
-                if (scene == Scene.AOD) {
-                    settings.aodEnabled
-                } else {
-                    settings.keyguardEnabled && settings.aodEnabled
-                }
+            resolveFamilyTransitionContinuityEnabled(
+                featureEnabled = settings.enabled,
+                keyguardEnabled = settings.keyguardEnabled,
+                aodEnabled = settings.aodEnabled,
+                sceneIsAod = scene == Scene.AOD,
+            )
 
         val existing = current
         if (existing?.matches(resolved) == true) {
@@ -169,6 +173,37 @@ internal object CombinedStatusKeyguardRenderSession {
         current = null
         session.stop()
     }
+
+    internal fun resolveFamilyFeatureEnabled(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        sceneIsAod: Boolean,
+    ): Boolean =
+        featureEnabled && if (sceneIsAod) aodEnabled else keyguardEnabled
+
+    internal fun resolveFamilyTransitionContinuityEnabled(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        sceneIsAod: Boolean,
+    ): Boolean =
+        featureEnabled &&
+            if (sceneIsAod) {
+                aodEnabled
+            } else {
+                keyguardEnabled && aodEnabled
+            }
+
+    internal fun resolveFamilyChildAlpha(
+        sceneIsAod: Boolean,
+        batteryAlpha: Float,
+    ): Float =
+        if (sceneIsAod) {
+            batteryAlpha.coerceIn(0f, 1f)
+        } else {
+            1f
+        }
 
     private fun resolveSceneOverlayVisible(
         featureEnabled: Boolean,
@@ -416,15 +451,19 @@ internal object CombinedStatusKeyguardRenderSession {
 
         fun setFeatureSettings(settings: CombinedStatusFeatureSettings) {
             val enabled =
-                settings.enabled &&
-                    if (scene == Scene.AOD) settings.aodEnabled else settings.keyguardEnabled
+                resolveFamilyFeatureEnabled(
+                    featureEnabled = settings.enabled,
+                    keyguardEnabled = settings.keyguardEnabled,
+                    aodEnabled = settings.aodEnabled,
+                    sceneIsAod = scene == Scene.AOD,
+                )
             val transitionContinuityEnabled =
-                settings.enabled &&
-                    if (scene == Scene.AOD) {
-                        settings.aodEnabled
-                    } else {
-                        settings.keyguardEnabled && settings.aodEnabled
-                    }
+                resolveFamilyTransitionContinuityEnabled(
+                    featureEnabled = settings.enabled,
+                    keyguardEnabled = settings.keyguardEnabled,
+                    aodEnabled = settings.aodEnabled,
+                    sceneIsAod = scene == Scene.AOD,
+                )
             setFeatureState(
                 enabled = enabled,
                 transitionContinuityEnabled = transitionContinuityEnabled,
@@ -706,11 +745,10 @@ internal object CombinedStatusKeyguardRenderSession {
                 )
             if (visible) {
                 renderView.alpha =
-                    if (scene == Scene.AOD) {
-                        batteryView.get()?.alpha?.coerceIn(0f, 1f) ?: 1f
-                    } else {
-                        1f
-                    }
+                    resolveFamilyChildAlpha(
+                        sceneIsAod = scene == Scene.AOD,
+                        batteryAlpha = batteryView.get()?.alpha ?: 1f,
+                    )
             }
             renderView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
