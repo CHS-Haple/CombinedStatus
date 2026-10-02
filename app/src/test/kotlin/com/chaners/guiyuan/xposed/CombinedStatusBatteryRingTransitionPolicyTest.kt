@@ -177,7 +177,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
-    fun leftExitPreservesBatterySemanticsByIntersection() {
+    fun leftExitCarriesBatteryFillWithMovingRetractEndpoint() {
         val progress = 0.35f
         val result =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
@@ -190,8 +190,46 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
             )
         val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
         val retainedStart = 240f * (1f - remaining)
+        val retainedSweep = 240f * remaining
         assertEquals(150f + retainedStart, result.active.single().startDegrees, 0.0001f)
-        assertEquals((180f - retainedStart).coerceAtLeast(0f), result.active.single().sweepDegrees, 0.0001f)
+        assertEquals(retainedSweep * 0.75f, result.active.single().sweepDegrees, 0.0001f)
+    }
+
+    @Test
+    fun leftExitBatteryFillAndBackgroundReachZeroTogether() {
+        val nearlyDone =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 36,
+                progress = 0.9f,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+            )
+        assertTrue(nearlyDone.background.isNotEmpty())
+        assertTrue(nearlyDone.active.isNotEmpty())
+        assertEquals(
+            nearlyDone.background.single().startDegrees,
+            nearlyDone.active.single().startDegrees,
+            0.0001f,
+        )
+        assertEquals(
+            nearlyDone.background.single().sweepDegrees * 0.36f,
+            nearlyDone.active.single().sweepDegrees,
+            0.0001f,
+        )
+
+        val completed =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 36,
+                progress = 1f,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+            )
+        assertTrue(completed.background.isEmpty())
+        assertTrue(completed.active.isEmpty())
     }
 
     @Test
