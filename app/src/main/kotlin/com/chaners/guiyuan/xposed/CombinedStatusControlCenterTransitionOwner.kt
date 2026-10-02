@@ -424,8 +424,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ).roundToInt().coerceAtLeast(compact)
         }
 
-        private const val TINT_TRANSITION_START = 0.35f
-        private const val TINT_TRANSITION_END = 0.65f
+        private const val TINT_TRANSITION_START = 0.45f
+        private const val TINT_TRANSITION_END = 0.80f
 
         fun transitionTintProgress(progress: Float): Float {
             val phase =
