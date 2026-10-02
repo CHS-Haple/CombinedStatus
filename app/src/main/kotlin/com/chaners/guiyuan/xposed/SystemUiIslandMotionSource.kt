@@ -36,6 +36,7 @@ internal object SystemUiIslandMotionSource {
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
+        onStatusChanged: ((Boolean) -> Unit)? = null,
         onEvent: ((String) -> Unit)? = null,
         isProbeEnabled: () -> Boolean = { true },
     ): List<HookHandle> {
@@ -90,6 +91,9 @@ internal object SystemUiIslandMotionSource {
                             if (injector != null) {
                                 injectorRef = WeakReference(injector)
                             }
+                        }
+                        runCatching {
+                            onStatusChanged?.invoke(showing)
                         }
                         if (onEvent == null || !isProbeEnabled()) {
                             return@Hooker result
