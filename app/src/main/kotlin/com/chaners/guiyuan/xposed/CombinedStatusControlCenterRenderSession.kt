@@ -549,6 +549,7 @@ internal object CombinedStatusControlCenterRenderSession {
                         tintState = tint,
                         visualSettings = currentVisualSettings,
                     ),
+                visualSettings = currentVisualSettings,
                 stateVersion = transitionStateVersion,
             )
         }
@@ -974,6 +975,7 @@ internal object CombinedStatusControlCenterRenderSession {
         val anchorView: View,
         val model: CombinedStatusRenderModel,
         val colors: CombinedStatusColors,
+        val visualSettings: CombinedStatusVisualSettings,
         val stateVersion: Long,
     )
 

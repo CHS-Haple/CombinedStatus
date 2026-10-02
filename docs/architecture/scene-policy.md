@@ -63,7 +63,7 @@ The Home render must inherit the native Home end-side presentation lifecycle ins
 `showEndSideContent()/hideEndSideContent()` owns the native alpha / visibility / translation transition of `system_icons`. The exact `system_icons` root is `MiuiStatusBatteryContainer`.
 
 Current rules:
-- Home Guiyuan renders in `MiuiStatusBatteryContainer(system_icons).overlay`, so native end-side alpha/visibility/translation apply naturally;
+- Home Guiyuan renders as one module-owned direct child of `MiuiStatusBatteryContainer(system_icons)`; the child has no native measurement authority and inherits the carrier's native end-side alpha/visibility/translation naturally;
 - Notification Header expansion remains useful motion evidence but is **not** a Guiyuan Home-visibility authority;
 - Battery `MiuiBatteryMeterView.mStatusBarState`, global Keyguard state, generic Shade expansion state, and local fraction thresholds are not Home-visibility authorities;
 - no project-local Notification-Shade visibility Hook, timing threshold, delay, polling loop, or reconstructed panel state machine is permitted;
@@ -113,6 +113,8 @@ No polling/frame follower, per-peer native geometry write, second layout/suppres
 ## Keyguard and AOD
 
 Build 456 is the current **device-accepted opt-in PROJECTED steady Keyguard implementation**. Build 455 proves the corrected AOD authority can reach steady Keyguard Guiyuan but is rejected for a shared Keyguard/QS_FAKE peer-layout/motion inconsistency caused by temporary ignored-slot state. Build 456 keeps AOD NATIVE_ONLY and makes Keyguard/QS_FAKE represented-slot exclusion session-scoped through the verified native container API; focused maintainer device validation accepted the resulting steady Keyguard and transition behavior.
+
+Build 537 candidate changes only the module-owned Keyguard render surface: because the verified `mSystemIconsContainer` is also `MiuiStatusBatteryContainer`, Keyguard reuses the Build-536 logical-viewport / direct-child top-overflow policy so swapped or enlarged top content is not clipped. The Keyguard Session remains separate from Home; native represented-slot handling, tint authority, AOD blocking, carrier motion and the Control Center source router are unchanged. This carrier change is pending exact-head device validation.
 
 Exact-target review underlying the accepted Keyguard adapter establishes:
 - `MiuiKeyguardStatusBarView.mSystemIconsContainer` / `@id/system_icons_container` is the native Keyguard end-side `MiuiStatusBatteryContainer` registered into `ControlCenterFakeViewController.keyguardSystemIcons`;

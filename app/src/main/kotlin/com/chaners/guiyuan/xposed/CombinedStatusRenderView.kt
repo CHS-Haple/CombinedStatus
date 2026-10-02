@@ -46,6 +46,15 @@ internal class CombinedStatusRenderView(
     private var visualSettings = CombinedStatusVisualSettings()
 
     @Volatile
+    private var logicalViewportWidthPx: Int = 0
+
+    @Volatile
+    private var logicalViewportHeightPx: Int = 0
+
+    @Volatile
+    private var logicalViewportTopInsetPx: Int = 0
+
+    @Volatile
     private var scaleMobileTypeWithCanvas = false
 
     @Volatile
@@ -131,6 +140,56 @@ internal class CombinedStatusRenderView(
         }
         scaleMobileTypeWithCanvas = enabled
         requestRedraw()
+    }
+
+    fun setLogicalViewport(
+        widthPx: Int,
+        heightPx: Int,
+        topInsetPx: Int,
+    ) {
+        val resolvedWidth = widthPx.coerceAtLeast(0)
+        val resolvedHeight = heightPx.coerceAtLeast(0)
+        val resolvedTopInset = topInsetPx.coerceAtLeast(0)
+        if (
+            logicalViewportWidthPx == resolvedWidth &&
+            logicalViewportHeightPx == resolvedHeight &&
+            logicalViewportTopInsetPx == resolvedTopInset
+        ) {
+            return
+        }
+        logicalViewportWidthPx = resolvedWidth
+        logicalViewportHeightPx = resolvedHeight
+        logicalViewportTopInsetPx = resolvedTopInset
+        requestRedraw()
+    }
+
+    fun currentLogicalViewportWidthPx(): Int =
+        logicalViewportWidthPx.takeIf { it > 0 } ?: width
+
+    fun currentLogicalViewportHeightPx(): Int =
+        logicalViewportHeightPx.takeIf { it > 0 } ?: height
+
+    fun currentLogicalViewportTopInsetPx(): Int =
+        logicalViewportTopInsetPx.coerceAtLeast(0)
+
+    fun requiredTopOverflowPx(
+        logicalWidthPx: Int,
+        logicalHeightPx: Int,
+    ): Int {
+        val current = model ?: return 0
+        return painter.requiredTopOverflowPx(
+            width = logicalWidthPx,
+            height = logicalHeightPx,
+            model = current,
+            visualSettings = visualSettings,
+            previousCenterIndicator = previousCenterIndicator,
+            // Physical overflow is layout-time capacity, not animation
+            // geometry. Reserve both transition endpoints at full size so
+            // neither can be clipped later in the 100 ms cross-fade.
+            centerExitAmount = 1f,
+            centerEnterAmount = 1f,
+            scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
+        )
     }
 
     fun clearPendingLatency() {
@@ -226,10 +285,17 @@ internal class CombinedStatusRenderView(
         val tint = tintState ?: return
         val transitionFraction =
             centerTransitionFraction.coerceIn(0f, 1f)
+        val logicalWidth = currentLogicalViewportWidthPx()
+        val logicalHeight = currentLogicalViewportHeightPx()
+        val logicalTopInset = currentLogicalViewportTopInsetPx()
+        val viewportSave = canvas.save()
+        if (logicalTopInset > 0) {
+            canvas.translate(0f, logicalTopInset.toFloat())
+        }
         painter.draw(
             canvas = canvas,
-            width = width,
-            height = height,
+            width = logicalWidth,
+            height = logicalHeight,
             model = current,
             colors =
                 CombinedStatusColorPolicy.resolve(
@@ -238,6 +304,7 @@ internal class CombinedStatusRenderView(
                     visualSettings = visualSettings,
                 ),
             opacity = 1f,
+            visualSettings = visualSettings,
             previousCenterIndicator = previousCenterIndicator,
             centerExitAmount =
                 1f -
@@ -248,6 +315,7 @@ internal class CombinedStatusRenderView(
                     .getInterpolation(transitionFraction),
             scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
         )
+        canvas.restoreToCount(viewportSave)
 
         val committedAt = pendingStateUptimeMs
         if (committedAt != 0L) {

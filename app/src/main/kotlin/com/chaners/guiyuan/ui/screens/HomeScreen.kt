@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -34,6 +35,8 @@ import com.chaners.guiyuan.BuildConfig
 import com.chaners.guiyuan.CombinedStatusApplication
 import com.chaners.guiyuan.R
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.system.XposedRuntimeStatus
 import com.chaners.guiyuan.ui.components.CombinedStatusPreview
 import com.chaners.guiyuan.ui.components.HotReloadAction
@@ -95,6 +98,14 @@ internal fun HomeScreen(
     val featureSettings by
         featureRepository.settings.collectAsState(
             initial = featureRepository.current(),
+        )
+    val visualRepository =
+        remember(context.applicationContext) {
+            CombinedStatusVisualSettingsRepository(context.applicationContext)
+        }
+    val visualSettings by
+        visualRepository.settings.collectAsState(
+            initial = visualRepository.current(),
         )
     val xposedRuntimeStatus by
         application.xposedRuntimeStatus.collectAsState()
@@ -163,6 +174,7 @@ internal fun HomeScreen(
                     HomePreviewSandboxCard(
                         state = previewState,
                         resources = previewResources,
+                        visualSettings = visualSettings,
                         onOpen = onOpenPreviewSandbox,
                         modifier =
                             Modifier
@@ -212,6 +224,7 @@ private fun HomeRuntimeStatusCard(
                 color = containerColor,
                 contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
             ),
+        pressFeedbackType = PressFeedbackType.Tilt,
     ) {
         Box(
             modifier =
@@ -291,13 +304,14 @@ private fun HomeRuntimeStatusCard(
 private fun HomePreviewSandboxCard(
     state: PreviewSandboxUiState,
     resources: PreviewSystemUiResourceResolver,
+    visualSettings: CombinedStatusVisualSettings,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
         modifier = modifier,
         insideMargin = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-        pressFeedbackType = PressFeedbackType.Sink,
+        pressFeedbackType = PressFeedbackType.Tilt,
         showIndication = true,
         onClick = onOpen,
     ) {
@@ -336,7 +350,11 @@ private fun HomePreviewSandboxCard(
         ) {
             CombinedStatusPreview(
                 model = state.toRenderModel(resources),
-                modifier = Modifier.size(HomePreviewIconSize),
+                visualSettings = visualSettings,
+                modifier =
+                    Modifier
+                        .width(HomePreviewIconSize)
+                        .height(HomePreviewSurfaceHeight),
             )
         }
         Text(
@@ -508,7 +526,8 @@ private fun resolveHomeRuntimeCardState(
 
 private val RuntimeCardHeight = 160.dp
 private val RuntimeStatusMarkSize = 96.dp
-private val HomePreviewStageHeight = 124.dp
+private val HomePreviewStageHeight = 180.dp
 private val HomePreviewIconSize = 112.dp
+private val HomePreviewSurfaceHeight = 176.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
 private val RuntimeWarningAccent = Color(0xFFFFA500)

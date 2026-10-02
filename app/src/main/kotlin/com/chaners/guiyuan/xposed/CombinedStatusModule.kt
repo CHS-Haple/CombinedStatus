@@ -29,6 +29,7 @@ class CombinedStatusModule : XposedModule() {
     private var keyguardPresentationReadyObserved = false
     private var keyguardControlCenterLeaseActive = false
     private var controlCenterGeometryProbeBucket = -1
+    private var lastBatteryNumberProbeDiagnosticSummary: String? = null
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
     private val renderTraceSequence = AtomicLong(0L)
@@ -1050,6 +1051,26 @@ class CombinedStatusModule : XposedModule() {
         handleControlCenterPanelUpdate(update)
         CombinedStatusControlCenterTransitionOwner.onPanelUpdate(update)
 
+        if (detailedDiagnosticsEnabled) {
+            val batteryNumberProbe =
+                CombinedStatusControlCenterTransitionOwner.latestBatteryNumberProbeDiagnostic()
+            if (
+                batteryNumberProbe != null &&
+                batteryNumberProbe != lastBatteryNumberProbeDiagnosticSummary
+            ) {
+                lastBatteryNumberProbeDiagnosticSummary = batteryNumberProbe
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "target.probe",
+                    component = "batteryNumberTarget",
+                    state = "ready",
+                    "summary" to batteryNumberProbe,
+                    "readOnly" to true,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+
         if (!detailedDiagnosticsEnabled) {
             return
         }
@@ -1504,6 +1525,16 @@ class CombinedStatusModule : XposedModule() {
                             trace = markStateCommitted(trace),
                         )
                     }
+                },
+                onChargingIconResource = { resourceId ->
+                    val trace = beginRenderTrace("battery-charging-glyph")
+                    CombinedStatusStateStore.updateBatteryChargingIcon(resourceId)
+                        ?.let { snapshot ->
+                            onCombinedStateChanged(
+                                snapshot = snapshot,
+                                trace = markStateCommitted(trace),
+                            )
+                        }
                 },
                 onEvent =
                     if (BuildConfig.RUNTIME_DIAGNOSTICS) {
@@ -3173,8 +3204,14 @@ class CombinedStatusModule : XposedModule() {
                 event = "runtimePreferences.bind",
                 component = "visualSettings",
                 state = "ready",
+                "layout" to settings.contentLayout.persistedValue,
                 "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
-                "centerFollowsBattery" to settings.centerFollowsBatteryColor,
+                "networkFollowsBattery" to settings.centerFollowsBatteryColor,
+                "batteryNumber" to settings.batteryTopReadoutEnabled,
+                "chargingIcon" to settings.batteryTopChargingIconEnabled,
+                "batteryNumberFollowsBattery" to settings.batteryTopTextFollowsBatteryColor,
+                "chargingIconFollowsBattery" to
+                    settings.batteryTopChargingIconFollowsBatteryColor,
                 "transport" to "remote-preferences",
             )
         }.onFailure { error ->
@@ -3195,14 +3232,21 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onVisualSettingsChanged(settings)
+        SystemUiHomePresentationOwner.onVisualSettingsChanged()
         if (detailedDiagnosticsEnabled) {
             logDiagnostic(
                 level = Log.INFO,
                 event = "visualSettings.changed",
                 component = "renderer",
                 state = "ready",
+                "layout" to settings.contentLayout.persistedValue,
                 "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
-                "centerFollowsBattery" to settings.centerFollowsBatteryColor,
+                "networkFollowsBattery" to settings.centerFollowsBatteryColor,
+                "batteryNumber" to settings.batteryTopReadoutEnabled,
+                "chargingIcon" to settings.batteryTopChargingIconEnabled,
+                "batteryNumberFollowsBattery" to settings.batteryTopTextFollowsBatteryColor,
+                "chargingIconFollowsBattery" to
+                    settings.batteryTopChargingIconFollowsBatteryColor,
                 "eventDriven" to true,
             )
         }
@@ -3247,6 +3291,7 @@ class CombinedStatusModule : XposedModule() {
         runtimeSessionId = newRuntimeSessionId()
         diagnosticSequence.set(0L)
         renderTraceSequence.set(0L)
+        lastBatteryNumberProbeDiagnosticSummary = null
     }
 
     private fun beginRenderTrace(source: String): RuntimeRenderTrace? {

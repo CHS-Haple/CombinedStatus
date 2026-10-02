@@ -1,5 +1,7 @@
 package com.chaners.guiyuan.xposed
 
+import kotlin.math.ceil
+
 internal enum class CombinedStatusRenderMode {
     PROJECTED,
     NATIVE_ONLY,
@@ -84,6 +86,29 @@ internal object CombinedStatusLayoutPolicy {
             slotRightPx = slotRight,
             motionOwnership = host.motionOwnership,
         )
+    }
+}
+
+internal object CombinedStatusCompactReservationPolicy {
+    /**
+     * Painter shrink is centered inside the stable Battery carrier. Native peers only
+     * reserve through the scaled visual's leading edge; the end-side transparent inset
+     * stays inside the carrier. Ceil keeps the reservation outside visible pixels.
+     */
+    fun resolveCenteredVisualWidth(
+        baseSlotWidthPx: Int,
+        userScale: Float,
+    ): Int {
+        val base = baseSlotWidthPx.coerceAtLeast(0)
+        if (base == 0) return 0
+        val scale =
+            userScale
+                .takeIf(Float::isFinite)
+                ?.coerceIn(0f, 1f)
+                ?: 1f
+        return ceil(base * (1f + scale) / 2f)
+            .toInt()
+            .coerceIn(0, base)
     }
 }
 

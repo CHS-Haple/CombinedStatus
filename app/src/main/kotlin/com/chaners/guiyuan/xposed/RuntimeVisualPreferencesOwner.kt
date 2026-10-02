@@ -1,9 +1,9 @@
 package com.chaners.guiyuan.xposed
 
 import android.content.SharedPreferences
-import com.chaners.guiyuan.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
-import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.isCombinedStatusVisualPreferenceKey
+import com.chaners.guiyuan.settings.readCombinedStatusVisualSettings
 
 internal object RuntimeVisualPreferencesOwner {
     @Volatile
@@ -29,10 +29,7 @@ internal object RuntimeVisualPreferencesOwner {
         val listener =
             SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
                 if (
-                    (
-                        key == MOBILE_FOLLOWS_BATTERY_COLOR_KEY ||
-                            key == CENTER_FOLLOWS_BATTERY_COLOR_KEY
-                    ) &&
+                    isCombinedStatusVisualPreferenceKey(key) &&
                     isCurrentBinding(changed, token)
                 ) {
                     val next = resolve(changed)
@@ -77,16 +74,5 @@ internal object RuntimeVisualPreferencesOwner {
             bindingToken === token
 
     private fun resolve(preferences: SharedPreferences): CombinedStatusVisualSettings =
-        CombinedStatusVisualSettings(
-            mobileFollowsBatteryColor =
-                preferences.getBoolean(
-                    MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
-                    false,
-                ),
-            centerFollowsBatteryColor =
-                preferences.getBoolean(
-                    CENTER_FOLLOWS_BATTERY_COLOR_KEY,
-                    false,
-                ),
-        )
+        preferences.readCombinedStatusVisualSettings()
 }

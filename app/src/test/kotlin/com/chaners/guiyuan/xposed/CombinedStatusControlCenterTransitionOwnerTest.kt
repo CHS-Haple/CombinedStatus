@@ -8,6 +8,111 @@ import org.junit.Test
 
 class CombinedStatusControlCenterTransitionOwnerTest {
     @Test
+    fun targetTypographyStyleConvergesBeforeNativeHandoff() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(0.42f),
+            0.0001f,
+        )
+        assertTrue(
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(0.70f) in 0f..1f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(0.88f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun exactTextGeometryReachesNativeBasisInsteadOfSimilarityEnvelope() {
+        val source = geometry(centerX = 10f, centerY = 20f, width = 10f, height = 20f)
+        val target = geometry(centerX = 100f, centerY = 200f, width = 30f, height = 24f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateGeometry(
+                source = source,
+                target = target,
+                progress = 1f,
+            )
+
+        target.forEachIndexed { index, value ->
+            assertEquals(value, result[index], 0.0001f)
+        }
+    }
+
+    @Test
+    fun chargingGlyphFollowsNumberUntilLateHandoffFade() {
+        assertEquals(
+            1f,
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0.58f),
+            0.0001f,
+        )
+        assertTrue(
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0.72f) in 0f..1f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0.88f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun mobileTypeWeightInterpolatesToNativeTarget() {
+        assertEquals(
+            800,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = 500,
+                progress = 0f,
+            ),
+        )
+        assertEquals(
+            650,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = 500,
+                progress = 0.5f,
+            ),
+        )
+        assertEquals(
+            500,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = 500,
+                progress = 1f,
+            ),
+        )
+    }
+
+    @Test
+    fun mobileTypeWeightFailsNativeWhenTargetTypographyIsUnavailable() {
+        assertEquals(
+            800,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = null,
+                progress = 1f,
+            ),
+        )
+    }
+
+    @Test
     fun shrinkOnlyScalePolicyNeverEnlargesSemanticGlyphs() {
         val source = geometry(width = 10f, height = 10f)
         val target = geometry(width = 30f, height = 20f)
@@ -180,7 +285,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0.0001f,
         )
         assertEquals(
-            0.5f,
+            1f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
                 current = geometry(centerX = 90f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
@@ -192,11 +297,47 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                current = geometry(centerX = 93f, centerY = 100f, width = 20f, height = 20f),
+                target = target,
+                visualExtent = 20f,
+                reservationProgress = 0.35f,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
                 current = target,
                 target = target,
                 visualExtent = 20f,
                 reservationProgress = 1f,
             ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun latentRevealAcceleratesAfterOccupancyUnlockWithoutChangingTheGate() {
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(0f),
+            0.0001f,
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(0.2f) > 0.5f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(0.35f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(1f),
             0.0001f,
         )
     }
@@ -304,6 +445,68 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(1f),
             0.0001f,
         )
+    }
+
+    @Test
+    fun fakeCapacityLeaseDoesNotChangeEndAnchoredMotionCarrierCenter() {
+        val expandedCarrier =
+            floatArrayOf(
+                872f,
+                129.5f,
+                728f,
+                0f,
+                0f,
+                169f,
+            )
+        val logicalCarrier =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .endAnchoredMotionCarrierGeometry(
+                    carrierGeometry = expandedCarrier,
+                    carrierWidth = 728,
+                    carrierHeight = 169,
+                    logicalWidth = 478,
+                    isRtl = false,
+                )
+        requireNotNull(logicalCarrier)
+
+        assertEquals(997f, logicalCarrier[0], 0.0001f)
+        assertEquals(478f, logicalCarrier[2], 0.0001f)
+
+        val source = floatArrayOf(1240f, 55f, 105f, 0f, 0f, 108f)
+        val sourceCarrier = floatArrayOf(997f, 54f, 478f, 0f, 0f, 108f)
+        val carried =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .rebaseSourceToCurrentCarrier(
+                    source = source,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = logicalCarrier,
+                )
+        assertEquals(1240f, carried[0], 0.0001f)
+    }
+
+    @Test
+    fun fakeCapacityLeaseKeepsRtlMotionCarrierStartAnchored() {
+        val expandedCarrier =
+            floatArrayOf(
+                872f,
+                129.5f,
+                728f,
+                0f,
+                0f,
+                169f,
+            )
+        val logicalCarrier =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .endAnchoredMotionCarrierGeometry(
+                    carrierGeometry = expandedCarrier,
+                    carrierWidth = 728,
+                    carrierHeight = 169,
+                    logicalWidth = 478,
+                    isRtl = true,
+                )
+        requireNotNull(logicalCarrier)
+        assertEquals(747f, logicalCarrier[0], 0.0001f)
+        assertEquals(478f, logicalCarrier[2], 0.0001f)
     }
 
     @Test
@@ -660,13 +863,13 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingIslandReservationAuthorityIsSceneSpecific() {
+    fun batteryIslandReservationAuthorityUsesExactNativeContract() {
         assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeIslandShowing = true,
+                    nativeBatteryIslandActive = true,
                 ),
         )
         assertTrue(
@@ -674,7 +877,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeIslandShowing = false,
+                    nativeBatteryIslandActive = false,
                 ),
         )
         assertTrue(
@@ -682,7 +885,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = false,
-                    nativeIslandShowing = true,
+                    nativeBatteryIslandActive = true,
                 ),
         )
         assertTrue(
@@ -690,7 +893,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeIslandShowing = null,
+                    nativeBatteryIslandActive = null,
                 ),
         )
         assertTrue(
@@ -698,7 +901,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = false,
-                    nativeIslandShowing = null,
+                    nativeBatteryIslandActive = null,
                 ),
         )
         assertTrue(
@@ -706,7 +909,91 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.KEYGUARD,
                     charging = true,
-                    nativeIslandShowing = null,
+                    nativeBatteryIslandActive = true,
+                ),
+        )
+    }
+
+    @Test
+    fun genericHomeIslandOnlyGuardsNativePaddingExpansion() {
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = true,
+                    fakeIslandReservationBridgeReady = false,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = true,
+                    fakeIslandReservationBridgeReady = true,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = false,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = null,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                    genericIslandShowing = true,
+                ),
+        )
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.UNKNOWN,
+                    genericIslandShowing = false,
+                ),
+        )
+    }
+
+    @Test
+    fun fakeIslandWidthCompensationPreservesRelativeCollisionBoundary() {
+        assertEquals(
+            220,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .compensateFakeIslandWidth(
+                    nativeIslandWidthPx = 220,
+                    transitionPaddingDeltaPx = 0,
+                ),
+        )
+        assertEquals(
+            130,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .compensateFakeIslandWidth(
+                    nativeIslandWidthPx = 220,
+                    transitionPaddingDeltaPx = 90,
+                ),
+        )
+        assertEquals(
+            0,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .compensateFakeIslandWidth(
+                    nativeIslandWidthPx = 220,
+                    transitionPaddingDeltaPx = 250,
+                ),
+        )
+        assertEquals(
+            -1,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .compensateFakeIslandWidth(
+                    nativeIslandWidthPx = -1,
+                    transitionPaddingDeltaPx = 90,
                 ),
         )
     }

@@ -1,10 +1,18 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.isCombinedStatusFeaturePreferenceKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RuntimeFeaturePreferencesOwnerTest {
+    @Test
+    fun clearNotificationParticipatesInFeatureRuntimeSync() {
+        assertEquals(true, isCombinedStatusFeaturePreferenceKey(null))
+        assertEquals(true, isCombinedStatusFeaturePreferenceKey("combined_status_enabled"))
+        assertEquals(false, isCombinedStatusFeaturePreferenceKey("unrelated"))
+    }
+
     @Test
     fun keyguardFeatureDefaultsFailNative() {
         val settings = com.chaners.guiyuan.settings.CombinedStatusFeatureSettings()

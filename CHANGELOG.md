@@ -7,6 +7,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 ## [Unreleased]
 
 ### Added
+- Optional battery-top percentage readout can reserve a measured opening in the ring, reuse the HyperOS-selected native charging glyph, and expose MIUIX controls for number size/weight/vertical position and charging-glyph size; the feature defaults off and remains inside the existing Battery transition ownership.
 - Optional opt-in lock-screen Guiyuan uses a separate Keyguard host/render/presentation adapter, while Home and Keyguard retain independent mutable View ownership. Keyguard-originated QS_FAKE is enabled only after the steady Keyguard presentation is ready.
 - Keyguard projection is guarded by native HyperOS AOD lifecycle authority from `MiuiBatteryMeterView`; AOD transition or steady AOD restores native status presentation, and unresolved AOD contracts fail native without affecting the accepted Home/QS_FAKE path.
 
@@ -33,7 +34,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 - Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 or later (`GPL-3.0-or-later`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
 
-- Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses, semantic reservation uses the single `statusIcons.paddingEnd` writer, and Mobile exact four-bar geometry is shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
+
+- Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses; QS_FAKE may take one fixed, reversible session lease on already-unused native parent width so the existing `statusIcons.paddingEnd` progress writer no longer forces native peer underflow before the HyperOS appearance handoff. Lease-only leading capacity is excluded from transition motion by sampling an end-anchored logical carrier frozen to the native source-carrier width, preventing capacity growth from shifting Guiyuan's motion origin. Mobile exact four-bar geometry remains shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
 
 - Contributor workflow now uses CONTRIBUTING + CURRENT as the daily recovery path, a decision-oriented DEVLOG, direct dev-to-main promotion, and three CI scopes (Light / Runtime / Full); signed work-branch Canary remains demand-driven and independently validates the requested source SHA.
 

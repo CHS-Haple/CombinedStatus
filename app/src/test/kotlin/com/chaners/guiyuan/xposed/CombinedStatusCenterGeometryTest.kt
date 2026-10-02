@@ -6,41 +6,69 @@ import org.junit.Test
 
 class CombinedStatusCenterGeometryTest {
     @Test
-    fun nativeCenterFamiliesScaleFromOneSharedSizeParameter() {
+    fun wifiSizeChangesWithoutResizingMobileTypeOrNativePeers() {
         val base =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = 1f,
-                textWeightScale = 1f,
+                wifiSizeScale = 1f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 800,
             )
         val enlarged =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = 1.2f,
-                textWeightScale = 1f,
+                wifiSizeScale = 1.2f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 800,
             )
 
         assertEquals(base.wifiMaxWidth * 1.2f, enlarged.wifiMaxWidth, 0.0001f)
         assertEquals(base.wifiMaxHeight * 1.2f, enlarged.wifiMaxHeight, 0.0001f)
-        assertEquals(base.airplaneMaxSize * 1.2f, enlarged.airplaneMaxSize, 0.0001f)
-        assertEquals(base.noSimMaxSize * 1.2f, enlarged.noSimMaxSize, 0.0001f)
-        assertEquals(base.mobileTypeTextSize * 1.2f, enlarged.mobileTypeTextSize, 0.0001f)
-        assertEquals(base.mobileTypeSuffixSize * 1.2f, enlarged.mobileTypeSuffixSize, 0.0001f)
+        assertEquals(base.mobileTypeTextSize, enlarged.mobileTypeTextSize, 0f)
+        assertEquals(base.mobileTypeSuffixSize, enlarged.mobileTypeSuffixSize, 0f)
+        assertEquals(base.airplaneMaxSize, enlarged.airplaneMaxSize, 0f)
+        assertEquals(base.noSimMaxSize, enlarged.noSimMaxSize, 0f)
     }
 
     @Test
-    fun textWeightChangesIndependentlyFromNativeDrawableSize() {
+    fun mobileTypeSizeChangesWithoutResizingWifiOrNativePeers() {
+        val base =
+            CombinedStatusCenterGeometry.resolve(
+                wifiSizeScale = 1f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 800,
+            )
+        val enlarged =
+            CombinedStatusCenterGeometry.resolve(
+                wifiSizeScale = 1f,
+                mobileTypeSizeScale = 1.2f,
+                mobileTypeWeight = 800,
+            )
+
+        assertEquals(base.mobileTypeTextSize * 1.2f, enlarged.mobileTypeTextSize, 0.0001f)
+        assertEquals(base.mobileTypeSuffixSize * 1.2f, enlarged.mobileTypeSuffixSize, 0.0001f)
+        assertEquals(base.mobileTypeSuffixRise * 1.2f, enlarged.mobileTypeSuffixRise, 0.0001f)
+        assertEquals(base.wifiMaxWidth, enlarged.wifiMaxWidth, 0f)
+        assertEquals(base.airplaneMaxSize, enlarged.airplaneMaxSize, 0f)
+        assertEquals(base.noSimMaxSize, enlarged.noSimMaxSize, 0f)
+    }
+
+    @Test
+    fun mobileTypeWeightChangesIndependentlyFromAllDrawableSizes() {
         val light =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = 1f,
-                textWeightScale = 0.8f,
+                wifiSizeScale = 1f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 600,
             )
         val heavy =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = 1f,
-                textWeightScale = 1.1f,
+                wifiSizeScale = 1f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 900,
             )
 
         assertEquals(light.wifiMaxWidth, heavy.wifiMaxWidth, 0f)
         assertEquals(light.airplaneMaxSize, heavy.airplaneMaxSize, 0f)
+        assertEquals(light.mobileTypeTextSize, heavy.mobileTypeTextSize, 0f)
         assertTrue(heavy.mobileTypeWeight > light.mobileTypeWeight)
     }
 
@@ -48,36 +76,47 @@ class CombinedStatusCenterGeometryTest {
     fun invalidAndOutOfRangeValuesAreClampedSafely() {
         val fallback =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = Float.NaN,
-                textWeightScale = Float.NaN,
+                wifiSizeScale = Float.NaN,
+                mobileTypeSizeScale = Float.NaN,
+                mobileTypeWeight = Int.MIN_VALUE,
             )
         assertEquals(
-            CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-            fallback.sizeScale,
+            CombinedStatusCenterGeometry.DEFAULT_WIFI_SIZE_SCALE,
+            fallback.wifiSizeScale,
             0f,
         )
         assertEquals(
-            CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            fallback.textWeightScale,
+            CombinedStatusCenterGeometry.DEFAULT_MOBILE_TYPE_SIZE_SCALE,
+            fallback.mobileTypeSizeScale,
             0f,
+        )
+        assertEquals(
+            CombinedStatusCenterGeometry.MIN_MOBILE_TYPE_WEIGHT,
+            fallback.mobileTypeWeight,
         )
 
         val clamped =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = 5f,
-                textWeightScale = 5f,
+                wifiSizeScale = 5f,
+                mobileTypeSizeScale = 5f,
+                mobileTypeWeight = 5000,
             )
         assertEquals(
-            CombinedStatusCenterGeometry.MAX_SIZE_SCALE,
-            clamped.sizeScale,
+            CombinedStatusCenterGeometry.MAX_WIFI_SIZE_SCALE,
+            clamped.wifiSizeScale,
             0f,
         )
         assertEquals(
-            CombinedStatusCenterGeometry.MAX_TEXT_WEIGHT_SCALE,
-            clamped.textWeightScale,
+            CombinedStatusCenterGeometry.MAX_MOBILE_TYPE_SIZE_SCALE,
+            clamped.mobileTypeSizeScale,
             0f,
         )
+        assertEquals(
+            CombinedStatusCenterGeometry.MAX_MOBILE_TYPE_WEIGHT,
+            clamped.mobileTypeWeight,
+        )
     }
+
     @Test
     fun fiveGaAccessSuffixUsesLowerRightVerticalDirection() {
         assertEquals(
@@ -99,14 +138,22 @@ class CombinedStatusCenterGeometryTest {
     }
 
     @Test
-    fun airplaneDefaultVisualSizeMatchesAcceptedWifiFamilyWidth() {
-        val geometry =
+    fun nativePeerDefaultsRemainOpticallyMatchedButDoNotFollowWifiScaling() {
+        val base =
             CombinedStatusCenterGeometry.resolve(
-                sizeScale = 1f,
-                textWeightScale = 1f,
+                wifiSizeScale = 1f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 800,
+            )
+        val enlargedWifi =
+            CombinedStatusCenterGeometry.resolve(
+                wifiSizeScale = 1.2f,
+                mobileTypeSizeScale = 1f,
+                mobileTypeWeight = 800,
             )
 
-        assertEquals(geometry.wifiMaxWidth, geometry.airplaneMaxSize, 0f)
+        assertEquals(base.wifiMaxWidth, base.airplaneMaxSize, 0f)
+        assertEquals(base.airplaneMaxSize, enlargedWifi.airplaneMaxSize, 0f)
+        assertEquals(base.noSimMaxSize, enlargedWifi.noSimMaxSize, 0f)
     }
-
 }

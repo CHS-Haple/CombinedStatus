@@ -20,6 +20,10 @@ class SystemUiBatterySemanticPolicyTest {
             SystemUiBatterySemanticPolicy.fromNativeProgressStatus("POWER_SAVE"),
         )
         assertEquals(
+            CombinedStatusBatterySemanticState.SUPER_POWER_SAVE,
+            SystemUiBatterySemanticPolicy.fromNativeProgressStatus("SUPER_POWER_SAVE"),
+        )
+        assertEquals(
             CombinedStatusBatterySemanticState.PERFORMANCE,
             SystemUiBatterySemanticPolicy.fromNativeProgressStatus("PERFORMANCE_MODE"),
         )

@@ -3,6 +3,7 @@ package com.chaners.guiyuan.xposed
 import android.graphics.Rect
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettings
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import java.lang.ref.WeakReference
@@ -176,6 +177,10 @@ internal object CombinedStatusKeyguardRenderSession {
             }
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
+                logicalLeftPx = 0,
+                logicalTopPx = render.currentLogicalViewportTopInsetPx(),
+                logicalWidthPx = render.currentLogicalViewportWidthPx(),
+                logicalHeightPx = render.currentLogicalViewportHeightPx(),
                 positionHost = systemIcons.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =
@@ -192,7 +197,11 @@ internal object CombinedStatusKeyguardRenderSession {
             overlayHost.addOnLayoutChangeListener(overlayHostLayoutListener)
             carrier.addOnLayoutChangeListener(carrierLayoutListener)
             renderView.visibility = View.GONE
-            overlayHost.overlay.add(renderView)
+            (renderView.parent as? ViewGroup)?.removeView(renderView)
+            overlayHost.addView(
+                renderView,
+                ViewGroup.LayoutParams(0, 0),
+            )
             renderController.updateVisualSettings(
                 RuntimeVisualPreferencesOwner.currentSettings(),
             )
@@ -214,7 +223,7 @@ internal object CombinedStatusKeyguardRenderSession {
             systemIcons.get()?.removeOnAttachStateChangeListener(this)
             systemIcons.get()?.removeOnLayoutChangeListener(overlayHostLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
-            systemIcons.get()?.overlay?.remove(renderView)
+            (renderView.parent as? ViewGroup)?.removeView(renderView)
         }
 
         fun setFeatureEnabled(enabled: Boolean) {
@@ -247,6 +256,7 @@ internal object CombinedStatusKeyguardRenderSession {
 
         fun updateVisualSettings(settings: CombinedStatusVisualSettings) {
             renderController.updateVisualSettings(settings)
+            layoutProbe()
         }
 
         fun updateAodState(update: SystemUiKeyguardAodStateSource.AodUpdate) {
@@ -315,6 +325,9 @@ internal object CombinedStatusKeyguardRenderSession {
             val model = update.model
             if (model != null) {
                 modelReady = true
+                if (update.changed) {
+                    layoutProbe()
+                }
                 if (!readyLogged) {
                     readyLogged = true
                     emitEvent {
@@ -347,17 +360,27 @@ internal object CombinedStatusKeyguardRenderSession {
                 }
                 return
             }
-            applyAnchorBounds(anchorRect)
+            val topOverflowPx =
+                renderView.requiredTopOverflowPx(
+                    logicalWidthPx = anchorRect.width(),
+                    logicalHeightPx = anchorRect.height(),
+                )
+            applyAnchorBounds(
+                bounds = anchorRect,
+                topOverflowPx = topOverflowPx,
+            )
             layoutReady = true
             if (!layoutLogged) {
                 layoutLogged = true
                 emitEvent {
-                    "keyguardRender attached carrier=MiuiStatusBatteryContainer.overlay " +
+                    "keyguardRender attached carrier=MiuiStatusBatteryContainer.child " +
                         "carrierAuthority=battery_icon_container " +
                         "motion=keyguard-system-icons-inherited " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
-                        " size=" + anchorRect.width() + "x" + anchorRect.height() +
+                        " logicalSize=" + anchorRect.width() + "x" + anchorRect.height() +
+                        " physicalSize=" + renderView.width + "x" + renderView.height +
+                        " topOverflowPx=" + renderView.currentLogicalViewportTopInsetPx() +
                         " nativeVisibilityInherited=true nativeAlphaInherited=true " +
                         "nativeTranslationInherited=true nativeGeometryWrites=0"
                 }
@@ -402,17 +425,42 @@ internal object CombinedStatusKeyguardRenderSession {
             return out.width() > 0 && out.height() > 0
         }
 
-        private fun applyAnchorBounds(bounds: Rect) {
+        private fun applyAnchorBounds(
+            bounds: Rect,
+            topOverflowPx: Int,
+        ) {
+            val physical =
+                CombinedStatusVerticalOverflowPolicy.resolve(
+                    logicalTopPx = bounds.top,
+                    logicalHeightPx = bounds.height(),
+                    requestedTopOverflowPx = topOverflowPx,
+                )
+            renderView.setLogicalViewport(
+                widthPx = bounds.width(),
+                heightPx = bounds.height(),
+                topInsetPx = physical.logicalTopInsetPx,
+            )
             if (
                 renderView.measuredWidth != bounds.width() ||
-                renderView.measuredHeight != bounds.height()
+                renderView.measuredHeight != physical.physicalHeightPx
             ) {
                 renderView.measure(
-                    View.MeasureSpec.makeMeasureSpec(bounds.width(), View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(bounds.height(), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(
+                        bounds.width(),
+                        View.MeasureSpec.EXACTLY,
+                    ),
+                    View.MeasureSpec.makeMeasureSpec(
+                        physical.physicalHeightPx,
+                        View.MeasureSpec.EXACTLY,
+                    ),
                 )
             }
-            renderView.layout(bounds.left, bounds.top, bounds.right, bounds.bottom)
+            renderView.layout(
+                bounds.left,
+                physical.physicalTopPx,
+                bounds.right,
+                bounds.bottom,
+            )
         }
 
         private fun applyResolvedVisibility(): Boolean {

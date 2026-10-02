@@ -40,6 +40,11 @@
     <string name="home_preview_airplane_summary">开启后暂停移动网络模拟，Wi‑Fi 仍可独立开启。</string>
     <string name="home_preview_mobile_network_title">移动网络</string>
     <string name="home_preview_network_none">无</string>
+    <string name="home_preview_network_2g">2G</string>
+    <string name="home_preview_network_edge">E</string>
+    <string name="home_preview_network_3g">3G</string>
+    <string name="home_preview_network_h_plus">H+</string>
+    <string name="home_preview_network_lte">LTE</string>
     <string name="home_preview_network_4g">4G</string>
     <string name="home_preview_network_5g">5G</string>
     <string name="home_preview_network_5ga">5G-A</string>

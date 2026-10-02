@@ -5,85 +5,73 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.3.
-- Integrated stable runtime baseline on `main` / `dev`: Build 473.
+- `main` and `dev` are identical at `5ef5d763d1eed99c12b826abf6031d278a954a0e`; their integrated runtime baseline remains Build 511 plus repository-governance and GPL-3.0-or-later metadata updates.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- Build 472 companion-app presentation and Build 473 Wi-Fi optical normalization remain protected accepted behavior.
+- Build 510 non-charging Home and Build 511 charging Home transition behavior remain protected accepted baselines.
+- Build 473 Wi-Fi optical normalization and the accepted companion-app presentation baseline remain protected.
 
 ## Active objective
 
-Promote the accepted Build-511 integration from `dev` to `main` as the current stable development baseline, then continue follow-up transition polish on a new bounded work branch.
+PR #181 / `feat/battery-top-readout` is the active product/runtime line. It is based directly on current `dev`, is not behind `dev`, and contains the battery-top readout/customization work, battery-color scheme UI, preview/settings refinements, and follow-up Control Center transition corrections.
 
 Current runtime checkpoint:
-- Build 511 / `20260930-511` is integrated on `dev` through squash-merged PR #177;
-- Build 510 non-charging Home transition is device-accepted;
-- Build 511 charging Home transition is device-accepted;
-- Build 511 runtime-authority / Fail-native hardening is integrated without retuning the accepted Build-510 geometry or motion;
-- maintainer accepts the current integrated state for promotion to `main`.
+- Build 612 / `20261002-612`, runtime code SHA `0f8128c5e2cf8ad1c8715acf7aa776a0ad09ef2a`.
+- Exact-head Runtime run `36962917018` succeeded.
+- Maintainer device validation reports the latest Build 612 has no anomaly.
+- No additional device gate is required before PR integration unless later code changes runtime behavior.
 
 ## Current transition contract
 
-- HyperOS is the sole expansion / appearance timeline authority.
-- Home and Keyguard may bridge only through the verified QS_FAKE transition interval; fully expanded Control Center remains native-owned.
+- HyperOS remains the sole expansion / appearance timeline authority.
+- Home and Keyguard bridge only through the verified QS_FAKE interval; fully expanded Control Center remains native-owned.
 - Notification Shade and AOD remain native-only on the pinned target.
-- Guiyuan does not write native peer translation, alpha, visibility, or a second gesture animator.
-- `statusIcons.paddingEnd` is the single Guiyuan peer-layout writer.
-- Transition reservation freezes the final total semantic width, then interpolates compact -> final width directly from raw HyperOS expansion progress.
-- Final role-6 top-level slots are read-only occupancy / root-space geometry witnesses.
-- Exact drawable / child topology may refine optical geometry but does not grant native layout ownership.
-- Mobile outer motion remains similarity/carrier based. Exact four-bar geometry is shape-local and available only for positively verified `FOUR_VERTICAL_BARS` topology.
-- Composite / dual-row / unknown Mobile topology stays on the conservative fallback path.
-- Latent Airplane / No-SIM / additional-SIM reveal is spatial: real reservation must open before pixels appear; no duration, delay, fraction threshold, or local animator owns reveal timing.
-- Home and Keyguard keep independent mutable host/session ownership.
-- Keyguard Control Center lease ends on authoritative boundaries such as native fraction zero, AOD block, feature disable, Keyguard disable, host loss, or source-scene change.
-- Build-channel diagnostics flags are observation-only. Release and Canary share functional hooks, state authority, ownership/lifecycle, and Fail-native control flow.
+- Guiyuan does not write native peer translation, alpha, visibility, visibleState, or a second gesture animator.
+- `statusIcons.paddingEnd` remains the only progress-driven peer-layout property.
+- QS_FAKE may acquire one fixed, reversible session capacity lease only after HyperOS establishes a concrete native carrier width and only from already-unused, verified end-anchored parent capacity.
+- The capacity lease is measurement-only. Transition motion samples an end-anchored logical carrier whose width is frozen from the native source motion carrier, so lease-only leading width cannot shift the motion origin.
+- Any later carrier-width change is treated as a competing writer; Guiyuan relinquishes ownership and fails native instead of racing HyperOS.
+- Compact cutover waits for the capacity-induced native layout and re-validates the end anchor.
+- Mobile exact four-bar geometry remains shape-local; composite/dual-row/unknown topology stays on the conservative fallback path.
+- Latent Airplane / No-SIM / additional-SIM reveal remains spatial and reservation-gated, without timer/delay ownership.
+- Home and Keyguard keep independent host/session ownership and cleanup.
+- Build-channel diagnostics remain observation-only; Release and Canary share functional control flow.
+
+## Build 612 conclusion
+
+Build 611 solved the late QS_FAKE native-peer underflow by leasing fixed leading capacity, but the full widened fake status-icon row was then sampled as transition motion geometry. On the verified topology the row changed 478 -> 728px while retaining the same end edge, moving its raw center about 125px left and causing the whole Guiyuan transition to jump.
+
+Build 612 keeps the fixed capacity lease but freezes the native source motion-carrier width. The live widened row is projected to an end-anchored logical carrier of that frozen width before source rebasing. This separates native measurement capacity from transition motion without hard-coded offsets, device-specific width assumptions, new writers, or a new timing path. LTR and RTL projection are unit-covered.
 
 ## Validation state
 
 Confirmed:
-- Build 510 non-charging Home transition: device accepted.
-- Build 511 charging Home transition: device accepted; no press-entry left shift, whole-row rebase, overlap, or endpoint drift was reported in the tested charging path.
-- Build 511 static code review: complete.
-- Runtime / unit validation: green after the Build-511 safety fixes and added negative policy coverage.
-- Signed exact-head Build-511 Canary validation passed before integration.
-- Keyguard lease negative boundaries are unit-tested.
-- Eight-component dual-row / composite Mobile is unit-tested to expose no exact four-bar capability.
-- Release / Canary functional control-flow parity was reviewed after moving Island status authority outside the diagnostics gate.
-- PR #177 was squash-merged into `dev`; the integrated Build-511 state is accepted for stable promotion.
-- Superseded PRs #174, #161, #117, and #99 are closed. PR #157 is an independent Gradle-wrapper update and remains deferred pending trusted validation.
+- Build 612 static review: no ownership/lifecycle/timing regression found in the capacity/motion separation.
+- Runtime CI at the Build-612 runtime head: green.
+- PR #181 has no unresolved review threads at the Build-612 checkpoint.
+- Maintainer device pass: latest Build 612 reports no anomaly.
+- The Build-611 initial left-jump regression is therefore closed without reverting the Build-609/611 peer-capacity correction.
 
-## Follow-up validation after this stable snapshot
-
-These items remain useful transition-polish evidence, but the maintainer has accepted the current Build-511 integrated state for promotion to `main`.
-
-1. **Latent supplemental semantics**
-   - Airplane / No-SIM / additional SIM reveal continuously only after real peer space opens;
-   - reverse collapse hides before reservation closes through neighboring content.
-
-2. **Real composite / dual-row Mobile**
-   - confirm real third-party topology remains visually on the composite fallback path;
-   - no flattening into the exact four-bar morph.
-
-3. **Final Keyguard-originated regression**
-   - steady Keyguard -> partial/full Control Center -> return remains responsive;
-   - no terminal stall, duplicate native row, stale lease, or cleanup residue.
+No current device blocker:
+- the next commit is documentation-only and does not invalidate the accepted Build-612 APK evidence;
+- do not generate another Canary unless a later runtime/UI change creates a new device decision gate.
 
 ## Non-negotiable boundaries
 
-- Root-cause first; no speculative geometry or timing compensation.
-- Preserve the Build-510 accepted non-charging result unless contradictory device evidence appears.
-- Preserve Build-504 root-space endpoint ownership, Build-507 reservation behavior, Build-509 spatial latent reveal, and Build-491 / 497 / 498 lifecycle/safety boundaries.
+- Root-cause first; no screenshot-fitted geometry/timing compensation.
+- Preserve accepted Build-510/511 transition behavior unless contradictory device evidence appears.
 - One mutable runtime property has one writer.
-- No polling, delayed lifecycle fixes, duplicate state machines, duplicate gesture animators, or high-frequency diagnostics.
 - Cleanup / Hot Reload restores only Guiyuan-owned state.
+- No polling, delayed lifecycle repair, duplicate gesture animator, or high-frequency diagnostics.
 - Compatibility uncertainty fails native.
-- HyperOS resources / state / motion are preferred over project-local copies or guesses.
+- HyperOS/MIUIX/native resources, state, layout semantics, and motion remain preferred over project-local imitation.
+- Do not revive rejected Battery-Island `batteryWidthDiff`, peer-`forceAppear`, or generic-island proxy routes without new exact-target evidence.
 
 ## Immediate next step
 
-1. complete `dev -> main` promotion for the accepted Build-511 snapshot;
-2. do not mix new runtime work into the promotion PR;
-3. after promotion, start the next bounded feature/fix branch from current `dev`;
-4. preserve Build-510/511 accepted transition behavior unless new contradictory device evidence appears.
+1. let the documentation-only PR checkpoint complete automated validation;
+2. if green, squash-merge PR #181 into `dev`;
+3. verify the resulting `dev` Runtime integration and branch state;
+4. with no new runtime delta or device blocker, continue the normal stable-promotion path from the integrated `dev` baseline.
 
 ## Reference priority
 

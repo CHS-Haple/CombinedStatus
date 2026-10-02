@@ -13,11 +13,20 @@ internal enum class PreviewNetworkMode {
     WIFI,
 }
 
-internal enum class PreviewMobileNetwork {
-    NONE,
-    FOUR_G,
-    FIVE_G,
-    FIVE_GA,
+internal enum class PreviewMobileNetwork(
+    val systemLabel: String,
+) {
+    NONE(""),
+    FOUR_G("4G"),
+    FIVE_G("5G"),
+    FIVE_GA("5G-A"),
+
+    // Keep the original four ordinals stable for rememberSaveable restoration.
+    TWO_G("2G"),
+    EDGE("E"),
+    THREE_G("3G"),
+    H_PLUS("H+"),
+    LTE("LTE"),
 }
 
 internal enum class PreviewWifiState {
@@ -176,13 +185,7 @@ internal fun PreviewSandboxUiState.toRenderModel(
 
             PreviewCenterSource.MOBILE ->
                 CenterIndicator.MobileType(
-                    label =
-                        when (mobileNetwork) {
-                            PreviewMobileNetwork.NONE -> ""
-                            PreviewMobileNetwork.FOUR_G -> "4G"
-                            PreviewMobileNetwork.FIVE_G -> "5G"
-                            PreviewMobileNetwork.FIVE_GA -> "5G-A"
-                        },
+                    label = mobileNetwork.systemLabel,
                     enhanced = false,
                     internet = InternetState.VALIDATED,
                 )
@@ -197,7 +200,8 @@ internal fun PreviewSandboxUiState.toRenderModel(
                 PreviewBatteryMode.BALANCED -> CombinedStatusBatterySemanticState.NORMAL
                 PreviewBatteryMode.POWER_SAVE -> CombinedStatusBatterySemanticState.POWER_SAVE
                 PreviewBatteryMode.PERFORMANCE -> CombinedStatusBatterySemanticState.PERFORMANCE
-                PreviewBatteryMode.SUPER_POWER_SAVE -> CombinedStatusBatterySemanticState.POWER_SAVE
+                PreviewBatteryMode.SUPER_POWER_SAVE ->
+                    CombinedStatusBatterySemanticState.SUPER_POWER_SAVE
             }
         }
 
@@ -205,6 +209,11 @@ internal fun PreviewSandboxUiState.toRenderModel(
         batteryPercent = batteryPercent.coerceIn(0, 100),
         charging = charging,
         centerIndicator = center,
+        chargingIconResId =
+            previewChargingResourceId(
+                resources = resources,
+                state = chargingState,
+            ),
         mobileLevel = mobileLevel,
         mobileUnavailableMark = airplaneMode || !simPresent,
         effectiveDataSubscriptionId = -1,
@@ -245,6 +254,32 @@ private fun previewWifiResourceId(
             level = level.coerceIn(0, 3),
         ).toTypedArray(),
     )
+
+internal fun previewChargingResourceNames(
+    state: PreviewChargingState,
+): List<String> =
+    when (state) {
+        PreviewChargingState.NOT_CHARGING -> emptyList()
+        PreviewChargingState.CHARGING ->
+            listOf(
+                "hollow_battery_meter_charging",
+                "tiny_battery_charging",
+            )
+        PreviewChargingState.SUPER_FAST_CHARGING ->
+            listOf(
+                "hollow_battery_meter_quick_charging",
+                "tiny_battery_quick_charging",
+            )
+    }
+
+private fun previewChargingResourceId(
+    resources: PreviewSystemUiResourceResolver,
+    state: PreviewChargingState,
+): Int? {
+    val names = previewChargingResourceNames(state)
+    if (names.isEmpty()) return null
+    return resources.drawableId(*names.toTypedArray())
+}
 
 private fun previewBatterySemanticColor(
     resources: PreviewSystemUiResourceResolver,

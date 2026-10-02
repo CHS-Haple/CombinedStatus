@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.chaners.guiyuan.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_ENABLED_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
@@ -15,8 +14,11 @@ import com.chaners.guiyuan.settings.COMBINED_STATUS_VISUAL_PREFS_NAME
 import com.chaners.guiyuan.settings.DIAGNOSTICS_LEVEL_KEY
 import com.chaners.guiyuan.settings.DIAGNOSTICS_PREFS_NAME
 import com.chaners.guiyuan.settings.DiagnosticsLevel
-import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.guiyuan.settings.RUNTIME_REMOTE_PREFS_NAME
+import com.chaners.guiyuan.settings.isCombinedStatusVisualPreferenceKey
+import com.chaners.guiyuan.settings.migrateBatteryTopChargingScaleReferenceIfNeeded
+import com.chaners.guiyuan.settings.putCombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.readCombinedStatusVisualSettings
 import com.chaners.guiyuan.system.XposedRuntimeStatus
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
@@ -78,16 +80,14 @@ class CombinedStatusApplication :
 
     private val visualListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (
-                key == MOBILE_FOLLOWS_BATTERY_COLOR_KEY ||
-                key == CENTER_FOLLOWS_BATTERY_COLOR_KEY
-            ) {
+            if (isCombinedStatusVisualPreferenceKey(key)) {
                 xposedService?.let(::syncRuntimeConfig)
             }
         }
 
     override fun onCreate() {
         super.onCreate()
+        migrateBatteryTopChargingScaleReferenceIfNeeded(visualPreferences)
         diagnosticsPreferences.registerOnSharedPreferenceChangeListener(diagnosticsListener)
         featurePreferences.registerOnSharedPreferenceChangeListener(featureListener)
         visualPreferences.registerOnSharedPreferenceChangeListener(visualListener)
@@ -201,16 +201,8 @@ class CombinedStatusApplication :
                 COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
                 0L,
             )
-        val mobileFollowsBattery =
-            visualPreferences.getBoolean(
-                MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
-                false,
-            )
-        val centerFollowsBattery =
-            visualPreferences.getBoolean(
-                CENTER_FOLLOWS_BATTERY_COLOR_KEY,
-                false,
-            )
+        val visualSettings =
+            visualPreferences.readCombinedStatusVisualSettings()
 
         runCatching {
             val remote = service.getRemotePreferences(RUNTIME_REMOTE_PREFS_NAME)
@@ -229,14 +221,7 @@ class CombinedStatusApplication :
                     COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
                     featureChangeElapsedRealtimeNanos,
                 )
-                .putBoolean(
-                    MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
-                    mobileFollowsBattery,
-                )
-                .putBoolean(
-                    CENTER_FOLLOWS_BATTERY_COLOR_KEY,
-                    centerFollowsBattery,
-                )
+                .putCombinedStatusVisualSettings(visualSettings)
             check(editor.commit()) { "remote preference commit failed" }
         }.onFailure { throwable ->
             Log.w(

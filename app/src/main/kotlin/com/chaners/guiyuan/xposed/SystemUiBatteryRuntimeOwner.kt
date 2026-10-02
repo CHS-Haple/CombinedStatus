@@ -20,6 +20,7 @@ internal object SystemUiBatteryRuntimeOwner {
         module: XposedModule,
         classLoader: ClassLoader,
         onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
+        onChargingIconResource: (Int?) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): AttachResult =
         AttachResult(
@@ -28,6 +29,7 @@ internal object SystemUiBatteryRuntimeOwner {
                     module = module,
                     classLoader = classLoader,
                     onBatteryState = onBatteryState,
+                    onChargingIconResource = onChargingIconResource,
                     onEvent = onEvent,
                 ).size,
         ).also { current = it }
