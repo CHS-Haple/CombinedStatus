@@ -177,6 +177,34 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
+    fun leftExitDefaultsToOriginalBatteryFillIntersection() {
+        val progress = 0.12f
+        val result =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = listOf(
+                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+                ),
+                batteryPercent = 75,
+                progress = progress,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+            )
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
+        val retainedStart = 240f * (1f - remaining)
+        val originalActiveEnd = 240f * 0.75f
+        assertTrue(retainedStart < originalActiveEnd)
+        assertEquals(
+            150f + retainedStart,
+            result.active.single().startDegrees,
+            0.0001f,
+        )
+        assertEquals(
+            originalActiveEnd - retainedStart,
+            result.active.single().sweepDegrees,
+            0.0001f,
+        )
+    }
+
+    @Test
     fun leftExitCarriesBatteryFillWithoutShrinkingWhileHollowRemains() {
         val progress = 0.12f
         val result =
@@ -187,6 +215,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 batteryPercent = 75,
                 progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                followRetractEndpoint = true,
             )
         val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
         val retainedStart = 240f * (1f - remaining)
@@ -209,6 +238,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 batteryPercent = 50,
                 progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                followRetractEndpoint = true,
             )
         val activeSweep = result.active.sumOf { it.sweepDegrees.toDouble() }.toFloat()
         val backgroundSweep = result.background.sumOf { it.sweepDegrees.toDouble() }.toFloat()
@@ -230,6 +260,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 batteryPercent = 36,
                 progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                followRetractEndpoint = true,
             )
         val after =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
@@ -237,6 +268,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 batteryPercent = 37,
                 progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                followRetractEndpoint = true,
             )
 
         assertEquals(
@@ -264,6 +296,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 batteryPercent = 75,
                 progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                followRetractEndpoint = true,
             )
         val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
         val retainedSweep = 240f * remaining
@@ -282,6 +315,7 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
                 batteryPercent = 36,
                 progress = 1f,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+                followRetractEndpoint = true,
             )
         assertTrue(completed.background.isEmpty())
         assertTrue(completed.active.isEmpty())
