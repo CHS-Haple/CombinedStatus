@@ -159,7 +159,22 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun aodAnimationRoutesByVisiblePresentationOwnershipNotDirectionFields() {
+    fun aodAnimationRoutesFromLatchedStableFamilySceneNotMutableOwnership() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardPresentationOwned = false,
+                aodPresentationOwned = true,
+            ),
+        )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -169,7 +184,10 @@ class CombinedStatusScenePolicyTest {
                 toAod = true,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
                 keyguardPresentationOwned = true,
+                aodPresentationOwned = false,
             ),
         )
         assertEquals(
@@ -181,33 +199,31 @@ class CombinedStatusScenePolicyTest {
                 toAod = true,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                aodPresentationOwned = true,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardPresentationOwned = true,
+                aodPresentationOwned = false,
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
-                keyguardEnabled = false,
-                aodEnabled = true,
-                toAod = true,
-                isAodAnimate = true,
-                steadySourceScene = CombinedStatusSourceScene.UNKNOWN,
-                aodPresentationOwned = true,
-            ),
-        )
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
-            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
-                featureEnabled = true,
-                keyguardEnabled = false,
+                keyguardEnabled = true,
                 aodEnabled = true,
                 toAod = false,
                 isAodAnimate = true,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
-                homePresentationOwned = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardPresentationOwned = false,
+                aodPresentationOwned = true,
             ),
         )
+    }
+
+    @Test
+    fun latchedFamilySceneNeverRoutesIntoDisabledChild() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -217,7 +233,46 @@ class CombinedStatusScenePolicyTest {
                 toAod = true,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                keyguardPresentationOwned = true,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+            ),
+        )
+    }
+
+    @Test
+    fun steadySceneOverridesStaleFirstControlCenterSourceAfterLifecycleBoundary() {
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.KEYGUARD,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.HOME,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.HOME,
+                steadySourceScene = CombinedStatusSourceScene.UNKNOWN,
             ),
         )
     }
