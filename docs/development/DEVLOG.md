@@ -2647,3 +2647,28 @@ Build 650 changes the authority:
 - source disappearance remains opaque horizontal Clip with `opacity=1`, not alpha fade or scale.
 
 No new animator, timer, geometry writer, or second transition clock is introduced.
+
+
+## 2026-10-03 — Build 652: calibrate charging Clip between two device-proven bad endpoints
+
+**Type:** device video / visual timing calibration  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 650 -> 652
+
+### Device evidence
+
+Build 649 and Build 650 bracket the desired charging-source disappearance point:
+- Build 649: source fully clipped when retained ring arc reached 50%; device video shows this is too early.
+- Build 650: source fully clipped at 50% of raw ring-retract lifetime; because the ring uses `FRONT_LOAD=0.92`, only ~18% of ring arc remains at that point, and device video shows the source disappears near the end.
+
+### Build-652 correction
+
+- Keep Clip start at ring-retract start.
+- Complete source Clip at 40% of ring-retract lifetime.
+- Under the current ring curve this corresponds to ~32% retained arc, visually between the two rejected endpoints.
+- Source Clip remains linear and opaque; source remains number-relative while visible.
+- Hidden target travel begins only after source is fully clipped.
+- Target reveal remains 0.85 -> 0.90.
+- Ring geometry/easing and tint timing are unchanged.
+
+No timer, animator, secondary transition clock, geometry writer, alpha fade, or scale animation is added.
