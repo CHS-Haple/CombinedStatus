@@ -184,6 +184,7 @@ internal data class CombinedStatusVisualSettings(
     val batteryTopTextFollowsBatteryColor: Boolean = true,
     val batteryTopChargingIconEnabled: Boolean = true,
     val batteryTopChargingIconFollowsBatteryColor: Boolean = true,
+    val batteryFillFollowsRetractEndpoint: Boolean = false,
     val batteryTopTextScale: Float = batteryTopTextScaleDefault(contentLayout),
     val batteryTopTextWeight: Int = BATTERY_TOP_TEXT_WEIGHT_DEFAULT,
     val batteryTopVerticalOffset: Float = BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
@@ -347,6 +348,13 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
         preferences
             .edit()
             .putBoolean(activeProfileKey(BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY), enabled)
+            .apply()
+    }
+
+    fun setBatteryFillFollowsRetractEndpoint(enabled: Boolean) {
+        preferences
+            .edit()
+            .putBoolean(BATTERY_FILL_FOLLOWS_RETRACT_ENDPOINT_KEY, enabled)
             .apply()
     }
 
@@ -615,6 +623,11 @@ internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatu
                 baseKey = BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY,
                 defaultValue = true,
             ),
+        batteryFillFollowsRetractEndpoint =
+            getBoolean(
+                BATTERY_FILL_FOLLOWS_RETRACT_ENDPOINT_KEY,
+                false,
+            ),
         batteryTopTextScale =
             profileFloat(
                 layout = layout,
@@ -738,6 +751,9 @@ internal fun SharedPreferences.Editor.putCombinedStatusVisualSettings(
     ).putBoolean(
         combinedStatusProfileKey(layout, BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY),
         normalized.batteryTopChargingIconFollowsBatteryColor,
+    ).putBoolean(
+        BATTERY_FILL_FOLLOWS_RETRACT_ENDPOINT_KEY,
+        normalized.batteryFillFollowsRetractEndpoint,
     ).putFloat(
         combinedStatusProfileKey(layout, BATTERY_TOP_TEXT_SCALE_KEY),
         normalized.batteryTopTextScale,
@@ -789,6 +805,8 @@ internal const val BATTERY_TOP_CHARGING_ICON_ENABLED_KEY =
     "battery_top_charging_icon_enabled"
 internal const val BATTERY_TOP_CHARGING_ICON_FOLLOWS_BATTERY_COLOR_KEY =
     "battery_top_charging_icon_follows_battery_color"
+internal const val BATTERY_FILL_FOLLOWS_RETRACT_ENDPOINT_KEY =
+    "battery_fill_follows_retract_endpoint"
 internal const val BATTERY_TOP_TEXT_SCALE_KEY = "battery_top_text_scale"
 internal const val BATTERY_TOP_TEXT_WEIGHT_KEY = "battery_top_text_weight"
 internal const val BATTERY_TOP_VERTICAL_OFFSET_KEY = "battery_top_vertical_offset"
@@ -838,6 +856,7 @@ private val PROFILE_VISUAL_BASE_KEYS =
 
 private val GLOBAL_VISUAL_KEYS =
     setOf(
+        BATTERY_FILL_FOLLOWS_RETRACT_ENDPOINT_KEY,
         BATTERY_COLOR_PRESET_KEY,
         BATTERY_COLOR_MODE_NORMAL_KEY,
         BATTERY_COLOR_MODE_POWER_SAVE_KEY,
