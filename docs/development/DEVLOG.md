@@ -1,3 +1,25 @@
+## 2026-10-02 — Build 593 explicit custom-style limit state
+
+**Type:** App UI / MIUIX disabled-state feedback  
+**Display version:** 0.0.3  
+**Build:** 593 / `20261002-593`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer correction
+The full-card Add interaction replaced the previous FAB state change, so reaching the five-custom-style limit needed equally clear visual feedback.
+
+### Change
+- Available state: white Add Card remains fully clickable with native `PressFeedbackType.Tilt`, gray 60dp circle and thick white plus.
+- Limit state: click/Tilt disabled, center circle and plus use MIUIX disabled semantic tokens.
+- Reuse existing localized limit copy below the icon: `已达自定义上限 · 5/5` / `Custom style limit reached · 5/5`.
+- Card geometry and measured-height synchronization do not change between available/limit states.
+
+### Retained Build-592 behavior
+Shared 84% Sheet height, equal title-row height, tightened header/navigation spacing, 32dp arrow press geometry/tooltips, deferred built-in-template naming flow, measured Add/settings Card height equality, and Home preview Tilt feedback.
+
+### Validation
+Run exact-head Runtime CI and Work Branch Canary. Device acceptance should confirm the Add Card has a clearly distinguishable limit state without changing its size or alignment.
+
 ## 2026-10-02 — Build 592 battery scheme interaction and geometry pass
 
 **Type:** App UI / MIUIX interaction / layout geometry  
