@@ -168,15 +168,7 @@ internal object CombinedStatusKeyguardRenderSession {
     ): Boolean =
         featureEnabled && if (sceneIsAod) aodEnabled else keyguardEnabled
 
-    internal fun resolveFamilyChildAlpha(
-        sceneIsAod: Boolean,
-        batteryAlpha: Float,
-    ): Float =
-        if (sceneIsAod) {
-            batteryAlpha.coerceIn(0f, 1f)
-        } else {
-            1f
-        }
+    internal fun resolveFamilyChildAlpha(): Float = 1f
 
     private fun resolveSceneOverlayVisible(
         featureEnabled: Boolean,
@@ -433,6 +425,10 @@ internal object CombinedStatusKeyguardRenderSession {
                     " sceneEligible=" + sceneEligible +
                     " eligibilityAuthority=scene-policy" +
                     " overlayVisible=" + visible +
+                    " childAlpha=" + renderView.alpha +
+                    " batteryAlphaReadOnly=" + battery.alpha +
+                    " statusIconsAlphaReadOnly=" + (statusIcons.get()?.alpha ?: -1f) +
+                    " systemIconsAlphaReadOnly=" + (systemIcons.get()?.alpha ?: -1f) +
                     " nativeGeometryWrites=0"
             }
         }
@@ -630,11 +626,12 @@ internal object CombinedStatusKeyguardRenderSession {
                     sceneEligible = sceneEligible,
                 )
             if (visible) {
-                renderView.alpha =
-                    resolveFamilyChildAlpha(
-                        sceneIsAod = scene == Scene.AOD,
-                        batteryAlpha = batteryView.get()?.alpha ?: 1f,
-                    )
+                // The module child lives directly under the verified system-icons
+                // family carrier. Do not copy Battery's independent AOD alpha
+                // animation onto the whole combined visual: HyperOS animates
+                // Battery and status icons as separate children, and Battery may
+                // legitimately reach alpha=0 during a family scene transfer.
+                renderView.alpha = resolveFamilyChildAlpha()
             }
             renderView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
