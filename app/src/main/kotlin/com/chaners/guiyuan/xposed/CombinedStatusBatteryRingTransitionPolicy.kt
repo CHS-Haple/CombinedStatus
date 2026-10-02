@@ -55,18 +55,20 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
             ExitDirection.LEFT -> {
                 val retainedStart = totalSweep - retainedSweep
                 val retainedEnd = totalSweep
+                val originalActiveSweep =
+                    totalSweep *
+                        batteryPercent.coerceIn(0, 100) /
+                        100f
                 val retainedActiveEnd =
                     retainedStart +
-                        retainedSweep *
-                            batteryPercent.coerceIn(0, 100) /
-                            100f
+                        min(originalActiveSweep, retainedSweep)
                 Segments(
                     background = slice(drawableArcs, retainedStart, retainedEnd),
                     active =
                         slice(
                             drawableArcs,
                             retainedStart,
-                            min(retainedEnd, retainedActiveEnd),
+                            retainedActiveEnd,
                         ),
                     remainingFraction = remaining,
                 )
