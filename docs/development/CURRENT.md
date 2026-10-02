@@ -15,70 +15,88 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 645 is the current Keyguard/AOD child-ownership correction candidate after Build-643 device feedback.
+Build 651 is the current Keyguard/AOD lifecycle correction candidate after Build-645 device evidence.
 
-Build-643 device evidence:
-- Keyguard ON + AOD ON: AOD -> Keyguard followed immediately by a fast Control Center pull can begin with no Guiyuan transition; if the gesture pauses at a partial fraction, the transition can jump in later rather than remaining continuous from the first frame.
-- Keyguard ON + AOD OFF: Keyguard -> native AOD keeps the Guiyuan Keyguard presentation visibly too long before native AOD takes over.
-- Keyguard OFF + AOD ON: disabling the Keyguard child cleans up Keyguard correctly, but the enabled AOD child can immediately attach to the same steady Keyguard host, making the Keyguard switch appear ineffective.
+Build-645 device evidence:
+- Keyguard + AOD both enabled: AOD -> Home and Keyguard -> Home followed immediately by a fast Control Center pull can probabilistically remain native for the entire gesture.
+- Disabling Keyguard Guiyuan does not reliably keep steady Keyguard native.
+- With AOD Guiyuan disabled, AOD <-> Keyguard switching can briefly expose native represented icons before Guiyuan returns; AOD -> Keyguard + immediate partial pull can start native and recover only after being held.
+- The 645 diagnostic repeatedly shows Keyguard presentation reaching prepared/active and then being immediately cleaned with `keyguard-aod-native` / `cutover-projection-ineligible`, followed by a fresh attach. This matches the visible native flash.
 
-The Build-643 diagnostic proves the third defect is not preference transport failure: after `keyguardRenderFeature enabled=false` and Keyguard presentation cleanup, the module attaches `aodRenderer` from `feature-settings` and activates `aodPresentation` on the same host.
+Root cause confirmed in review:
+1. Build 645 used current Keyguard/AOD presentation ownership as animation-direction evidence. That ownership is itself mutated by attach/cleanup, so repeated AOD callbacks can self-oscillate: KEYGUARD -> NATIVE -> KEYGUARD (or the reverse).
+2. A disabled child therefore was not a hard visibility boundary: the shared family host could be re-entered by the other child after a callback re-evaluated mutable ownership.
+3. Direct AOD -> Home unlock could lose AOD origin too early. If HOME immediately cleared family history, a later AOD-animation callback could be misread as Home -> AOD prearm.
+4. After unlock, the authoritative steady scene can already be HOME while the first Control Center native callback still reports stale KEYGUARD identity from `realSystemIcons`. Letting that stale callback overwrite HOME can leave the first fast pull on the wrong transition witness.
+5. Review also found the new family latch must be cleared explicitly during old-generation hot-reload teardown.
 
-Root cause:
-- animating family routing still treated existing presentation ownership as a reason to keep the old child, rather than as evidence of which child is outgoing;
-- this allowed an old AOD claim to outlive the verified steady Keyguard boundary and allowed AOD to substitute for a disabled Keyguard child;
-- conversely, an owned Keyguard child with AOD disabled was retained during Keyguard -> AOD until the late animation-tail callback.
+Build 651 correction:
+- Replace mutable child-ownership direction inference with a latched `StableKeyguardAodScene` derived only from non-animating, runtime-observed family state.
+- Freeze that latch for the entire AOD animation; attach/cleanup cannot change direction.
+- Child switches are hard gates:
+  - latched KEYGUARD can route only to enabled AOD, otherwise Native;
+  - latched AOD can route only to enabled Keyguard, otherwise Native.
+- Home -> AOD prearm remains allowed only when there is no latched Keyguard/AOD origin and Home still owns the visible source.
+- AOD -> Home keeps AOD origin latched through the outgoing animation and clears it only after non-animating, non-AOD stable HOME evidence.
+- Remove obsolete `keyguardPresentationOwned/aodPresentationOwned` inputs from ScenePolicy entirely.
+- Once steady scene is known, it is authoritative for the first Control Center source callback. A stale KEYGUARD callback cannot overwrite verified HOME after unlock.
+- The same effective source scene is fed to both Control Center eligibility and TransitionOwner so render readiness and transition witness cannot disagree on the first pull.
+- Clear the stable-family latch in both normal hot-reload reset and old-generation teardown.
 
-Build 645 correction:
-- existing child ownership is now interpreted as outgoing-child evidence, without using the rejected `toAod/animToAod` direction fields;
-- steady Keyguard + Home still owned + AOD enabled remains the only Home -> AOD prearm exception;
-- steady Keyguard + outgoing AOD ownership transfers immediately to Keyguard when the Keyguard child is enabled, otherwise Native;
-- steady Keyguard + outgoing Keyguard ownership transfers immediately to AOD when the AOD child is enabled, otherwise Native;
-- steady Keyguard with no family child yet acquires Keyguard immediately when enabled, covering native-AOD -> Keyguard without waiting for the animation tail;
-- UNKNOWN scene preserves only an already-owned enabled child and otherwise fails native.
-
-The family RenderSession remains single-writer and is retargeted in-place; no timer, delay, polling, native geometry writer, or transition-direction guess is added.
+No timer, delay, polling, native geometry/visibility writer, second family owner, or rejected `toAod/animToAod` direction inference is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003645` / Build `20261003-645`.
-- Work branch is based on current `dev` with no behind commits.
-- Focused ScenePolicy coverage locks:
-  - dual-enabled outgoing Keyguard -> AOD and outgoing AOD -> Keyguard ownership routing;
-  - Keyguard-only native-AOD -> Keyguard early acquisition;
-  - Keyguard-only Keyguard -> AOD immediate native release;
-  - AOD-only cannot replace a disabled Keyguard child on steady Keyguard;
-  - Home-owned AOD prearm remains valid across the transient Keyguard source.
-- Exact-HEAD Runtime CI is required before a signed Canary.
-- Device evidence is required because this changes visible family cutover timing and the Keyguard Control Center source boundary.
+- Candidate identity: `0.0.5` / versionCode `261003651` / Build `20261003-651`.
+- Branch remains based on current `dev` with no behind commits at the latest checkpoint.
+- Focused coverage now locks:
+  - animation routing from stable family latch, independent of mutable current ownership;
+  - disabled Keyguard/AOD children never receive routed presentation;
+  - direct AOD -> Home cannot reverse-prearm AOD;
+  - Home -> AOD can still prearm from UNKNOWN family history;
+  - verified HOME/KEYGUARD steady scene overrides stale first Control Center callback source;
+  - existing single-enabled and Home-owned prearm rules remain covered.
+- Lifecycle review additionally verified:
+  - SceneUpdate source is the same MiuiBatteryMeterView class used by the AOD state source;
+  - latch survives only as long as needed and is reset across hot reload generations;
+  - family RenderSession remains single-writer and retargets in place.
+- Exact-HEAD Runtime CI is required before Canary.
+- Device evidence is mandatory because this changes scene ownership and first-pull lifecycle ordering.
 
 ## Device gate
 
-After exact-HEAD Runtime passes, validate one signed Build-645 Canary:
+After exact-HEAD Runtime passes, validate one signed Build-651 Canary:
 
-1. Keyguard ON / AOD ON
-   - enter AOD, wake to Keyguard and immediately pull Control Center quickly;
-   - Guiyuan transition must exist from the first non-zero fraction and stay continuous if the gesture pauses halfway;
-   - no late jump from native/no-transition into the middle of the Guiyuan transition.
+1. Keyguard + AOD both ON
+   - AOD -> Home -> immediate fast Control Center pull, repeated;
+   - Keyguard -> Home -> immediate fast Control Center pull, repeated;
+   - first non-zero pull fraction must remain Guiyuan; no full native gesture and no late recovery jump.
 
-2. Keyguard ON / AOD OFF
-   - Keyguard -> AOD must release Guiyuan at the outgoing-Keyguard AOD-animation boundary rather than lingering until the animation tail;
-   - AOD -> Keyguard must still acquire Guiyuan promptly with no delayed entrance.
+2. Keyguard Guiyuan OFF / AOD Guiyuan ON
+   - steady Keyguard must always remain native;
+   - AOD may show Guiyuan only in real AOD / valid Home -> AOD prearm;
+   - AOD -> Keyguard must not let AOD child leak into steady Keyguard.
 
-3. Keyguard OFF / AOD ON
-   - steady Keyguard must remain native;
-   - AOD Guiyuan must appear only for real AOD / valid Home -> AOD prearm, never as a substitute Keyguard presentation.
+3. Keyguard Guiyuan ON / AOD Guiyuan OFF
+   - stable AOD remains native;
+   - Keyguard remains Guiyuan;
+   - AOD <-> Keyguard transition must not flash native and then reattach Guiyuan;
+   - AOD -> Keyguard + immediate partial pull must start with Guiyuan transition and must not need a pause to recover.
 
-4. Dual-enabled Keyguard <-> AOD steady continuity and ordinary Home pull-down remain regression checks.
+4. Regression
+   - both ON: AOD <-> Keyguard continuity;
+   - ordinary Home pull-down;
+   - hot reload first pull;
+   - no repeated prepared -> cleanup -> fresh attach loop in detailed diagnostics.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 645. If green, request one signed Canary and freeze #196 runtime for this three-part device gate.
+Run exact-HEAD Runtime CI for Build 651. If green, request one signed Canary and freeze #196 runtime.
 
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
 2. this file;
-3. current source / exact-target SystemUI evidence;
+3. current source / exact device diagnostics;
 4. task-specific architecture/reference docs;
 5. relevant `DEVLOG.md` history.
