@@ -177,8 +177,8 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
-    fun leftExitCarriesBatteryFillWithMovingRetractEndpoint() {
-        val progress = 0.35f
+    fun leftExitCarriesBatteryFillWithoutShrinkingWhileHollowRemains() {
+        val progress = 0.12f
         val result =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
                 drawableArcs = listOf(
@@ -190,35 +190,33 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
             )
         val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
         val retainedStart = 240f * (1f - remaining)
-        val retainedSweep = 240f * remaining
+        val originalActiveSweep = 240f * 0.75f
+        assertTrue(240f * remaining > originalActiveSweep)
         assertEquals(150f + retainedStart, result.active.single().startDegrees, 0.0001f)
-        assertEquals(retainedSweep * 0.75f, result.active.single().sweepDegrees, 0.0001f)
+        assertEquals(originalActiveSweep, result.active.single().sweepDegrees, 0.0001f)
     }
 
     @Test
-    fun leftExitBatteryFillAndBackgroundReachZeroTogether() {
-        val nearlyDone =
+    fun leftExitStartsShrinkingFillOnlyAfterHollowIsExhausted() {
+        val progress = 0.5f
+        val result =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
                 drawableArcs = listOf(
                     CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
                 ),
-                batteryPercent = 36,
-                progress = 0.9f,
+                batteryPercent = 75,
+                progress = progress,
                 exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
             )
-        assertTrue(nearlyDone.background.isNotEmpty())
-        assertTrue(nearlyDone.active.isNotEmpty())
-        assertEquals(
-            nearlyDone.background.single().startDegrees,
-            nearlyDone.active.single().startDegrees,
-            0.0001f,
-        )
-        assertEquals(
-            nearlyDone.background.single().sweepDegrees * 0.36f,
-            nearlyDone.active.single().sweepDegrees,
-            0.0001f,
-        )
+        val remaining = CombinedStatusBatteryRingTransitionPolicy.remainingFraction(progress)
+        val retainedSweep = 240f * remaining
+        assertTrue(retainedSweep < 240f * 0.75f)
+        assertEquals(retainedSweep, result.active.single().sweepDegrees, 0.0001f)
+        assertEquals(result.background.single().startDegrees, result.active.single().startDegrees, 0.0001f)
+    }
 
+    @Test
+    fun leftExitBatteryFillAndBackgroundReachZeroTogether() {
         val completed =
             CombinedStatusBatteryRingTransitionPolicy.resolve(
                 drawableArcs = listOf(
