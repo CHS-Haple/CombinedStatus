@@ -152,4 +152,32 @@ class CombinedStatusHomeRenderSessionTest {
         assertEquals(null, seed)
         assertEquals(0, liveReads)
     }
+    @Test
+    fun topOverflowExpandsOnlyPhysicalSurfaceWithoutMovingLogicalViewport() {
+        val resolved =
+            CombinedStatusVerticalOverflowPolicy.resolve(
+                logicalTopPx = 0,
+                logicalHeightPx = 108,
+                requestedTopOverflowPx = 18,
+            )
+
+        assertEquals(-18, resolved.physicalTopPx)
+        assertEquals(126, resolved.physicalHeightPx)
+        assertEquals(18, resolved.logicalTopInsetPx)
+        assertEquals(0, resolved.physicalTopPx + resolved.logicalTopInsetPx)
+    }
+
+    @Test
+    fun noOverflowPreservesOriginalPhysicalBounds() {
+        val resolved =
+            CombinedStatusVerticalOverflowPolicy.resolve(
+                logicalTopPx = 0,
+                logicalHeightPx = 108,
+                requestedTopOverflowPx = 0,
+            )
+
+        assertEquals(0, resolved.physicalTopPx)
+        assertEquals(108, resolved.physicalHeightPx)
+        assertEquals(0, resolved.logicalTopInsetPx)
+    }
 }

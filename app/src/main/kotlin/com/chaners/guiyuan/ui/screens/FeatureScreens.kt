@@ -5,7 +5,6 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -27,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -175,37 +175,35 @@ internal fun AppearanceScreen(
                 checked = settings.floatingNavigationBarEnabled,
                 onCheckedChange = onFloatingNavigationBarEnabledChange,
             )
-            AnimatedVisibility(visible = settings.floatingNavigationBarEnabled) {
-                Column {
-                    OverlayDropdownPreference(
-                        items = floatingStyleOptions,
-                        selectedIndex = settings.floatingNavigationStyle.ordinal,
-                        title = stringResource(R.string.floating_navigation_style),
-                        summary = stringResource(R.string.floating_navigation_style_summary),
-                        showValue = true,
-                        onSelectedIndexChange = { index ->
-                            FloatingNavigationStyle.entries.getOrNull(index)?.let { style ->
-                                if (style != settings.floatingNavigationStyle) {
-                                    onFloatingNavigationStyleChange(style)
-                                }
+            AnimatedPreferenceGroup(visible = settings.floatingNavigationBarEnabled) {
+                OverlayDropdownPreference(
+                    items = floatingStyleOptions,
+                    selectedIndex = settings.floatingNavigationStyle.ordinal,
+                    title = stringResource(R.string.floating_navigation_style),
+                    summary = stringResource(R.string.floating_navigation_style_summary),
+                    showValue = true,
+                    onSelectedIndexChange = { index ->
+                        FloatingNavigationStyle.entries.getOrNull(index)?.let { style ->
+                            if (style != settings.floatingNavigationStyle) {
+                                onFloatingNavigationStyleChange(style)
                             }
-                        },
-                    )
-                    OverlayDropdownPreference(
-                        items = floatingContentOptions,
-                        selectedIndex = settings.floatingNavigationContent.ordinal,
-                        title = stringResource(R.string.floating_navigation_content),
-                        summary = stringResource(R.string.floating_navigation_content_summary),
-                        showValue = true,
-                        onSelectedIndexChange = { index ->
-                            FloatingNavigationContent.entries.getOrNull(index)?.let { content ->
-                                if (content != settings.floatingNavigationContent) {
-                                    onFloatingNavigationContentChange(content)
-                                }
+                        }
+                    },
+                )
+                OverlayDropdownPreference(
+                    items = floatingContentOptions,
+                    selectedIndex = settings.floatingNavigationContent.ordinal,
+                    title = stringResource(R.string.floating_navigation_content),
+                    summary = stringResource(R.string.floating_navigation_content_summary),
+                    showValue = true,
+                    onSelectedIndexChange = { index ->
+                        FloatingNavigationContent.entries.getOrNull(index)?.let { content ->
+                            if (content != settings.floatingNavigationContent) {
+                                onFloatingNavigationContentChange(content)
                             }
-                        },
-                    )
-                }
+                        }
+                    },
+                )
             }
         }
     }
@@ -413,7 +411,7 @@ private fun MiniTextBar(
 private fun MiniThemeSwatch(color: Color) {
     Surface(
         modifier = Modifier.size(14.dp),
-        shape = RoundedCornerShape(5.dp),
+        shape = CircleShape,
         color = color,
         border =
             BorderStroke(
@@ -1038,7 +1036,6 @@ private fun DiagnosticsLeadingIcon(
     Box(
         modifier =
             Modifier
-                .padding(end = 16.dp)
                 .size(24.dp),
         contentAlignment = Alignment.Center,
     ) {

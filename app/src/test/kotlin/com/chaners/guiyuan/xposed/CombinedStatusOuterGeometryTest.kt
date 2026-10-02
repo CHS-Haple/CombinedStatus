@@ -38,6 +38,28 @@ class CombinedStatusOuterGeometryTest {
     }
 
     @Test
+    fun outerWeightScalesRingDotsAndUnavailableMarkAsOneVisualFamily() {
+        val base =
+            CombinedStatusOuterGeometry.resolve(
+                CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+            )
+        val heavier = CombinedStatusOuterGeometry.resolve(1.20f)
+
+        assertEquals(base.ringStroke * 1.20f, heavier.ringStroke, 0.0001f)
+        assertEquals(base.mobileDotRadius * 1.20f, heavier.mobileDotRadius, 0.0001f)
+        assertEquals(
+            base.unavailableMarkStroke * 1.20f,
+            heavier.unavailableMarkStroke,
+            0.0001f,
+        )
+        assertEquals(
+            base.unavailableMarkHalfExtent * 1.20f,
+            heavier.unavailableMarkHalfExtent,
+            0.0001f,
+        )
+    }
+
+    @Test
     fun ringAndDotsScaleProportionally() {
         for (scale in TEST_SCALES) {
             val geometry = CombinedStatusOuterGeometry.resolve(scale)

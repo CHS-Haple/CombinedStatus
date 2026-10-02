@@ -4,18 +4,18 @@ This directory contains the current architecture policy and scene/layout capabil
 
 ## Current 0.0.3 status
 
-The pinned-target Home carrier redesign has moved from pre-runtime evaluation into runtime validation.
+The pinned-target Home carrier is device-accepted through Build 536.
 
 - Builds 386-393 remain historical evidence for the superseded permanent extra-participant / occupancy-handoff route.
-- Build 397 is the first device-accepted charging-carrier checkpoint on the new Home overlay architecture.
-- Build 398 refines the stable width source to the live native `battery_icon_container`.
-- Build 399 is a visual battery-ring compositing checkpoint and does not reopen carrier ownership.
+- Builds 397-535 establish the native carrier, width, motion and transition contracts that remain historical evidence for the current path.
+- Build 536 device-validates the logical-slot / physical-overflow split: Guiyuan keeps the verified Home slot unchanged while one module-owned direct child of `MiuiStatusBatteryContainer` may extend only its transparent drawing surface upward.
+- Build 537 reuses that overflow policy for the opt-in Keyguard renderer; Keyguard validation remains a gate for this candidate.
 
 Current Home direction:
 
-`MiuiNotificationStatusContainer / system_icon_area -> HostSession overlay -> ResolvedLayout -> Guiyuan renderer`
+`MiuiNotificationStatusContainer / system_icon_area -> MiuiStatusBatteryContainer / system_icons -> module-owned direct child -> logical viewport -> Guiyuan renderer`
 
-SystemUI retains native peer layout, Battery hide/presentation, tint authority, and live island motion. Guiyuan owns only its compact composition plus the explicitly verified, reversible Home presentation state described in [layout-policy.md](layout-policy.md).
+SystemUI retains native peer measurement/layout, Battery hide/presentation, tint authority, end-side visibility and live island/Folme motion. Guiyuan measures/layouts only its own child after native layout and keeps its logical viewport separate from any transparent physical overflow.
 
 ## Documents
 
@@ -27,7 +27,7 @@ SystemUI retains native peer layout, Battery hide/presentation, tint authority, 
 - [scene-policy.md](scene-policy.md)
   - current scene capability map;
   - Home and the opt-in Keyguard adapter are runtime-verified Guiyuan steady rendering surfaces on the pinned target; bounded QS_FAKE transition projection is also accepted while the fully expanded Control Center and AOD remain native;
-  - shade / Control Center, keyguard and AOD remain native-only until separately promoted.
+  - Notification Shade, fully expanded Control Center and AOD remain native-only; Home and the separately gated Keyguard adapter are PROJECTED surfaces.
 
 - [../reference/README.md](../reference/README.md)
   - generalized reusable implementation evidence;

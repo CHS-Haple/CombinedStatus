@@ -1,5 +1,10 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorModes
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorOverrides
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -24,6 +29,7 @@ class CombinedStatusBatteryColorPolicyTest {
         listOf(
             CombinedStatusBatterySemanticState.CHARGING,
             CombinedStatusBatterySemanticState.POWER_SAVE,
+            CombinedStatusBatterySemanticState.SUPER_POWER_SAVE,
             CombinedStatusBatterySemanticState.PERFORMANCE,
             CombinedStatusBatterySemanticState.LOW,
         ).forEach { state ->
@@ -78,6 +84,143 @@ class CombinedStatusBatteryColorPolicyTest {
     }
 
     @Test
+    fun hyperosPresetUsesPinnedChargingAndMonochromeNormal() {
+        val settings = CombinedStatusVisualSettings()
+        val preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings)
+
+        assertEquals(
+            0xFF1DCD3A.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+        assertEquals(
+            statusTint,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.NORMAL,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+    }
+
+    @Test
+    fun lowSaturationPresetUsesMutedChargingAndMonochromeNormal() {
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.RECOMMENDED,
+            )
+        val preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings)
+
+        assertEquals(
+            0xFF3FA760.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+    }
+
+    @Test
+    fun iosStylePresetUsesGreenChargingAndMonochromeNormal() {
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+            )
+        val preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings)
+
+        assertEquals(
+            0xFF34C759.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+        assertEquals(
+            statusTint,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.NORMAL,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+    }
+
+    @Test
+    fun followSystemModeOverridesSelectedPresetPerSlot() {
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+                batteryColorModes =
+                    CombinedStatusBatteryColorModes(
+                        charging = CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
+                    ),
+            )
+        assertEquals(
+            statusTint,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings),
+            ),
+        )
+    }
+
+    @Test
+    fun storedCustomColorIsIgnoredWhileSlotUsesPresetMode() {
+        val custom = 0xFF2468AC.toInt()
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+                batteryColorOverrides =
+                    CombinedStatusBatteryColorOverrides(charging = custom),
+            )
+        assertEquals(
+            0xFF34C759.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings),
+            ),
+        )
+    }
+
+    @Test
+    fun customOverrideWinsOverSelectedPresetWhenSlotUsesCustomMode() {
+        val custom = 0xFF2468AC.toInt()
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+                batteryColorModes =
+                    CombinedStatusBatteryColorModes(
+                        charging = CombinedStatusBatteryColorMode.CUSTOM,
+                    ),
+                batteryColorOverrides =
+                    CombinedStatusBatteryColorOverrides(charging = custom),
+            )
+        assertEquals(
+            custom,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings),
+            ),
+        )
+    }
+
+    @Test
     fun missingNativeSemanticColorFallsBackToStatusTint() {
         assertEquals(
             statusTint,
@@ -116,6 +259,8 @@ class CombinedStatusBatteryColorPolicyTest {
                 CombinedStatusBatteryColorPreferences(charging = source)
             CombinedStatusBatterySemanticState.POWER_SAVE ->
                 CombinedStatusBatteryColorPreferences(powerSave = source)
+            CombinedStatusBatterySemanticState.SUPER_POWER_SAVE ->
+                CombinedStatusBatteryColorPreferences(superPowerSave = source)
             CombinedStatusBatterySemanticState.PERFORMANCE ->
                 CombinedStatusBatteryColorPreferences(performance = source)
             CombinedStatusBatterySemanticState.LOW ->

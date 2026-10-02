@@ -4,86 +4,71 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Accepted baseline
 
-- Product / display version: Guiyuan 0.0.3.
-- Integrated stable runtime baseline on `main` / `dev`: Build 473.
+- Product / display version: Guiyuan 0.0.4.
+- `dev` integrates the accepted Build 612 product/runtime line and the Build 613 version checkpoint.
+- Version identity: `0.0.4` / versionCode `261002413` / Build `20261002-613`.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- Build 472 companion-app presentation and Build 473 Wi-Fi optical normalization remain protected accepted behavior.
+- Build 612 is the latest runtime-affecting checkpoint and is maintainer device-accepted with no reported anomaly.
+- Build 613 changes only version/build metadata and documentation; Runtime/SystemUI behavior remains Build 612.
+- GPL-3.0-or-later is the project license; third-party components retain their upstream licenses.
 
-## Active objective
+## Current objective
 
-Promote the accepted Build-511 integration from `dev` to `main` as the current stable development baseline, then continue follow-up transition polish on a new bounded work branch.
+Promote the exact validated 0.0.4 / Build 613 `dev` state to `main`, then perform repository-wide consistency review.
 
-Current runtime checkpoint:
-- Build 511 / `20260930-511` is integrated on `dev` through squash-merged PR #177;
-- Build 510 non-charging Home transition is device-accepted;
-- Build 511 charging Home transition is device-accepted;
-- Build 511 runtime-authority / Fail-native hardening is integrated without retuning the accepted Build-510 geometry or motion;
-- maintainer accepts the current integrated state for promotion to `main`.
+Promotion evidence:
+- PR #181 integrated the accepted product/runtime line into `dev` as `359db16fb3c9cd86d484766a2647093672c70f2b`.
+- PR #190 integrated the 0.0.4 / Build 613 version checkpoint into `dev` as `6859f8d549022e929b224d33c2de2dae6346de04`.
+- Build 612 exact-head Runtime validation passed before integration.
+- Maintainer device validation accepted Build 612 with no reported anomaly.
+- 0.0.4 PR Full validation passed.
+- `dev` integration Run #2205 passed target-profile checks, unit/build validation, Modern Xposed metadata, Haple APK signature verification, Canary non-debuggable validation, and artifact upload.
 
 ## Current transition contract
 
-- HyperOS is the sole expansion / appearance timeline authority.
-- Home and Keyguard may bridge only through the verified QS_FAKE transition interval; fully expanded Control Center remains native-owned.
+- HyperOS remains the sole expansion / appearance timeline authority.
+- Home and Keyguard bridge only through the verified QS_FAKE interval; fully expanded Control Center remains native-owned.
 - Notification Shade and AOD remain native-only on the pinned target.
-- Guiyuan does not write native peer translation, alpha, visibility, or a second gesture animator.
-- `statusIcons.paddingEnd` is the single Guiyuan peer-layout writer.
-- Transition reservation freezes the final total semantic width, then interpolates compact -> final width directly from raw HyperOS expansion progress.
-- Final role-6 top-level slots are read-only occupancy / root-space geometry witnesses.
-- Exact drawable / child topology may refine optical geometry but does not grant native layout ownership.
-- Mobile outer motion remains similarity/carrier based. Exact four-bar geometry is shape-local and available only for positively verified `FOUR_VERTICAL_BARS` topology.
-- Composite / dual-row / unknown Mobile topology stays on the conservative fallback path.
-- Latent Airplane / No-SIM / additional-SIM reveal is spatial: real reservation must open before pixels appear; no duration, delay, fraction threshold, or local animator owns reveal timing.
-- Home and Keyguard keep independent mutable host/session ownership.
-- Keyguard Control Center lease ends on authoritative boundaries such as native fraction zero, AOD block, feature disable, Keyguard disable, host loss, or source-scene change.
-- Build-channel diagnostics flags are observation-only. Release and Canary share functional hooks, state authority, ownership/lifecycle, and Fail-native control flow.
+- Guiyuan does not write native peer translation, alpha, visibility, visibleState, or a second gesture animator.
+- `statusIcons.paddingEnd` remains the only progress-driven peer-layout property.
+- QS_FAKE may acquire one fixed, reversible session capacity lease only from verified unused end-anchored parent capacity.
+- Lease-only capacity is measurement-only and is excluded from transition motion by the Build 612 logical-carrier projection.
+- Carrier-width conflicts fail native instead of racing HyperOS.
+- Mobile exact four-bar geometry remains shape-local; composite/dual-row/unknown topology uses conservative fallback.
+- Latent participant reveal remains spatial/reservation-gated without timer or delayed animation ownership.
+- Home and Keyguard retain independent host/session ownership and cleanup.
+- Build-channel diagnostics are observation-only; Release and Canary share functional control flow.
 
 ## Validation state
 
 Confirmed:
-- Build 510 non-charging Home transition: device accepted.
-- Build 511 charging Home transition: device accepted; no press-entry left shift, whole-row rebase, overlap, or endpoint drift was reported in the tested charging path.
-- Build 511 static code review: complete.
-- Runtime / unit validation: green after the Build-511 safety fixes and added negative policy coverage.
-- Signed exact-head Build-511 Canary validation passed before integration.
-- Keyguard lease negative boundaries are unit-tested.
-- Eight-component dual-row / composite Mobile is unit-tested to expose no exact four-bar capability.
-- Release / Canary functional control-flow parity was reviewed after moving Island status authority outside the diagnostics gate.
-- PR #177 was squash-merged into `dev`; the integrated Build-511 state is accepted for stable promotion.
-- Superseded PRs #174, #161, #117, and #99 are closed. PR #157 is an independent Gradle-wrapper update and remains deferred pending trusted validation.
+- 0.0.4 public/version metadata is internally aligned.
+- Build 613 `dev` integration validation is green.
+- No new runtime delta exists after the accepted Build 612 device checkpoint.
+- No additional device gate is required for stable promotion.
 
-## Follow-up validation after this stable snapshot
-
-These items remain useful transition-polish evidence, but the maintainer has accepted the current Build-511 integrated state for promotion to `main`.
-
-1. **Latent supplemental semantics**
-   - Airplane / No-SIM / additional SIM reveal continuously only after real peer space opens;
-   - reverse collapse hides before reservation closes through neighboring content.
-
-2. **Real composite / dual-row Mobile**
-   - confirm real third-party topology remains visually on the composite fallback path;
-   - no flattening into the exact four-bar morph.
-
-3. **Final Keyguard-originated regression**
-   - steady Keyguard -> partial/full Control Center -> return remains responsive;
-   - no terminal stall, duplicate native row, stale lease, or cleanup residue.
+Pending:
+- Full validation of the exact `dev -> main` promotion head;
+- merge to `main`;
+- verify/recreate long-lived `dev` at the promoted `main` commit as required;
+- final repository consistency audit.
 
 ## Non-negotiable boundaries
 
-- Root-cause first; no speculative geometry or timing compensation.
-- Preserve the Build-510 accepted non-charging result unless contradictory device evidence appears.
-- Preserve Build-504 root-space endpoint ownership, Build-507 reservation behavior, Build-509 spatial latent reveal, and Build-491 / 497 / 498 lifecycle/safety boundaries.
+- Root-cause first; no screenshot-fitted geometry/timing compensation.
 - One mutable runtime property has one writer.
-- No polling, delayed lifecycle fixes, duplicate state machines, duplicate gesture animators, or high-frequency diagnostics.
 - Cleanup / Hot Reload restores only Guiyuan-owned state.
+- No polling, delayed lifecycle repair, duplicate gesture animator, or high-frequency diagnostics.
 - Compatibility uncertainty fails native.
-- HyperOS resources / state / motion are preferred over project-local copies or guesses.
+- HyperOS/MIUIX/native resources, state, layout semantics, and motion remain preferred over project-local imitation.
+- Do not revive rejected Battery-Island `batteryWidthDiff`, peer-`forceAppear`, or generic-island proxy routes without new exact-target evidence.
 
 ## Immediate next step
 
-1. complete `dev -> main` promotion for the accepted Build-511 snapshot;
-2. do not mix new runtime work into the promotion PR;
-3. after promotion, start the next bounded feature/fix branch from current `dev`;
-4. preserve Build-510/511 accepted transition behavior unless new contradictory device evidence appears.
+1. run the exact `dev -> main` stable-boundary Full validation;
+2. merge the validated 0.0.4 / Build 613 state to `main`;
+3. ensure `dev` exists and matches the promoted `main`;
+4. audit version, license, branch, CI, documentation, package/Xposed identity, and stale work-line consistency.
 
 ## Reference priority
 

@@ -112,6 +112,34 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun fakeCarrierCapacityLeaseUsesOnlyVerifiedParentContentWidth() {
+        assertEquals(
+            250,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = 587,
+                    parentContentWidthPx = 837,
+                ),
+        )
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = 587,
+                    parentContentWidthPx = 587,
+                ),
+        )
+        assertEquals(
+            null,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveFakeCarrierCapacityDelta(
+                    nativeCarrierWidthPx = 588,
+                    parentContentWidthPx = 587,
+                ),
+        )
+    }
+
+    @Test
     fun deferredControlCenterCutoverPreservesNativeVisualsUntilCompactLayout() {
         assertTrue(
             SystemUiHomePresentationOwner.VisualMaskPolicy
@@ -152,6 +180,16 @@ class SystemUiHomePresentationOwnerTest {
                 deferVisualMaskUntilLayout = true,
                 laidOut = true,
                 layoutRequested = true,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = false,
+                capacityLeaseAwaitingLayout = true,
                 width = 478,
                 height = 108,
             ),

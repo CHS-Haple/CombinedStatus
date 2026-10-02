@@ -345,6 +345,33 @@ internal object NativeParticipantRuntimeAccess {
         }.getOrNull()
     }
 
+    fun visibleState(view: View): Int? {
+        val accessor =
+            view.javaClass
+                .allMethods()
+                .firstOrNull { method ->
+                    method.name == "getVisibleState" &&
+                        method.parameterCount == 0 &&
+                        (
+                            method.returnType == Int::class.javaPrimitiveType ||
+                                method.returnType == Int::class.java
+                        )
+                }
+
+        val viaAccessor =
+            accessor?.let { method ->
+                runCatching {
+                    method.isAccessible = true
+                    method.invoke(view) as? Int
+                }.getOrNull()
+            }
+        if (viaAccessor != null) {
+            return viaAccessor
+        }
+
+        return view.readField("mVisibleState") as? Int
+    }
+
     fun iconVisible(view: View): Boolean? {
         val accessor =
             view.javaClass

@@ -7,11 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.guiyuan.R
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.ui.components.CombinedStatusPreview
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
 import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
@@ -39,6 +41,7 @@ import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -63,6 +66,14 @@ internal fun PreviewSandboxScreen(
         remember(context.applicationContext) {
             PreviewSystemUiResourceResolver(context.applicationContext)
         }
+    val visualRepository =
+        remember(context.applicationContext) {
+            CombinedStatusVisualSettingsRepository(context.applicationContext)
+        }
+    val visualSettings by
+        visualRepository.settings.collectAsState(
+            initial = visualRepository.current(),
+        )
     val renderModel = state.toRenderModel(resourceResolver)
 
     val networkModeOptions =
@@ -75,12 +86,17 @@ internal fun PreviewSandboxScreen(
             stringResource(R.string.home_preview_sim_present),
             stringResource(R.string.home_preview_sim_absent),
         )
-    val mobileNetworkOptions =
+    val mobileNetworkChoices =
         listOf(
-            stringResource(R.string.home_preview_network_none),
-            stringResource(R.string.home_preview_network_4g),
-            stringResource(R.string.home_preview_network_5g),
-            stringResource(R.string.home_preview_network_5ga),
+            PreviewMobileNetwork.NONE to stringResource(R.string.home_preview_network_none),
+            PreviewMobileNetwork.TWO_G to stringResource(R.string.home_preview_network_2g),
+            PreviewMobileNetwork.EDGE to stringResource(R.string.home_preview_network_edge),
+            PreviewMobileNetwork.THREE_G to stringResource(R.string.home_preview_network_3g),
+            PreviewMobileNetwork.H_PLUS to stringResource(R.string.home_preview_network_h_plus),
+            PreviewMobileNetwork.FOUR_G to stringResource(R.string.home_preview_network_4g),
+            PreviewMobileNetwork.LTE to stringResource(R.string.home_preview_network_lte),
+            PreviewMobileNetwork.FIVE_G to stringResource(R.string.home_preview_network_5g),
+            PreviewMobileNetwork.FIVE_GA to stringResource(R.string.home_preview_network_5ga),
         )
     val wifiOptions =
         listOf(
@@ -176,12 +192,16 @@ internal fun PreviewSandboxScreen(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
-                                    .height(130.dp),
+                                    .height(192.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CombinedStatusPreview(
                                 model = renderModel,
-                                modifier = Modifier.size(120.dp),
+                                visualSettings = visualSettings,
+                                modifier =
+                                    Modifier
+                                        .width(120.dp)
+                                        .height(184.dp),
                             )
                         }
                         PreviewStatusLine(
@@ -221,13 +241,20 @@ internal fun PreviewSandboxScreen(
 
                         if (state.networkMode == PreviewNetworkMode.MOBILE) {
                             if (state.mobileOptionsVisible) {
-                                SandboxSegmentedField(
+                                OverlayDropdownPreference(
                                     title = stringResource(R.string.home_preview_mobile_network_title),
-                                    options = mobileNetworkOptions,
-                                    selectedIndex = state.mobileNetwork.ordinal,
-                                    onSelected = { index ->
-                                        onMobileNetworkChange(PreviewMobileNetwork.entries[index])
+                                    items = mobileNetworkChoices.map { it.second },
+                                    selectedIndex =
+                                        mobileNetworkChoices.indexOfFirst {
+                                            it.first == state.mobileNetwork
+                                        }.coerceAtLeast(0),
+                                    onSelectedIndexChange = { index ->
+                                        mobileNetworkChoices.getOrNull(index)
+                                            ?.first
+                                            ?.let(onMobileNetworkChange)
                                     },
+                                    insideMargin = SandboxPreferenceInsideMargin,
+                                    maxHeight = 360.dp,
                                     modifier = Modifier.padding(top = 4.dp),
                                 )
                                 SliderPreference(
@@ -469,7 +496,12 @@ internal fun previewNetworkSummary(
     val mobileType =
         when (state.mobileNetwork) {
             PreviewMobileNetwork.NONE -> stringResource(R.string.home_preview_network_none)
+            PreviewMobileNetwork.TWO_G -> stringResource(R.string.home_preview_network_2g)
+            PreviewMobileNetwork.EDGE -> stringResource(R.string.home_preview_network_edge)
+            PreviewMobileNetwork.THREE_G -> stringResource(R.string.home_preview_network_3g)
+            PreviewMobileNetwork.H_PLUS -> stringResource(R.string.home_preview_network_h_plus)
             PreviewMobileNetwork.FOUR_G -> stringResource(R.string.home_preview_network_4g)
+            PreviewMobileNetwork.LTE -> stringResource(R.string.home_preview_network_lte)
             PreviewMobileNetwork.FIVE_G -> stringResource(R.string.home_preview_network_5g)
             PreviewMobileNetwork.FIVE_GA -> stringResource(R.string.home_preview_network_5ga)
         }

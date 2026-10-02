@@ -8,10 +8,11 @@ import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.WeakHashMap
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
-    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 4
+    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 5
     const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 0
     const val HOOK_COUNT =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
@@ -35,6 +36,9 @@ internal object SystemUiPanelTransitionSource {
     private const val DAGGER_LAZY_CLASS = "dagger.Lazy"
     private const val STATUS_BAR_ANCHOR_CLASS =
         "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds"
+    private const val STATUS_ICON_CONTAINER_CLASS =
+        "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
+    private const val ISLAND_TRANSLATION_METHOD = "getIslandTranslationX"
 
     private const val CONTROL_CENTER_EXPANSION_HOOK_ID =
         "combinedstatus.panel.control-center.expansion"
@@ -44,12 +48,18 @@ internal object SystemUiPanelTransitionSource {
         "combinedstatus.panel.control-center.visible"
     private const val CONTROL_CENTER_FAKE_ATTACHED_HOOK_ID =
         "combinedstatus.panel.control-center.fake-attached"
+    private const val CONTROL_CENTER_FAKE_ISLAND_BOUNDARY_HOOK_ID =
+        "combinedstatus.panel.control-center.fake-island-boundary"
 
     private var controlProbe = ProbeState()
     @Volatile
     private var controlCenterHomeEligible: Boolean? = null
     private var controlAnchorContract: ControlCenterAnchorContract? = null
     private var controlHeaderRef = WeakReference<Any>(null)
+    private var fakeIslandContractRootRef = WeakReference<ViewGroup>(null)
+    private val fakeIslandBoundaryProjection = WeakHashMap<ViewGroup, Int>()
+    @Volatile
+    private var fakeIslandBoundaryProjectionInstalled = false
 
     fun install(
         module: XposedModule,
@@ -76,6 +86,16 @@ internal object SystemUiPanelTransitionSource {
                 false,
                 classLoader,
             )
+        val statusIconContainerClass =
+            Class.forName(
+                STATUS_ICON_CONTAINER_CLASS,
+                false,
+                classLoader,
+            )
+        val islandTranslationMethod =
+            statusIconContainerClass
+                .getDeclaredMethod(ISLAND_TRANSLATION_METHOD)
+                .apply { isAccessible = true }
         val fakeAttachedMethod =
             fakeStatusBarClass.declaredMethods
                 .firstOrNull { method ->
@@ -155,6 +175,12 @@ internal object SystemUiPanelTransitionSource {
                                     controlCenterPresentationHost = controlCenterPresentationHost,
                                     controlCenterSourceScene = controlCenterSourceScene,
                                     controlCenterTransitionEndpoints = transitionEndpoints,
+                                    controlCenterBatteryIslandActive =
+                                        if (visible == true) {
+                                            resolveControlCenterBatteryIslandActive(chain.thisObject)
+                                        } else {
+                                            null
+                                        },
                                 )
                             dispatchRuntimeCallback(
                                 callback = onUpdate?.let { callback -> { callback(update) } },
@@ -195,6 +221,7 @@ internal object SystemUiPanelTransitionSource {
                                                     root.isAttachedToWindow +
                                                     " readOnly=true nativeGeometryWrites=0",
                                             )
+                                            describeFakeIslandContractOnce(root)?.let(onEvent)
                                         },
                                     )
                                 }
@@ -202,6 +229,27 @@ internal object SystemUiPanelTransitionSource {
                             result
                         },
                     )
+
+            handles +=
+                module
+                    .hook(islandTranslationMethod)
+                    .setId(CONTROL_CENTER_FAKE_ISLAND_BOUNDARY_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val result = chain.proceed()
+                            val nativeIslandWidth =
+                                (result as? Number)?.toInt()
+                                    ?: return@Hooker result
+                            val container =
+                                chain.thisObject as? ViewGroup
+                                    ?: return@Hooker result
+                            projectFakeIslandBoundary(
+                                container = container,
+                                nativeIslandWidthPx = nativeIslandWidth,
+                            )
+                        },
+                    )
+            fakeIslandBoundaryProjectionInstalled = true
 
             // Control Center visibility is the only panel runtime authority.
             // Notification Shade inherits the native Home carrier lifecycle.
@@ -222,6 +270,9 @@ internal object SystemUiPanelTransitionSource {
                             val transitionEndpoints =
                                 controlAnchorContract
                                     ?.transitionEndpointsFromCallback(chain.thisObject)
+                            val batteryIslandActive =
+                                controlAnchorContract
+                                    ?.batteryIslandFromCallback(chain.thisObject)
                             val preNativeUpdate =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -230,6 +281,7 @@ internal object SystemUiPanelTransitionSource {
                                     tracking = null,
                                     visible = null,
                                     controlCenterTransitionEndpoints = transitionEndpoints,
+                                    controlCenterBatteryIslandActive = batteryIslandActive,
                                 )
                             // Reservation/source projection must be committed before
                             // HyperOS consumes this expansion sample. Drawing still
@@ -292,6 +344,9 @@ internal object SystemUiPanelTransitionSource {
                                     controlCenterTransitionEndpoints =
                                         controlAnchorContract
                                             ?.transitionEndpointsFromCallback(chain.thisObject),
+                                    controlCenterBatteryIslandActive =
+                                        controlAnchorContract
+                                            ?.batteryIslandFromCallback(chain.thisObject),
                                 )
                             dispatchRuntimeCallback(
                                 callback = onUpdate?.let { callback -> { callback(update) } },
@@ -326,6 +381,10 @@ internal object SystemUiPanelTransitionSource {
             handles.asReversed().forEach { handle ->
                 runCatching { handle.unhook() }
             }
+            synchronized(this) {
+                fakeIslandBoundaryProjection.clear()
+                fakeIslandBoundaryProjectionInstalled = false
+            }
             controlCenterHomeEligible = false
             throw error
         }
@@ -337,7 +396,150 @@ internal object SystemUiPanelTransitionSource {
             controlCenterHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
+            fakeIslandContractRootRef = WeakReference(null)
+            fakeIslandBoundaryProjection.clear()
+            fakeIslandBoundaryProjectionInstalled = false
         }
+    }
+
+    @Synchronized
+    internal fun isFakeIslandBoundaryProjectionAvailable(): Boolean =
+        fakeIslandBoundaryProjectionInstalled
+
+    @Synchronized
+    internal fun updateFakeIslandBoundaryProjection(
+        container: ViewGroup,
+        transitionPaddingDeltaPx: Int,
+    ): Boolean {
+        if (!fakeIslandBoundaryProjectionInstalled) return false
+        fakeIslandBoundaryProjection[container] =
+            transitionPaddingDeltaPx.coerceAtLeast(0)
+        return true
+    }
+
+    @Synchronized
+    internal fun clearFakeIslandBoundaryProjection(container: ViewGroup) {
+        fakeIslandBoundaryProjection.remove(container)
+    }
+
+    @Synchronized
+    private fun projectFakeIslandBoundary(
+        container: ViewGroup,
+        nativeIslandWidthPx: Int,
+    ): Int {
+        val delta =
+            fakeIslandBoundaryProjection[container]
+                ?: return nativeIslandWidthPx
+        return CombinedStatusControlCenterTransitionOwner.Policy
+            .compensateFakeIslandWidth(
+                nativeIslandWidthPx = nativeIslandWidthPx,
+                transitionPaddingDeltaPx = delta,
+            )
+    }
+
+    @Synchronized
+    private fun describeFakeIslandContractOnce(root: ViewGroup): String? {
+        if (fakeIslandContractRootRef.get() === root) return null
+        fakeIslandContractRootRef = WeakReference(root)
+
+        val fieldNames =
+            listOf(
+                "slot",
+                "visibleState",
+                "inIslandState",
+                "beforeInIslandState",
+                "islandChanged",
+                "supportAnim",
+                "forceAppear",
+                "layoutTranslationX",
+            )
+        val views = ArrayList<View>()
+        fun collect(
+            view: View,
+            depth: Int,
+        ) {
+            if (views.size >= 64 || depth > 6) return
+            views += view
+            if (view is ViewGroup) {
+                for (index in 0 until view.childCount) {
+                    collect(view.getChildAt(index), depth + 1)
+                    if (views.size >= 64) return
+                }
+            }
+        }
+        collect(root, 0)
+
+        fun hierarchy(type: Class<*>): List<Class<*>> {
+            val result = ArrayList<Class<*>>()
+            var current: Class<*>? = type
+            while (current != null && current != Any::class.java) {
+                result += current
+                current = current.superclass
+            }
+            return result
+        }
+
+        fun field(
+            type: Class<*>,
+            name: String,
+        ): Field? =
+            hierarchy(type)
+                .firstNotNullOfOrNull { owner ->
+                    runCatching {
+                        owner.getDeclaredField(name).apply { isAccessible = true }
+                    }.getOrNull()
+                }
+
+        val contractViews =
+            views.mapNotNull { view ->
+                val resolvedFields =
+                    fieldNames.mapNotNull { name ->
+                        field(view.javaClass, name)?.let { resolved -> name to resolved }
+                    }
+                val methodNames =
+                    hierarchy(view.javaClass)
+                        .flatMap { owner -> owner.declaredMethods.asList() }
+                        .map { method -> method.name }
+                        .filter { name ->
+                            name.contains("island", ignoreCase = true) ||
+                                name.contains("forceAppear", ignoreCase = true) ||
+                                name.contains("visibleState", ignoreCase = true)
+                        }
+                        .distinct()
+                        .sorted()
+                if (resolvedFields.none { (name, _) -> name == "inIslandState" } &&
+                    methodNames.none { name -> name.contains("island", ignoreCase = true) }
+                ) {
+                    return@mapNotNull null
+                }
+
+                val location = IntArray(2)
+                view.getLocationOnScreen(location)
+                val values =
+                    resolvedFields.joinToString(",") { (name, resolved) ->
+                        val value =
+                            runCatching { resolved.get(view) }
+                                .getOrNull()
+                                ?.toString()
+                                ?: "unavailable"
+                        name + "=" + value
+                    }
+                view.javaClass.name +
+                    "(x=" + location[0] +
+                    ",y=" + location[1] +
+                    ",w=" + view.width +
+                    ",h=" + view.height +
+                    ",fields={" + values +
+                    "},methods=[" + methodNames.take(16).joinToString(",") +
+                    "])"
+            }
+                .distinct()
+                .take(8)
+
+        return "controlCenterFakeIslandContract root=" + root.javaClass.name +
+            " candidates=" + contractViews.size +
+            " entries=[" + contractViews.joinToString("|") +
+            "] readOnly=true bounded=true nativeGeometryWrites=0"
     }
 
     internal fun dispatchRuntimeCallback(
@@ -450,6 +652,16 @@ internal object SystemUiPanelTransitionSource {
         return contract.transitionEndpoints(header)
     }
 
+    private fun resolveControlCenterBatteryIslandActive(
+        delegate: Any?,
+    ): Boolean? {
+        val contract = controlAnchorContract ?: return null
+        val header =
+            resolveControlCenterHeader(delegate)
+                ?: return null
+        return contract.batteryIslandActive(header)
+    }
+
     private fun resolveControlCenterSourceScene(delegate: Any?): CombinedStatusSourceScene {
         val contract = controlAnchorContract ?: return CombinedStatusSourceScene.UNKNOWN
         val header =
@@ -519,6 +731,10 @@ internal object SystemUiPanelTransitionSource {
             update.controlCenterSourceScene?.let { sourceScene ->
                 " sourceScene=" + sourceScene.name
             }.orEmpty()
+        val batteryIslandSummary =
+            update.controlCenterBatteryIslandActive?.let { active ->
+                " batteryIsland=" + active
+            }.orEmpty()
         dispatchRuntimeCallback(
             callback = {
                 onEvent(
@@ -531,6 +747,7 @@ internal object SystemUiPanelTransitionSource {
                         anchorSummary +
                         homeMotionSummary +
                         sourceSceneSummary +
+                        batteryIslandSummary +
                         " authority=hyperos-native-callback" +
                         " nativeGeometryWrites=0",
                 )
@@ -549,6 +766,7 @@ internal object SystemUiPanelTransitionSource {
         val controlCenterAppearance: Boolean? = null,
         val controlCenterAppearanceAnimated: Boolean? = null,
         val controlCenterTransitionEndpoints: ControlCenterTransitionEndpoints? = null,
+        val controlCenterBatteryIslandActive: Boolean? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -680,6 +898,14 @@ internal object SystemUiPanelTransitionSource {
             val header = headerFromCallback(callback) ?: return null
             return transitionEndpoints(header)
         }
+
+        fun batteryIslandFromCallback(callback: Any?): Boolean? {
+            val header = headerFromCallback(callback) ?: return null
+            return batteryIslandActive(header)
+        }
+
+        fun batteryIslandActive(header: Any): Boolean? =
+            readBoolean(addBatteryIslandField, header)
 
         fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
             val header = headerFromCallback(callback) ?: return null

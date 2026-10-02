@@ -66,8 +66,8 @@ class SystemUiPanelTransitionSourceTest {
 
     @Test
     fun runtimeHookCountIncludesFakeLifecyclePrearmAndOptionalDiagnostics() {
-        assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(false))
-        assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(true))
+        assertEquals(5, SystemUiPanelTransitionSource.expectedHookCount(false))
+        assertEquals(5, SystemUiPanelTransitionSource.expectedHookCount(true))
     }
 
     @Test
@@ -479,6 +479,25 @@ class SystemUiPanelTransitionSourceTest {
             )
         assertEquals(true, update.controlCenterAppearance)
         assertEquals(true, update.controlCenterAppearanceAnimated)
+    }
+
+
+    @Test
+    fun controlCenterUpdateCarriesExactNativeBatteryIslandState() {
+        val active =
+            SystemUiPanelTransitionSource.Update(
+                source = SystemUiPanelTransitionSource.Source.CONTROL_CENTER,
+                fraction = 0.5f,
+                expanded = null,
+                tracking = null,
+                visible = null,
+                controlCenterBatteryIslandActive = true,
+            )
+        val ordinary =
+            active.copy(controlCenterBatteryIslandActive = false)
+
+        assertEquals(true, active.controlCenterBatteryIslandActive)
+        assertEquals(false, ordinary.controlCenterBatteryIslandActive)
     }
 
     @Test

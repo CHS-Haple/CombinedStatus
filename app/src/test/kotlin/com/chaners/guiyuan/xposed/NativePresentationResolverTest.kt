@@ -195,6 +195,21 @@ class NativePresentationResolverTest {
     }
 
     @Test
+    fun commonLegacyAndLteLabelsPassThroughNativeNormalization() {
+        listOf("2G", "E", "3G", "H+", "4G", "LTE").forEach { label ->
+            val networkType =
+                NativePresentationResolver.normalizeDrawableNetworkType(
+                    rawLabel = label,
+                    enhanced = false,
+                    beforeMeasure = false,
+                )
+
+            assertEquals(label, networkType?.label)
+            assertEquals(false, networkType?.enhanced)
+        }
+    }
+
+    @Test
     fun postMeasureKeepsNativeDoublePlusFlag() {
         val networkType =
             NativePresentationResolver.normalizeDrawableNetworkType(
