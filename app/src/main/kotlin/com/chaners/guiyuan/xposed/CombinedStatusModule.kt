@@ -1327,6 +1327,19 @@ class CombinedStatusModule : XposedModule() {
         )
     }
 
+    private fun reconcileControlCenterForKeyguardLifecycle(authority: String) {
+        if (
+            !CombinedStatusScenePolicy.shouldReconcileControlCenterForKeyguardLifecycle(
+                controlCenterVisible = controlCenterSceneVisible,
+                nativeFraction = controlCenterExpansionFraction,
+                leaseActive = keyguardControlCenterLeaseActive,
+            )
+        ) {
+            return
+        }
+        refreshControlCenterSourceSceneEligibility(authority)
+    }
+
     private fun restoreControlCenterFakePresentationAfterHotReload(
         host: ViewGroup,
         transferredCompactReady: Boolean,
@@ -2299,7 +2312,7 @@ class CombinedStatusModule : XposedModule() {
         keyguardRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateKeyguard("readiness-lost:" + source)
-        refreshControlCenterSourceSceneEligibility("keyguard-readiness-lost")
+        reconcileControlCenterForKeyguardLifecycle("keyguard-readiness-lost")
     }
 
     private fun completeKeyguardPresentationCutover(
@@ -2348,7 +2361,7 @@ class CombinedStatusModule : XposedModule() {
             "reason" to reason,
             "fallback" to "native-keyguard",
         )
-        refreshControlCenterSourceSceneEligibility("keyguard-fail-native")
+        reconcileControlCenterForKeyguardLifecycle("keyguard-fail-native")
     }
 
     private fun deactivateKeyguardRuntime(source: String) {
@@ -2360,7 +2373,7 @@ class CombinedStatusModule : XposedModule() {
         SystemUiHomePresentationOwner.deactivateKeyguard(source)
         CombinedStatusKeyguardRenderSession.detach()
         if (wasReady) {
-            refreshControlCenterSourceSceneEligibility("keyguard-deactivate:" + source)
+            reconcileControlCenterForKeyguardLifecycle("keyguard-deactivate:" + source)
         }
     }
 
