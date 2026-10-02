@@ -218,6 +218,42 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
+    fun leftExitUsesLiveBatteryPercentWithoutMovingRetractEndpoint() {
+        val progress = 0.12f
+        val arcs =
+            listOf(
+                CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
+            )
+        val before =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = arcs,
+                batteryPercent = 36,
+                progress = progress,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+            )
+        val after =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs = arcs,
+                batteryPercent = 37,
+                progress = progress,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+            )
+
+        assertEquals(
+            before.background.single().startDegrees,
+            after.background.single().startDegrees,
+            0.0001f,
+        )
+        assertEquals(
+            before.active.single().startDegrees,
+            after.active.single().startDegrees,
+            0.0001f,
+        )
+        assertEquals(240f * 0.36f, before.active.single().sweepDegrees, 0.0001f)
+        assertEquals(240f * 0.37f, after.active.single().sweepDegrees, 0.0001f)
+    }
+
+    @Test
     fun leftExitStartsShrinkingFillOnlyAfterHollowIsExhausted() {
         val progress = 0.5f
         val result =
