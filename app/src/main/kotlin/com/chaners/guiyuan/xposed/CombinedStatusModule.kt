@@ -1872,20 +1872,17 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        val structuralSourceScene =
-            SystemUiSceneStateSource.steadySourceScene(update.sourceView)
-        if (structuralSourceScene == CombinedStatusSourceScene.KEYGUARD) {
+        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
+            steadyStatusSourceScene = sourceScene
+        }
+        if (sourceScene == CombinedStatusSourceScene.KEYGUARD) {
             SystemUiKeyguardHostResolver.observe(update)?.let { resolution ->
                 onKeyguardHostResolution(
                     resolution = resolution,
                     source = "scene-state",
                 )
             }
-        }
-
-        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
-        if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
-            steadyStatusSourceScene = sourceScene
         }
         val retainKeyguardLease =
             sourceScene == CombinedStatusSourceScene.HOME &&
