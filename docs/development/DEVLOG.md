@@ -2582,3 +2582,32 @@ The maintainer requested that custom-color fade be visually tied to battery-ring
 - Charging source Clip remains unchanged: ring retract start -> retained ring 50%.
 
 No new timer, animator, transition clock, tint writer, or geometry change.
+
+
+## 2026-10-03 — Build 648: explicit 0.85-0.90 charging target reveal
+
+**Type:** device feedback / transition timing finalization  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 647 -> 648
+
+### Decision
+
+The charging target glyph now uses an explicit late reveal window:
+- start visible reveal at global progress `0.85`;
+- complete visibility at `0.90`.
+
+This replaces the Build-647 provisional "35% of the previous late reveal span" derivation.
+
+### Rationale
+
+- The source charging glyph is already fully clipped earlier and completes its hidden travel before the target reveal.
+- A fixed 0.85 -> 0.90 reveal is fast enough to avoid the Build-644 slow appearance, but not so fast that the glyph pops in abruptly.
+- Keeping target reveal independent from source hide duration prevents future changes to the ring/charging Clip rule from accidentally changing the target appearance cadence.
+
+### Retained behavior
+
+- Source charging Clip still begins when ring retract starts and completes when retained ring reaches 50%.
+- Hidden travel remains invisible.
+- Target reveal has no independent translation or scale.
+- Custom-color tint fade remains bound to the battery-ring retract lifetime.
+- FOLLOW_SYSTEM still uses live QS_FAKE applied tint directly.
