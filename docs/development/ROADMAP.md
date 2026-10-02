@@ -26,24 +26,20 @@ Remaining:
 - preserve accepted steady Home/Keyguard geometry and Build-473 Wi-Fi optical behavior;
 - avoid project-owned gesture timing, duplicate translation writers, endpoint snaps, or duplicate occupancy.
 
-## Phase 3 — Keyguard / AOD ownership — steady Keyguard complete; optional AOD planned
+## Phase 3 — Keyguard / AOD ownership — stable AOD candidate pending device validation
 
 Established:
 - optional steady Keyguard Guiyuan with independent host/session;
-- AOD remains native-only in the accepted runtime baseline;
 - Keyguard-originated QS_FAKE uses the same verified transition boundary;
-- session-owned slot exclusions are reversible and fail native on ambiguity.
-
-Planned AOD control contract:
-- add a dedicated AOD display toggle; AOD must remain disabled when this toggle is off;
-- the global combined-status enable switch is the parent gate for Home, Keyguard, and AOD, so disabling Guiyuan must also release any AOD replacement and restore native AOD;
-- Keyguard display and AOD display are independent child preferences: enabling/disabling either one must not change the other;
-- AOD must use its own bounded scene/host/session ownership and lifecycle cleanup rather than reusing Keyguard visibility as a proxy;
-- unsupported or ambiguous AOD topology fails native without affecting Home or Keyguard.
+- session-owned slot exclusions are reversible and fail native on ambiguity;
+- Build 620 candidate adds a dedicated default-off AOD display preference while preserving the global Guiyuan enable as the parent runtime gate;
+- Keyguard and AOD child preferences persist independently; changing either one does not rewrite the other;
+- Build 620 candidate gives stable AOD its own mutually exclusive render/presentation session over the verified Keyguard-family host, while AOD enter/exit animation remains native;
+- unsupported or ambiguous AOD authority/topology fails native without affecting accepted Home behavior.
 
 Remaining:
-- shared Control Center transition presentation from the Keyguard source scene;
-- exact-target AOD host/lifecycle evidence before implementing the optional AOD scene.
+- focused exact-target device validation of stable AOD ownership, transition-native handoff, master-switch cleanup, and Keyguard/AOD preference independence;
+- shared Control Center transition presentation from the Keyguard source scene; AOD remains ineligible as a Control Center transition source.
 
 ## Phase 4 — Companion app and customization — product polish
 

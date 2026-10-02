@@ -189,3 +189,19 @@ Design consequences:
 Steady Keyguard projection is not equivalent to AOD ownership. Device-rejected Build 453 attempted this gate but incorrectly resolved `toggleAodMode` as zero-argument, so its AOD authority installed zero Hooks and Keyguard failed native. Build 455 corrects the pinned contract: a unique `setIsAodAnimate(boolean): void` and `toggleAodMode(boolean): void` plus Boolean `mToAod` / `mIsAodAnimate` are required before Keyguard projection is allowed. `mToAod || mIsAodAnimate` blocks Keyguard projection and restores the native represented presentation. `mAnimToAod` is diagnostic-only.
 
 If that contract cannot be resolved uniquely, Keyguard remains native while Home/QS_FAKE continues on the accepted Build-446 path. Guiyuan does not write AOD alpha, visibility, translation, animation or geometry.
+
+### Build 620 stable-AOD candidate — independent scene ownership
+
+Build 620 promotes only **stable AOD** to a projected candidate. It does not reinterpret AOD as Keyguard. The existing pinned AOD authority remains the scene boundary:
+
+- `mToAod == true && mIsAodAnimate == false` is the only candidate stable-AOD state;
+- any enter/exit animation state remains native-only and releases Guiyuan AOD ownership before HyperOS animation proceeds;
+- Keyguard and AOD use separate mutable render/presentation sessions and are mutually exclusive on the shared verified Keyguard-family host;
+- the global Guiyuan enable is the parent runtime gate, while Keyguard and AOD display preferences are independent child values;
+- AOD reuses the existing reversible represented-slot/presentation substrate instead of adding a second native status-icon writer;
+- AOD cannot provide a Control Center transition-source witness;
+- no timer, polling source, custom AOD animator, or native alpha/translation/visibility writer is introduced;
+- any missing/ambiguous AOD state or host contract restores native Keyguard/AOD presentation.
+
+This is a candidate ownership change and remains pending focused device validation. The accepted Build 619 baseline still treats AOD as native-only.
+

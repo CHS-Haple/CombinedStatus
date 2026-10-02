@@ -327,9 +327,9 @@ Keyguard also has independent lifecycle and tint authority:
 - `updateIconsAndTextColors()` derives Keyguard light/dark colors and applies them to Keyguard icon/battery presentation while forwarding the same source tint to QS_FAKE;
 - child `animateIconContainer()` targets `mStatusIconContainer`, not the whole system-icons carrier.
 
-AOD is separate. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently changes Battery alpha/AOD mode and status-icon alpha/visibility/animation flags. A future Keyguard Combined adapter must therefore remain inactive for AOD until a distinct AOD contract is verified.
+AOD is separate. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently changes Battery alpha/AOD mode and status-icon alpha/visibility/animation flags. Therefore Keyguard ownership must remain inactive whenever the native AOD authority reports an AOD transition or stable AOD.
 
-**Project implication:** the strongest steady Keyguard carrier candidate is the native `mSystemIconsContainer` host with a Keyguard-specific session, sharing only renderer/domain semantics with Home. Build 442 verifies only that steady carrier/source identity using the existing scene callback; lifecycle/tint/AOD runtime observation remains deferred until this first gate is positive.
+**Build 620 candidate implication:** reuse the verified Keyguard-family host structure, but not the mutable Keyguard session. Stable AOD (`mToAod=true && mIsAodAnimate=false`) gets a separate bounded render/presentation session; AOD enter/exit remains native HyperOS, and AOD never becomes a Control Center source. This candidate still requires focused device verification before becoming accepted runtime evidence.
 
 ---
 
