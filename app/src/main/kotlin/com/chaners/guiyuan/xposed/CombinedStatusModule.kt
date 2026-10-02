@@ -1889,9 +1889,7 @@ class CombinedStatusModule : XposedModule() {
                 shouldRetainKeyguardControlCenterLease()
         if (sourceScene == CombinedStatusSourceScene.HOME) {
             val retainAodHandoff =
-                SystemUiHomePresentationOwner
-                    .currentAodRepresentedSlotOwnership()
-                    .isNotEmpty()
+                SystemUiHomePresentationOwner.currentAodPresentationClaimed()
             if (!retainAodHandoff) {
                 deactivateAodRuntime("home-source-active")
             } else {
@@ -2009,13 +2007,9 @@ class CombinedStatusModule : XposedModule() {
                                 .currentHomeRepresentedSlotOwnership()
                                 .isNotEmpty(),
                         keyguardPresentationOwned =
-                            SystemUiHomePresentationOwner
-                                .currentKeyguardRepresentedSlotOwnership()
-                                .isNotEmpty(),
+                            SystemUiHomePresentationOwner.currentKeyguardPresentationClaimed(),
                         aodPresentationOwned =
-                            SystemUiHomePresentationOwner
-                                .currentAodRepresentedSlotOwnership()
-                                .isNotEmpty(),
+                            SystemUiHomePresentationOwner.currentAodPresentationClaimed(),
                     )
                 ) {
                     CombinedStatusScenePolicy.KeyguardAodProjection.AOD -> {
