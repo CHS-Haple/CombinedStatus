@@ -243,9 +243,9 @@ internal object SystemUiPanelTransitionSource {
                                     controlCenterTransitionEndpoints = transitionEndpoints,
                                     controlCenterBatteryIslandActive = batteryIslandActive,
                                 )
-                            // Reservation/source projection must be committed before
-                            // HyperOS consumes this expansion sample. Drawing still
-                            // happens on the normal traversal after the native callback.
+                            // Reservation/source state must be committed before
+                            // HyperOS consumes this expansion sample. Native island
+                            // collision remains untouched; drawing happens later.
                             dispatchRuntimeCallback(
                                 callback =
                                     onUpdate?.let { callback ->
