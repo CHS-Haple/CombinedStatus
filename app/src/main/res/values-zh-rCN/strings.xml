@@ -27,6 +27,9 @@
     <string name="section_appearance_interaction">外观与交互</string>
     <string name="section_app">应用</string>
     <string name="section_diagnostics_maintenance">诊断与维护</string>
+    <string name="section_other">其他</string>
+    <string name="project_address_title">项目地址</string>
+    <string name="project_address_summary">本项目基于 GPL-3.0-only 协议开源</string>
     <string name="language_title">语言</string>
     <string name="language_summary">跟随系统或选择应用语言</string>
     <string name="language_system">跟随系统</string>

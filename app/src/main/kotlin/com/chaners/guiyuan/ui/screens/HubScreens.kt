@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -91,6 +92,8 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+
+private const val PROJECT_REPOSITORY_URL = "https://github.com/CHS-Haple/Guiyuan"
 
 @Composable
 internal fun FeaturesScreen(
@@ -496,6 +499,7 @@ internal fun SettingsHubScreen(
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
+    val uriHandler = LocalUriHandler.current
     val languageOptions = listOf(
         stringResource(R.string.language_system),
         stringResource(R.string.language_english),
@@ -541,6 +545,14 @@ internal fun SettingsHubScreen(
                 summary = stringResource(R.string.restart_scope_summary),
                 enabled = !restartInProgress,
                 onClick = { showRestartDialog = true },
+            )
+        },
+        quaternarySectionTitle = stringResource(R.string.section_other),
+        quaternaryContent = {
+            ArrowPreference(
+                title = stringResource(R.string.project_address_title),
+                summary = stringResource(R.string.project_address_summary),
+                onClick = { uriHandler.openUri(PROJECT_REPOSITORY_URL) },
             )
         },
         overlay = {
