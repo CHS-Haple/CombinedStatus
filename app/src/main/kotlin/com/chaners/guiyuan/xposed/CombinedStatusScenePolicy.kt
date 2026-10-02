@@ -232,10 +232,15 @@ internal object CombinedStatusScenePolicy {
         homePresentationOwned: Boolean,
     ): KeyguardAodProjection {
         if (steadySourceScene == CombinedStatusSourceScene.HOME) {
-            return if (homePresentationOwned && aodEnabled) {
+            return if (
+                lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
+                homePresentationOwned &&
+                aodEnabled
+            ) {
                 // Home -> AOD is the only transition without a prior stable
-                // Keyguard/AOD child. Keep the verified Home presentation as
-                // the source while prearming the enabled AOD child.
+                // Keyguard/AOD child. A latched AOD/Keyguard origin instead
+                // means we are leaving that family for Home and must not
+                // reverse-prearm AOD during the outgoing animation.
                 KeyguardAodProjection.AOD
             } else {
                 KeyguardAodProjection.NATIVE
