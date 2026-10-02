@@ -226,57 +226,62 @@ internal object CombinedStatusScenePolicy {
         keyguardPresentationOwned: Boolean,
         aodPresentationOwned: Boolean,
     ): KeyguardAodProjection {
-        val singleKeyguard =
-            keyguardEnabled && !aodEnabled
-        val singleAod =
-            aodEnabled && !keyguardEnabled
-
-        if (
-            singleKeyguard &&
-            steadySourceScene == CombinedStatusSourceScene.KEYGUARD
-        ) {
-            // The steady scene callback is the verified Keyguard boundary. Do
-            // not wait for the later AOD-animation teardown callback before
-            // acquiring the only enabled family child.
-            return KeyguardAodProjection.KEYGUARD
-        }
-        if (
-            singleAod &&
-            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            aodPresentationOwned &&
-            !homePresentationOwned
-        ) {
-            // Symmetric edge: once the verified steady source has returned to
-            // Keyguard and Home is no longer the still-owned source, release the
-            // only enabled AOD child even if HyperOS keeps isAodAnimate=true for
-            // a few more callbacks. Home ownership distinguishes the verified
-            // Home -> AOD prearm path without consulting unreliable direction
-            // fields.
-            return KeyguardAodProjection.NATIVE
-        }
-        if (aodPresentationOwned) {
-            return if (aodEnabled) {
+        if (steadySourceScene == CombinedStatusSourceScene.HOME) {
+            return if (homePresentationOwned && aodEnabled) {
+                // Home -> AOD prearm: Home still owns the visible source while
+                // HyperOS briefly reports an animating Keyguard-family host.
                 KeyguardAodProjection.AOD
             } else {
                 KeyguardAodProjection.NATIVE
             }
         }
-        if (
-            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            keyguardPresentationOwned
-        ) {
-            return if (aodEnabled) {
+
+        if (steadySourceScene == CombinedStatusSourceScene.KEYGUARD) {
+            if (homePresentationOwned && aodEnabled) {
+                // The transient KEYGUARD source on Home -> AOD must not steal
+                // ownership from the still-visible Home source.
+                return KeyguardAodProjection.AOD
+            }
+
+            if (keyguardPresentationOwned) {
+                // Keyguard is the outgoing child. During an AOD animation the
+                // next visible owner is AOD when enabled, otherwise native AOD.
+                return if (aodEnabled) {
+                    KeyguardAodProjection.AOD
+                } else {
+                    KeyguardAodProjection.NATIVE
+                }
+            }
+
+            if (aodPresentationOwned) {
+                // AOD is the outgoing child. Once steady KEYGUARD is verified,
+                // hand off immediately to the enabled Keyguard child; if that
+                // child is disabled, release to native instead. An old AOD
+                // presentation claim must never override the child switch.
+                return if (keyguardEnabled) {
+                    KeyguardAodProjection.KEYGUARD
+                } else {
+                    KeyguardAodProjection.NATIVE
+                }
+            }
+
+            // No family child owns the host yet (notably native AOD -> Keyguard
+            // with AOD projection disabled). Acquire Keyguard immediately when
+            // enabled rather than waiting for the animation-tail callback.
+            return if (keyguardEnabled) {
                 KeyguardAodProjection.KEYGUARD
             } else {
                 KeyguardAodProjection.NATIVE
             }
         }
-        if (
-            steadySourceScene == CombinedStatusSourceScene.HOME &&
-            homePresentationOwned &&
-            aodEnabled
-        ) {
+
+        // UNKNOWN is not authoritative enough to change children. Preserve only
+        // an actually-owned enabled family surface; otherwise fail native.
+        if (aodPresentationOwned && aodEnabled) {
             return KeyguardAodProjection.AOD
+        }
+        if (keyguardPresentationOwned && keyguardEnabled) {
+            return KeyguardAodProjection.KEYGUARD
         }
         return KeyguardAodProjection.NATIVE
     }
