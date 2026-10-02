@@ -37,7 +37,7 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 648 is the current device candidate after Build-638 feedback.
+Build 649 is the current device candidate after Build-638 feedback.
 
 Confirmed Build-638 root causes:
 - `FOLLOW_SYSTEM` is correctly classified as non-colorized; only resolved `Custom` semantic sources are treated as battery-colorized;
@@ -46,7 +46,7 @@ Confirmed Build-638 root causes:
 - supplemental Airplane / No-SIM reveal resolved real native optical target geometry but used `SHRINK_ONLY`, preventing growth when the native target drawable is larger than the Guiyuan source;
 - the Build-638 charging Clip window (retained ring 26% -> 20%) kept the source charging glyph visible too long.
 
-Build 648 correction:
+Build 649 correction:
 - pull-down native tint now reads the already-applied tint from visible, non-represented native peers in `QS_FAKE / fakeStatusIcons`, the same native transition presentation moving beside Guiyuan;
 - non-colorized / FOLLOW_SYSTEM participants directly follow that live native peer tint; custom battery-colorized participants alone use the optional 35%-65% source -> native interpolation;
 - final Battery tint is removed as a generic status-icon tint fallback; if a live QS_FAKE peer is temporarily unavailable, only the last valid QS_FAKE peer tint is retained;
@@ -58,9 +58,11 @@ Build 648 correction:
 
 No new animator, timer, native tint/geometry writer, guessed pixel offset, or second transition clock is added.
 
+Build 648 Runtime failed only because a pre-change unit assertion still expected custom tint to remain fully at source color at progress 0.20. The runtime implementation already followed the approved ring-synced rule; Build 649 updates that test to hold source only at retract start (progress 0) and keeps the runtime behavior unchanged.
+
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003648` / Build `20261003-648`.
+- Candidate identity: `0.0.5` / versionCode `261003649` / Build `20261003-649`.
 - Work branch remains based on current `dev` with no behind commits at the latest checkpoint.
 - Focused coverage locks:
   - FOLLOW_SYSTEM -> live native target tint and custom-color switch semantics;
@@ -96,7 +98,7 @@ After exact-HEAD Runtime CI passes, validate one signed Build-644 Canary:
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 648. If green, request one signed Canary and freeze #197 runtime for focused device validation.
+Run exact-HEAD Runtime CI for Build 649. If green, request one signed Canary and freeze #197 runtime for focused device validation.
 
 ## Reference priority
 
