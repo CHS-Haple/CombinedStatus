@@ -4,22 +4,25 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Accepted baseline
 
-- Product / display version candidate: Guiyuan 0.0.4.
-- `dev` integrates the accepted Build 612 product/runtime line through squash commit `359db16fb3c9cd86d484766a2647093672c70f2b`.
-- `main` remains on the prior stable baseline until the 0.0.4 promotion completes.
+- Product / display version: Guiyuan 0.0.4.
+- `dev` integrates the accepted Build 612 product/runtime line and the Build 613 version checkpoint.
+- Version identity: `0.0.4` / versionCode `261002413` / Build `20261002-613`.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- Build 612 / `20261002-612` is the latest device-accepted runtime checkpoint; maintainer reports no anomaly.
+- Build 612 is the latest runtime-affecting checkpoint and is maintainer device-accepted with no reported anomaly.
+- Build 613 changes only version/build metadata and documentation; Runtime/SystemUI behavior remains Build 612.
 - GPL-3.0-or-later is the project license; third-party components retain their upstream licenses.
 
 ## Current objective
 
-Advance the integrated Build 612 development state to display version 0.0.4, validate the version/build metadata checkpoint, promote the exact accepted state from `dev` to `main`, then perform repository-wide consistency review.
+Promote the exact validated 0.0.4 / Build 613 `dev` state to `main`, then perform repository-wide consistency review.
 
-Version checkpoint:
-- `combinedStatus.versionName=0.0.4`
-- `combinedStatus.versionCode=261002413`
-- `combinedStatus.buildId=20261002-613`
-- Build 613 is a version/documentation checkpoint only; it does not change Build 612 Runtime/SystemUI behavior.
+Promotion evidence:
+- PR #181 integrated the accepted product/runtime line into `dev` as `359db16fb3c9cd86d484766a2647093672c70f2b`.
+- PR #190 integrated the 0.0.4 / Build 613 version checkpoint into `dev` as `6859f8d549022e929b224d33c2de2dae6346de04`.
+- Build 612 exact-head Runtime validation passed before integration.
+- Maintainer device validation accepted Build 612 with no reported anomaly.
+- 0.0.4 PR Full validation passed.
+- `dev` integration Run #2205 passed target-profile checks, unit/build validation, Modern Xposed metadata, Haple APK signature verification, Canary non-debuggable validation, and artifact upload.
 
 ## Current transition contract
 
@@ -39,16 +42,16 @@ Version checkpoint:
 ## Validation state
 
 Confirmed:
-- PR #181 was squash-merged into `dev` as `359db16fb3c9cd86d484766a2647093672c70f2b`.
-- Build 612 exact-head Runtime validation passed before integration.
-- Build 612 focused maintainer device validation passed with no reported anomaly.
-- The 0.0.4 bump changes only build/display metadata and public/current documentation; no new device gate is required.
+- 0.0.4 public/version metadata is internally aligned.
+- Build 613 `dev` integration validation is green.
+- No new runtime delta exists after the accepted Build 612 device checkpoint.
+- No additional device gate is required for stable promotion.
 
 Pending:
-- automated validation of the 0.0.4 version checkpoint;
-- merge the version checkpoint into `dev`;
-- stable `dev -> main` promotion;
-- post-promotion repository consistency audit.
+- Full validation of the exact `dev -> main` promotion head;
+- merge to `main`;
+- verify/recreate long-lived `dev` at the promoted `main` commit as required;
+- final repository consistency audit.
 
 ## Non-negotiable boundaries
 
@@ -62,11 +65,10 @@ Pending:
 
 ## Immediate next step
 
-1. validate the 0.0.4 / Build 613 metadata checkpoint;
-2. merge it into `dev`;
-3. promote the resulting exact `dev` state to `main`;
-4. verify long-lived `dev` still exists and matches promoted `main`;
-5. audit repository version, license, branch, CI, documentation, and stale work-line consistency.
+1. run the exact `dev -> main` stable-boundary Full validation;
+2. merge the validated 0.0.4 / Build 613 state to `main`;
+3. ensure `dev` exists and matches the promoted `main`;
+4. audit version, license, branch, CI, documentation, package/Xposed identity, and stale work-line consistency.
 
 ## Reference priority
 
