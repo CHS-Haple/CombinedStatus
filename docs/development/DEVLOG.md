@@ -2559,3 +2559,26 @@ No new animator, timer, guessed tint, per-icon size multiplier, or native writer
 - `FOLLOW_SYSTEM` participants remain outside this custom interpolation and continue to use live QS_FAKE applied tint directly.
 
 No new animator, timer, target geometry change, native writer, or additional transition clock is introduced.
+
+
+## 2026-10-03 — Build 647: custom tint follows battery-ring retract lifetime
+
+**Type:** device feedback / transition timing refinement  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 644 -> 647
+
+### Build-644 follow-up
+
+The maintainer requested that custom-color fade be visually tied to battery-ring retract rather than an independent fixed progress window.
+
+### Build-647 correction
+
+- Remove the independent custom tint window.
+- Custom-color fade starts when battery-ring retract starts and reaches native QS_FAKE tint exactly when ring retract completes.
+- The shared lifetime comes from `CombinedStatusBatteryRingTransitionPolicy.transitionProgress()`.
+- Color itself keeps a smoothstep over that shared lifetime, rather than copying the ring's front-loaded shrink curve, so the color transition remains visually gentler.
+- `FOLLOW_SYSTEM` remains outside this interpolation and continues to use live QS_FAKE applied tint directly.
+- Build-646 accelerated charging target reveal is retained: reveal still starts at 0.85 and completes in the first 35% of the former late reveal span.
+- Charging source Clip remains unchanged: ring retract start -> retained ring 50%.
+
+No new timer, animator, transition clock, tint writer, or geometry change.
