@@ -2627,3 +2627,23 @@ No runtime behavior was changed for this correction:
 - midpoint remains tied to half of the ring-retract lifetime;
 - native tint is exact when ring retract completes;
 - charging target reveal remains fixed at 0.85 -> 0.90.
+
+
+## 2026-10-03 — Build 650: charging Clip follows half of ring-retract lifetime
+
+**Type:** device evidence / timing correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 649 -> 650
+
+Build 649 device video showed the charging source glyph fully disappearing before the battery-ring retract animation itself reached halfway. The previous rule used 50% **remaining visible arc**, but the ring's retained arc is front-loaded and therefore reaches 50% well before half of the retract lifetime.
+
+Build 650 changes the authority:
+- source Clip begins at ring-retract lifetime 0%;
+- source is exactly 50% visible at retract lifetime 25%;
+- source is fully clipped at retract lifetime 50%;
+- while any source remains, charging stays locked to the battery-number follower;
+- only after complete source Clip does hidden travel begin;
+- target reveal remains 0.85 -> 0.90;
+- source disappearance remains opaque horizontal Clip with `opacity=1`, not alpha fade or scale.
+
+No new animator, timer, geometry writer, or second transition clock is introduced.
