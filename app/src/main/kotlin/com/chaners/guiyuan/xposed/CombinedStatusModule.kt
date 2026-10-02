@@ -2024,11 +2024,19 @@ class CombinedStatusModule : XposedModule() {
         sourceScene: CombinedStatusSourceScene,
     ) {
         when (sourceScene) {
-            CombinedStatusSourceScene.HOME ->
-                updateStableKeyguardAodScene(
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
-                    "scene-home",
-                )
+            CombinedStatusSourceScene.HOME -> {
+                val aodState = SystemUiKeyguardAodStateSource.currentState(update.sourceView)
+                if (
+                    aodState != null &&
+                    !aodState.isAodAnimate &&
+                    !aodState.toAod
+                ) {
+                    updateStableKeyguardAodScene(
+                        CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                        "scene-home-stable",
+                    )
+                }
+            }
 
             CombinedStatusSourceScene.KEYGUARD -> {
                 val aodState = SystemUiKeyguardAodStateSource.currentState(update.sourceView)
