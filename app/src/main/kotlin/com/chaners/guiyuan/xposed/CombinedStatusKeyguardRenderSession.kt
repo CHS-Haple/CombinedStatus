@@ -454,7 +454,6 @@ internal object CombinedStatusKeyguardRenderSession {
                     toAod = update.toAod,
                     isAodAnimate = update.isAodAnimate,
                 )
-            }
             if (sceneEligible == nextEligible) return
 
             sceneEligible = nextEligible
