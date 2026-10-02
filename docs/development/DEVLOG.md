@@ -2536,3 +2536,49 @@ No cross-host bridge, timer, delay, alpha patch, visibility patch, geometry writ
 ### Review intent
 
 This correction is lifecycle hygiene, not an attempt to eliminate native Home -> AOD visual switching. Future AOD work should only resume if device evidence shows Guiyuan adds an extra artifact beyond the stock transition.
+
+
+## 2026-10-03 — Build 641: single-child AOD handoff + authoritative unlock boundary
+
+**Type:** device evidence / lifecycle root cause / performance isolation  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 636 -> 641
+
+### Device evidence
+
+Build 636 exposed three related lifecycle symptoms on the AOD branch:
+- Keyguard ON / AOD OFF: AOD -> Keyguard waits for the late native AOD-animation teardown callback before Guiyuan reappears.
+- Keyguard OFF / AOD ON: AOD -> Keyguard retains Guiyuan AOD ownership after the verified steady source has already returned to Keyguard.
+- With both Keyguard and AOD enabled, lockscreen -> Home -> immediate Control Center pull-down reproducibly can show native status-bar icons on the first fast pull. Ordinary Home pull-down can also occasionally feel non-responsive/stuttery.
+
+### Root causes
+
+1. Single-enabled Keyguard/AOD children were still using the dual-enabled animation-interval retention rule, so ownership transfer lagged the verified steady source boundary.
+2. HOME scene updates entered AOD ownership/cleanup code even when no AOD runtime was attached, adding avoidable synchronized lifecycle work to ordinary desktop pull-down.
+3. A stale Keyguard Control Center lease could survive the verified unlocked HOME boundary. Because the fraction callback can arrive before the next visible/source callback, the first fast pull after unlock could consume cached `controlCenterSourceScene=KEYGUARD`. Existing HOME handling then deferred the source rewrite because the stale lease was already active, producing a short native-QS fallback window.
+4. Cleanup ordering could also refresh Control Center eligibility from stale KEYGUARD state if Keyguard runtime teardown happened before HOME source ownership was committed.
+
+The existing ScenePolicy already rejects retaining a Keyguard Control Center lease for HOME; the defect was the module feeding it cached KEYGUARD state rather than honoring the newly verified HOME source.
+
+### Build 641 correction
+
+- Keyguard-only mode acquires Keyguard as soon as verified steady Keyguard is observed.
+- AOD-only mode releases AOD at the same verified steady-Keyguard boundary once Home no longer owns the source.
+- AOD-only Home -> AOD preserves/prearms AOD ownership across the transient native Keyguard source while Home ownership is still present.
+- Ordinary HOME updates skip AOD ownership/cleanup work entirely when no AOD runtime is attached.
+- `UNLOCKED_STATUS_BAR + HOME ancestry` is now authoritative over any stale Keyguard Control Center lease:
+  - release old lease with no Keyguard-readiness reconciliation;
+  - publish Control Center source ownership as HOME;
+  - only then tear down the old Keyguard renderer.
+- `aodRuntimeAttached` is reset on AOD activation failure, readiness loss, fail-native, Keyguard retarget, explicit deactivation, hot reload takeover, and old-generation teardown.
+
+No timer, delay, polling, guessed transition direction, geometry writer, or copied native animation was added. Build-621 `toAod/animToAod` direction inference remains rejected.
+
+### Device gate
+
+Validate:
+- Keyguard ON / AOD OFF: AOD -> Keyguard has no delayed Guiyuan entrance.
+- Keyguard OFF / AOD ON: AOD -> Keyguard has no delayed Guiyuan exit; Home -> AOD has no transient native represented-icon frame.
+- Keyguard ON / AOD ON: lockscreen -> Home -> immediate fast pull-down repeatedly; first pull must stay Guiyuan-projected with no native-status-bar flash.
+- Repeated ordinary Home pull-downs: no intermittent stutter attributable to AOD lifecycle bookkeeping.
+- Dual-enabled Keyguard <-> AOD continuity remains unchanged.
