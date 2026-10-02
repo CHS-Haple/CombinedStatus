@@ -2218,3 +2218,37 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - Diagnostic limitation noted: the current `visualSettings.changed` summary does not yet emit `airplaneSizeScale` / `noSimSizeScale`, so exact per-profile value evidence comes from the profile-key/unit coverage plus maintainer visual validation rather than the runtime summary line itself.
 - Build 619 is accepted for integration into `dev`; no further runtime change is required for this feature.
 
+## 2026-10-02 — Build 620 AOD continuity rejected on device; Build 621 narrow correction
+
+**Type:** device evidence / AOD lifecycle root cause / presentation continuity  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 620 -> 621
+
+### Build 620 device evidence
+
+- Xiaomi 15 Pro / `haotian`, Android 17 / SDK 37, HyperOS 4, SystemUI `17.03.260226.r`.
+- Stable Keyguard and stable AOD Guiyuan presentation both acquire successfully with both child switches enabled.
+- Maintainer video reports a visible temporary return to native status presentation whenever Keyguard and AOD switch states.
+- The diagnostic matches that visual symptom directly: when `setIsAodAnimate` enters the transition state, the outgoing AOD renderer becomes ineligible, readiness drops, the AOD presentation restores clip bounds/end reservation/ignored slots, and native presentation is exposed until the destination stable scene reacquires Guiyuan.
+- This is not a timing race or host-resolution failure. It is the explicit Build-620 policy that classified every AOD animation interval as native-only.
+
+### Root-cause correction
+
+Build 621 keeps the existing native AOD authority and changes only scene eligibility during the verified transition interval:
+
+- with both Keyguard and AOD child switches enabled, entering AOD retains the existing Keyguard Guiyuan scene while `toAod=true && isAodAnimate=true`;
+- exiting AOD retains the existing AOD Guiyuan scene while `toAod=false && isAodAnimate=true`;
+- stable destination boundaries still select their independent Keyguard or AOD session;
+- if either child switch is disabled, the transition remains native-only;
+- the global Guiyuan master switch still releases both scenes immediately;
+- AOD never becomes a Control Center transition source.
+
+No timer, delayed cleanup, polling, copied AOD animation, native translation writer, or duplicate alpha animator is introduced. HyperOS remains the transition clock/motion authority; Guiyuan only avoids voluntarily dropping its already-valid presentation during the dual-enabled handoff interval.
+
+### Review / automated validation
+
+- Scene policy tests cover enter/exit retention only when both child switches are enabled, plus native fallback for single-enabled and master-disabled combinations.
+- Render-session tests cover outgoing-scene eligibility continuity.
+- Runtime CI #2245 passed Build 621 code/test compilation and the pinned HyperOS target-profile checks.
+- Focused real-device validation remains mandatory before integration.
+
