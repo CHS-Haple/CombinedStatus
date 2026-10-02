@@ -47,16 +47,18 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingGlyphUsesOpaqueClipHideAndSlowerLateReveal() {
+    fun chargingGlyphUsesOpaqueClipHideAndAcceleratedLateReveal() {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
         val (hideStart, hideEnd) = policy.sourceHideWindow()
         val (revealStart, revealEnd) = policy.targetRevealWindow()
-        val previous633RevealComplete =
+        val baseRevealComplete =
             (0.88f + (hideEnd - hideStart)).coerceAtMost(0.98f)
+        val expectedRevealComplete =
+            revealStart + (baseRevealComplete - revealStart) * 0.35f
 
         assertEquals(0.85f, revealStart, 0.0001f)
-        assertEquals(previous633RevealComplete, revealEnd, 0.001f)
-        assertEquals(0.98f, revealEnd, 0.001f)
+        assertEquals(expectedRevealComplete, revealEnd, 0.001f)
+        assertTrue(revealEnd < baseRevealComplete)
 
         assertEquals(1.00f, policy.chargingRingRemaining(hideStart), 0.01f)
         assertEquals(0.50f, policy.chargingRingRemaining(hideEnd), 0.01f)
@@ -185,10 +187,10 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         val source = 0xffff6600.toInt()
         val target = 0xe6ffffff.toInt()
 
-        assertEquals(0f, policy.transitionTintProgress(0.34f), 0.0001f)
-        assertEquals(0f, policy.transitionTintProgress(0.35f), 0.0001f)
-        assertEquals(0.5f, policy.transitionTintProgress(0.50f), 0.0001f)
-        assertEquals(1f, policy.transitionTintProgress(0.65f), 0.0001f)
+        assertEquals(0f, policy.transitionTintProgress(0.44f), 0.0001f)
+        assertEquals(0f, policy.transitionTintProgress(0.45f), 0.0001f)
+        assertEquals(0.5f, policy.transitionTintProgress(0.625f), 0.0001f)
+        assertEquals(1f, policy.transitionTintProgress(0.80f), 0.0001f)
         assertEquals(1f, policy.transitionTintProgress(0.90f), 0.0001f)
 
         assertEquals(
@@ -204,7 +206,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             policy.interpolateColor(
                 source = source,
                 target = target,
-                progress = 0.50f,
+                progress = 0.625f,
             ),
         )
         assertEquals(
