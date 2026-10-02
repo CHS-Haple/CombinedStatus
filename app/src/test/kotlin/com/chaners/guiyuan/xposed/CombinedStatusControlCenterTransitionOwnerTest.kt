@@ -55,8 +55,10 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(0.85f, revealStart, 0.0001f)
         assertEquals(0.90f, revealEnd, 0.0001f)
 
-        assertEquals(1.00f, policy.chargingRingRemaining(hideStart), 0.01f)
-        assertEquals(0.50f, policy.chargingRingRemaining(hideEnd), 0.01f)
+        assertEquals(0f, policy.chargingRingLifetimeProgress(hideStart), 0.001f)
+        assertEquals(0.50f, policy.chargingRingLifetimeProgress(hideEnd), 0.001f)
+        assertEquals(1f, policy.chargingSourceVisibleFraction(hideStart), 0.001f)
+        assertEquals(0f, policy.chargingSourceVisibleFraction(hideEnd), 0.001f)
         assertEquals(
             1f,
             policy.chargingVisibleFraction(
