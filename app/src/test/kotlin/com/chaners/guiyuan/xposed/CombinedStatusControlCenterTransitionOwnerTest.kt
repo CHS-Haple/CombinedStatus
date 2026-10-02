@@ -111,6 +111,37 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun chargingGlyphNeverMovesWhileAnySourceOpacityRemains() {
+        val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
+        val samples =
+            listOf(
+                0f,
+                0.10f,
+                0.16f,
+                0.18f,
+                0.19f,
+                0.20f,
+                0.205f,
+                0.21f,
+            )
+
+        samples.forEach { progress ->
+            val opacity =
+                policy.chargingOpacity(
+                    progress = progress,
+                    targetAvailable = true,
+                )
+            if (opacity > 0f) {
+                assertEquals(
+                    0f,
+                    policy.chargingMotionProgress(progress),
+                    0.0001f,
+                )
+            }
+        }
+    }
+
+    @Test
     fun mobileTypeWeightInterpolatesToNativeTarget() {
         assertEquals(
             800,
