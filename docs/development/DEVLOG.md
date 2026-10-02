@@ -2611,3 +2611,19 @@ This replaces the Build-647 provisional "35% of the previous late reveal span" d
 - Target reveal has no independent translation or scale.
 - Custom-color tint fade remains bound to the battery-ring retract lifetime.
 - FOLLOW_SYSTEM still uses live QS_FAKE applied tint directly.
+
+
+## 2026-10-03 — Build 649: correct obsolete tint test after ring-sync change
+
+**Type:** CI review / test correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 648 -> 649
+
+Build 648 Runtime reached the unit-test phase and failed one stale assertion in `transitionTintHoldsEndsAndChangesOnlyInMiddlePhase`. The test still required source color at global progress 0.20, which contradicts the approved Build-647/648 rule that custom tint fade begins as soon as battery-ring retract begins.
+
+No runtime behavior was changed for this correction:
+- source tint is exact at progress 0;
+- fade starts immediately with ring retract;
+- midpoint remains tied to half of the ring-retract lifetime;
+- native tint is exact when ring retract completes;
+- charging target reveal remains fixed at 0.85 -> 0.90.
