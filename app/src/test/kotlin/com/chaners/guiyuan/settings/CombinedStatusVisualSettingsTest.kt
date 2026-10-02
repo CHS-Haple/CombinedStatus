@@ -250,6 +250,38 @@ class CombinedStatusVisualSettingsTest {
     }
 
     @Test
+    fun networkStateSizeControlsUseIndependentLayoutProfileKeys() {
+        assertEquals(
+            "network_center.airplane_size_scale",
+            combinedStatusProfileKey(
+                CombinedStatusContentLayout.NETWORK_CENTER,
+                AIRPLANE_SIZE_SCALE_KEY,
+            ),
+        )
+        assertEquals(
+            "battery_center.airplane_size_scale",
+            combinedStatusProfileKey(
+                CombinedStatusContentLayout.BATTERY_CENTER,
+                AIRPLANE_SIZE_SCALE_KEY,
+            ),
+        )
+        assertEquals(
+            "network_center.no_sim_size_scale",
+            combinedStatusProfileKey(
+                CombinedStatusContentLayout.NETWORK_CENTER,
+                NO_SIM_SIZE_SCALE_KEY,
+            ),
+        )
+        assertEquals(
+            "battery_center.no_sim_size_scale",
+            combinedStatusProfileKey(
+                CombinedStatusContentLayout.BATTERY_CENTER,
+                NO_SIM_SIZE_SCALE_KEY,
+            ),
+        )
+    }
+
+    @Test
     fun profileKeysParticipateInRuntimeSync() {
         CombinedStatusContentLayout.entries.forEach { layout ->
             listOf(
