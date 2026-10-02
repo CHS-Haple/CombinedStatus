@@ -32,6 +32,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Development display version advanced to **0.0.4** after integrating the accepted Build 612 product/runtime line into `dev`; this remains a pre-release development checkpoint and does not change the planned first formal release target of 1.0.0.
+
 - Project licensing changed from Apache License 2.0 to GNU General Public License v3.0 or later (`GPL-3.0-or-later`); third-party components retain their existing upstream licenses and notice requirements. This repository-only change does not alter APK/runtime behavior.
 
 
