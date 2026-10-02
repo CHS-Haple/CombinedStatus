@@ -47,37 +47,46 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingGlyphHidesBeforeMovementAndOnlyReappearsWithTarget() {
+    fun chargingGlyphHidesLateThenMovesQuicklyOnlyWithTarget() {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
+
+        // Keep the glyph fully visible until the ring is already well into retract.
         assertEquals(
             1f,
             policy.chargingOpacity(
-                progress = 0f,
+                progress = 0.18f,
                 targetAvailable = true,
             ),
             0.0001f,
         )
         assertTrue(
             policy.chargingOpacity(
-                progress = 0.12f,
+                progress = 0.205f,
                 targetAvailable = true,
             ) in 0f..1f,
         )
 
-        // Once the ring has crossed the 50% retained point the source glyph is
-        // already fully hidden; only then may its independent target motion start.
+        // Full disappearance precedes all visible target travel.
         assertEquals(
             0f,
             policy.chargingOpacity(
-                progress = 0.14f,
+                progress = 0.225f,
                 targetAvailable = true,
             ),
             0.0001f,
         )
-        assertTrue(policy.chargingMotionProgress(0.14f) > 0f)
+        assertTrue(policy.chargingMotionProgress(0.225f) > 0f)
 
-        // Fail-native target policy: without a reliable native charging target,
-        // the glyph stays hidden after the source-side fade and never reappears.
+        // Hidden travel is intentionally short; target reveal only occurs near its end.
+        assertTrue(policy.chargingMotionProgress(0.30f) > 0.8f)
+        assertTrue(
+            policy.chargingOpacity(
+                progress = 0.30f,
+                targetAvailable = true,
+            ) > 0f,
+        )
+
+        // Fail-native target policy: no target means fade-out only, never guessed motion/reveal.
         assertEquals(
             0f,
             policy.chargingOpacity(
@@ -86,21 +95,19 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             ),
             0.0001f,
         )
-        assertTrue(
-            policy.chargingOpacity(
-                progress = 0.30f,
-                targetAvailable = true,
-            ) > 0f,
+        assertEquals(
+            1f,
+            policy.chargingMotionProgress(0.35f),
+            0.0001f,
         )
         assertEquals(
             1f,
             policy.chargingOpacity(
-                progress = 0.45f,
+                progress = 0.35f,
                 targetAvailable = true,
             ),
             0.0001f,
         )
-        assertEquals(1f, policy.chargingMotionProgress(0.45f), 0.0001f)
     }
 
     @Test
