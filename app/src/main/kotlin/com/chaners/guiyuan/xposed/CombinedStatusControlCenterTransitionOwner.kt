@@ -322,13 +322,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         fun selectNativeTransitionTint(
             statusIconPeerTint: Int?,
-            finalBatteryTint: Int?,
             cachedTint: Int?,
         ): Int? {
             fun valid(color: Int?): Int? =
                 color?.takeIf { candidate -> candidate ushr 24 != 0 }
             return valid(statusIconPeerTint)
-                ?: valid(finalBatteryTint)
                 ?: valid(cachedTint)
         }
 
@@ -446,7 +444,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             transitionEnabled: Boolean,
         ): Int =
             when {
-                tinted && !transitionEnabled -> source
+                !tinted -> target
+                !transitionEnabled -> source
                 else ->
                     interpolateColor(
                         source = source,
@@ -2043,7 +2042,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     source = sourceGeometry,
                     target = targetGeometry,
                     progress = motionProgress,
-                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                     carrierFrames = carrierFrames,
                 )
             val geometry = pathGeometry
@@ -2143,7 +2142,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     source = sourceGeometry,
                     target = targetGeometry,
                     progress = motionProgress,
-                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                     carrierFrames = carrierFrames,
                 )
             val geometry = pathGeometry
@@ -2373,26 +2372,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val peerTint =
                 SystemUiNativeNetworkSuppressionOwner
                     .currentAppliedStatusIconTintForGroup(finalStatusIcons)
-            val finalBatteryTint =
-                SystemUiTintStateSource
-                    .currentState(finalBattery)
-                    ?.let { state ->
-                        state.statusIconTint ?: state.appliedTint
-                    }
             val resolved =
                 Policy.selectNativeTransitionTint(
                     statusIconPeerTint = peerTint,
-                    finalBatteryTint = finalBatteryTint,
                     cachedTint = cachedNativePeerTint,
                 )
             if (resolved != null) {
                 cachedNativePeerTint = resolved
                 cachedNativePeerTintAuthority =
-                    when {
-                        peerTint != null && resolved == peerTint -> "final-status-icons-peer"
-                        finalBatteryTint != null && resolved == finalBatteryTint ->
-                            "final-battery-tint"
-                        else -> "cached-last-valid"
+                    if (peerTint != null && resolved == peerTint) {
+                        "final-status-icons-live-native"
+                    } else {
+                        "cached-last-valid"
                     }
             }
         }
