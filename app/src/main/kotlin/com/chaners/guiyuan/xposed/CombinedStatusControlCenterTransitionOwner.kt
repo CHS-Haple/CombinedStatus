@@ -2371,7 +2371,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private fun refreshNativePeerTint() {
             val peerTint =
                 SystemUiNativeNetworkSuppressionOwner
-                    .currentAppliedStatusIconTintForGroup(finalStatusIcons)
+                    .currentAppliedStatusIconTintForGroup(fakeStatusIcons)
             val resolved =
                 Policy.selectNativeTransitionTint(
                     statusIconPeerTint = peerTint,
@@ -2381,7 +2381,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 cachedNativePeerTint = resolved
                 cachedNativePeerTintAuthority =
                     if (peerTint != null && resolved == peerTint) {
-                        "final-status-icons-live-native"
+                        "qs-fake-visible-peer-applied"
                     } else {
                         "cached-last-valid"
                     }
