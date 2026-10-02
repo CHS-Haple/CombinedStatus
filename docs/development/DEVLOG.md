@@ -1,3 +1,36 @@
+## 2026-10-02 — Build 592 battery scheme interaction and geometry pass
+
+**Type:** App UI / MIUIX interaction / layout geometry  
+**Display version:** 0.0.3  
+**Build:** 592 / `20261002-592`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+- Keep the shared 84% screen-height sheet policy.
+- Make level-1 and level-2 title rows identical in height.
+- Tighten scheme title→preview and navigator→content spacing.
+- Make arrow press geometry match its visible 32dp size and add long-press help.
+- Built-in mode editing must first move to Add, request a custom name, then create and enter the requested mode editor.
+- Add page must use a same-height full-card MIUIX clickable large Card with touch-point Tilt feedback.
+- Add Card center: gray circle + thicker white plus.
+- Home preview sandbox large Card should also use MIUIX Tilt feedback.
+
+### Changes
+- Level-1 start-action slot reserves `IconButtonDefaults.MinWidth/MinHeight`, matching the native level-2 Back IconButton row.
+- Shared `BatterySchemeHeader` title→preview spacing: 12dp → 8dp.
+- Fixed navigator→pager spacing: 8dp → 4dp.
+- Previous/next controls are single-layer 32×32dp MIUIX IconButtons with matching press surface and MIUIX TooltipBox help.
+- Built-in mode click animates to `pages.lastIndex` before naming; confirmation copies the selected built-in source and opens the requested slot editor.
+- Ordinary six-row white settings Card reports its actual measured height; Add-page clickable white Card consumes that same height rather than relying on a guessed fixed size.
+- Add Card uses `PressFeedbackType.Tilt` only; the whole Card including the centered gray circle / white plus tilts from the press point.
+- Home preview sandbox Card uses `PressFeedbackType.Tilt`.
+
+### Review
+All requested invariants were rechecked at branch HEAD: shared 84% sheet height, equal title-row height, 8dp scheme title→preview gap, 4dp navigator gap, 32dp navigation controls, tooltip copy, deferred built-in customization flow, Tilt Add Card, measured Card height sync, and Home preview Tilt.
+
+### Validation
+Run exact-head Runtime CI then Work Branch Canary. Device review should focus on title-row equality, arrow press footprint/tooltips, Add Card height/bottom alignment and Tilt behavior, centered plus visual, and built-in-template creation flow.
+
 ## 2026-10-02 — Build 591 full battery-color layout review
 
 **Type:** App UI / MIUIX conformance / layout ownership  
