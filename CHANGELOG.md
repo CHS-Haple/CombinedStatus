@@ -32,7 +32,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses, semantic reservation uses the single `statusIcons.paddingEnd` writer, and Mobile exact four-bar geometry is shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
+- Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses; one host-scoped semantic-reservation owner pairs `statusIcons.paddingEnd` with bounded fake-carrier width expansion into verified native slack so native peers retain measurement capacity during handoff. Mobile exact four-bar geometry remains shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
 
 - Contributor workflow now uses CONTRIBUTING + CURRENT as the daily recovery path, a decision-oriented DEVLOG, direct dev-to-main promotion, and three CI scopes (Light / Runtime / Full); signed work-branch Canary remains demand-driven and independently validates the requested source SHA.
 

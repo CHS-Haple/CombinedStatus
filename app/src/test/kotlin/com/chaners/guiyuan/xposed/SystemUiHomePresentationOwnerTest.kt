@@ -2,6 +2,7 @@ package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -108,6 +109,62 @@ class SystemUiHomePresentationOwnerTest {
                 actualBatteryWidthPx = 135,
                 requestedSlotWidthPx = 105,
             ),
+        )
+    }
+
+    @Test
+    fun fakeCarrierExpansionUsesOnlyVerifiedEndAnchoredSlack() {
+        assertEquals(
+            250,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveEndAnchoredLeadingSlack(
+                    parentWidthPx = 837,
+                    parentPaddingStartPx = 0,
+                    parentPaddingEndPx = 0,
+                    carrierLeftPx = 250,
+                    carrierRightPx = 837,
+                    isRtl = false,
+                ),
+        )
+        assertEquals(
+            250,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveEndAnchoredLeadingSlack(
+                    parentWidthPx = 837,
+                    parentPaddingStartPx = 0,
+                    parentPaddingEndPx = 0,
+                    carrierLeftPx = 0,
+                    carrierRightPx = 587,
+                    isRtl = true,
+                ),
+        )
+        assertNull(
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveEndAnchoredLeadingSlack(
+                    parentWidthPx = 837,
+                    parentPaddingStartPx = 0,
+                    parentPaddingEndPx = 0,
+                    carrierLeftPx = 250,
+                    carrierRightPx = 836,
+                    isRtl = false,
+                ),
+        )
+        assertEquals(
+            836,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveExpandedFakeCarrierWidth(
+                    nativeCarrierWidthPx = 587,
+                    leadingSlackPx = 250,
+                    reservationDeltaPx = 249,
+                ),
+        )
+        assertNull(
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveExpandedFakeCarrierWidth(
+                    nativeCarrierWidthPx = 587,
+                    leadingSlackPx = 250,
+                    reservationDeltaPx = 251,
+                ),
         )
     }
 

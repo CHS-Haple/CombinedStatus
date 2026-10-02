@@ -123,7 +123,7 @@ Do not replace this with permanent `GONE`, alpha racing or translation writes me
 
 ## Home end-reservation contract
 
-The module-owned render child does not participate in native measurement. The current target therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary.
+The module-owned render child does not participate in native measurement. Steady Home therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary. During the bounded QS_FAKE transition, the same host-scoped reservation owner may additionally expand the native `system_icon_area` width by the same positive reservation delta, but only into live, verified end-anchored unused parent space. This preserves the native peer row's measurement capacity while `paddingEnd` moves those peers toward their final positions; it is one coordinated reservation operation, not a second motion timeline.
 
 Inputs:
 - requested replacement-slot width from `ResolvedLayout`;
@@ -144,8 +144,10 @@ The reservation:
 - snapshots the pre-session relative padding;
 - reacts only to low-frequency Battery/carrier layout and native hide-state events;
 - rejects unexpected competing padding writers;
-- restores only the exact module-applied state;
-- fails native when the carrier, width, hide-state or writer contract is unavailable.
+- for QS_FAKE width expansion, requires a concrete native carrier width, the carrier as the parent's sole direct child, exact end anchoring, sufficient live leading slack, and no competing carrier-width writer;
+- applies carrier width before `paddingEnd` and restores `paddingEnd` before carrier width so no transient peer underflow is introduced by Guiyuan's own ordering;
+- restores only the exact module-applied padding/width state;
+- fails native when the carrier, width, slack, hide-state or writer contract is unavailable.
 
 ## Motion ownership
 

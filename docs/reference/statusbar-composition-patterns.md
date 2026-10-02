@@ -882,7 +882,7 @@ The current contract is:
 
 `resolve/freeze final total semantic width -> interpolate compact-to-final width from raw HyperOS expansion progress -> commit before HyperOS consumes the same sample`.
 
-The reservation writer may therefore update `MiuiStatusIconContainer.paddingEnd` across native expansion samples, but it does **not** own an independent timing curve, delayed phase, per-participant union trajectory, or animator. The requested width is a direct projection of the same authoritative HyperOS progress that drives the surrounding Control Center motion, and `statusIcons-paddingEnd` remains the single writer.
+The reservation owner may therefore update `MiuiStatusIconContainer.paddingEnd` across native expansion samples, but it does **not** own an independent timing curve, delayed phase, per-participant union trajectory, or animator. Build-609 device evidence adds one QS_FAKE-only capacity constraint: the fake row can natively underflow a peer before HyperOS switches visual ownership to the final row. The same host-scoped reservation owner therefore pairs the positive `paddingEnd` delta with an equal `system_icon_area` width expansion only into verified end-anchored unused parent space. The requested width still comes directly from authoritative HyperOS progress; no native peer alpha, visibility, visibleState, translation, or appearance threshold is written by Guiyuan. If the width/anchor/slack contract is unavailable, this bounded transition surface fails native instead of guessing.
 
 This differs from both rejected extremes:
 

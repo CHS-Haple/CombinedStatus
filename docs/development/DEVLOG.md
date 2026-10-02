@@ -2044,3 +2044,14 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - The same terminal evidence also shows `ControlCenterFakeStatusIcons` can already be alpha 0 around fraction ~0.998 while that reservation is still present. Therefore fake-row underflow is proven to exist but is not yet sufficient evidence that it is the user-visible disappearance.
 - Pre-commit review rejects widening `system_icon_area`: that would introduce a second native peer-layout writer and violate the accepted architecture where `statusIcons.paddingEnd` is the sole Guiyuan native peer-layout writer.
 - Build 609 stays read-only and records bounded fake/final native row membership and visibility across the existing 8 Detailed-diagnostic progress buckets so the disappearance can be assigned to fake-row underflow or native fake->final handoff before any behavior change.
+
+
+## 2026-10-02 — Build 610 QS_FAKE peer-capacity correction
+
+**Type:** runtime root cause / layout ownership
+
+- Build-609 device evidence closes the remaining causality gap: with the fake root still alpha 1 and the final root alpha 0, `network_speed` changes from native visibleState 0 to 2 as fake usable width falls from 320px to 291px; on return it becomes visible again at about 292px. The peer is therefore being removed by native QS_FAKE underflow before HyperOS appearance transfers visual ownership to the final row.
+- The earlier Build-609 rejection of an unbounded `system_icon_area` width writer is retained as a guard, not as a ban on evidence-backed correction. Build 610 keeps one host-scoped transition-reservation owner and consumes only the live leading slack already present in the end-anchored fake parent.
+- Positive transition `paddingEnd` delta and fake-carrier width expansion are equal and use the same raw HyperOS progress sample. This keeps peer usable capacity stable while preserving the existing semantic peer-X reservation. No peer visibleState, alpha, visibility, translation, native appearance threshold, timer, delay, or second animator is added.
+- The width path requires concrete native layout width, sole-child parent topology, exact end anchoring, sufficient live slack, and writer exclusivity. Failure restores/keeps native behavior rather than applying a guessed geometry compensation.
+- Padding is restored before carrier width on cleanup; carrier width is applied before padding during expansion, preventing Guiyuan-owned ordering from creating a transient underflow window.
