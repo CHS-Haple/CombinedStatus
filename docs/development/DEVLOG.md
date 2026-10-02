@@ -2499,3 +2499,36 @@ Add read-only `tintTransition` diagnostics containing:
 - normalized tint-phase progress.
 
 No visual behavior or ownership semantics are changed.
+
+
+## 2026-10-03 — Build 644: QS_FAKE tint authority, exact supplemental icon size, half-ring charging Clip
+
+**Type:** device feedback / Control Center visual root cause  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 638 -> 644
+
+### Build-638 feedback
+
+- Airplane reveal remains visibly smaller than the fully-expanded native Airplane icon, causing a final size discontinuity.
+- Projected icons that are not battery-colorized still appear white instead of matching nearby native icons during pull-down.
+- Charging source glyph disappears too late.
+
+### Root causes
+
+- `FOLLOW_SYSTEM` classification was already correct: only resolved `Custom` semantic color sources are considered colorized.
+- Tint authority was wrong. Build 638 sampled `finalStatusIcons`, the fully-expanded QS destination, rather than `QS_FAKE / fakeStatusIcons`, the native transition carrier visible beside Guiyuan during the gesture. The final destination can legitimately already be white.
+- The temporary review attempt to use `SystemUiNativeNetworkSuppressionOwner.activeManager` for an arbitrary final group was rejected because that manager belongs to the Home status-bar host, not the independent QS/QS_FAKE icon group.
+- Supplemental Airplane / No-SIM already resolve a native single-icon optical target, but Build 638 projected them with `SHRINK_ONLY`; therefore a larger native target could never be reached.
+- Charging Clip at retained ring 26% -> 20% starts too late.
+
+### Build-644 correction
+
+- Transition tint samples already-applied tint from visible non-represented native peers in `QS_FAKE / fakeStatusIcons`.
+- No Home-manager tint reconstruction, no final-QS white target assumption, and no Battery tint fallback are used.
+- FOLLOW_SYSTEM participants directly use the live QS_FAKE native peer tint.
+- Only custom battery-colorized participants use the existing optional 35%-65% source -> native interpolation.
+- Supplemental Airplane / No-SIM use `TARGET` scale against their resolved native drawable optical geometry, matching the accepted Wi-Fi target-size principle.
+- Charging source Clip begins with ring retract and completes at retained ring 50%; source-visible charging remains number-relative, hidden travel and late native-target reveal are preserved.
+- Latent additional-mobile target Clip-envelope correction from Build 638 remains.
+
+No new animator, timer, guessed tint, per-icon size multiplier, or native writer is introduced.
