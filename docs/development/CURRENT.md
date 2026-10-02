@@ -15,37 +15,49 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 628 is partially accepted by device evidence: it fixes the native represented-icon flash during Keyguard/AOD scene switching, confirming that the single ScenePolicy ownership authority and one family Session/RenderView are correct. A visible self-flash remains: Guiyuan itself disappears briefly during the family scene change and then returns, without native icons taking over.
+Device evidence now separates the AOD problem into three successive layers:
+- Build 628 fixed the original **native represented-icon flash** by making ScenePolicy the single Keyguard/AOD family eligibility authority.
+- Build 630 fixed the **Keyguard <-> AOD Guiyuan self-flash** by removing the invalid `MiuiBatteryMeterView.alpha -> whole Guiyuan child alpha` copy.
+- Build 630 device validation is now good for Keyguard <-> AOD. The only remaining visible defect is **Home -> AOD**, which still flashes once.
 
-Build 630 isolates that remaining defect to child alpha ownership:
-- the family RenderView remains `ownerReady=true`, `sceneEligible=true` and presentation ownership stays continuous during the flash;
-- Build 628 nevertheless copies `MiuiBatteryMeterView.alpha` onto the entire Guiyuan child whenever the role is AOD;
-- HyperOS independently animates Battery alpha and status-icon alpha during `animateFullAod()`; Battery may legitimately reach alpha 0 while the family/status-icons surface remains the correct Guiyuan carrier;
-- therefore Battery child alpha is not a valid animation clock for the whole combined visual.
+The Build-630 trace shows that Home -> AOD actually crosses `HOME -> KEYGUARD -> AOD`:
+- the steady scene changes to Keyguard;
+- Keyguard family readiness/presentation becomes combined within milliseconds and remains logically owned;
+- later the same family session retargets to AOD;
+- throughout the AOD callbacks, `childAlpha=1`, `ownerReady=true`, `sceneEligible=true`, and `systemIconsAlphaReadOnly=1`;
+- therefore the remaining flash is not the already-fixed Battery alpha bug and not another family ownership cleanup.
 
-Build 630 keeps Guiyuan child alpha at 1 and inherits only the verified `system_icons` family host's native parent visibility/motion. Battery/status-icons/system-icons alpha are now read-only diagnostics and do not become Guiyuan alpha writers.
+Exact-target reference evidence identifies `MiuiKeyguardStatusBarView`, its `mKeyguardStatusBarContent`, and native `animateIconContainer(...)` / `animateFullAod(...)` ownership above the `mSystemIconsContainer` child. Since Android ViewOverlay/children inherit ancestor alpha/visibility, an ancestor-level transition can blank the Guiyuan child even when `system_icons.alpha == 1`.
+
+Build 634 is a **diagnostic-only candidate** to identify that exact ancestor:
+- log the full visual ancestry of the Keyguard/AOD host, `mKeyguardStatusBarContent`, and `system_icons`;
+- record per-level visibility, alpha, `isShown`, and accumulated/effective alpha at the existing AOD state callbacks;
+- do not change rendering, ownership, scene projection, alpha, visibility, geometry, timing, or native state.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003630` / Build `20261003-630`.
-- Build 628 device evidence confirms the native represented-icon flash is fixed but a roughly 0.4 s Guiyuan-only blank interval remains.
-- Matching diagnostics keep `ownerReady=true`, `sceneEligible=true`, `overlayVisible=true` across the same scene transfers, excluding presentation ownership loss as the remaining root cause.
-- Existing architecture/reference evidence states that HyperOS AOD independently animates Battery and status-icon alpha; copying Battery alpha onto the whole Guiyuan child collapses distinct native animation layers.
-- Build 630 removes only that derived child-alpha write; no new animation clock, timer, delay, native alpha/visibility writer or ownership path is added.
-- Exact Build-630 Runtime CI #2322 passed.
+- Candidate identity: `0.0.5` / versionCode `261003634` / Build `20261003-634`.
+- Build 630 device result:
+  - Keyguard -> AOD -> Keyguard: visually normal;
+  - native represented icons remain suppressed correctly;
+  - Home -> AOD still has one Guiyuan-only flash.
+- The matching trace proves family readiness and ownership stay continuous through the failing edge.
+- `system_icons` itself reports alpha 1 during the failing AOD transition sample, so the remaining visibility owner must be checked above that child rather than patched with another child alpha rule.
+- Build 634 adds read-only ancestor visibility diagnostics only.
 
 ## Device gate
 
-Focused Build-630 validation:
-- repeated Keyguard -> AOD -> Keyguard and Home -> AOD -> Home: no Guiyuan blank/flash interval and no native represented-icon flash;
-- child alpha should remain visually continuous while HyperOS controls the parent family host transition;
-- AOD steady state still follows native parent visibility and scene lifecycle;
-- disabled AOD/Keyguard child settings and global Guiyuan off still fail native immediately;
-- watch for any stale frame, duplicate set, or AOD content leaking into Control Center.
+Build 634 requires one focused Home -> AOD capture with detailed diagnostics:
+- reproduce Home -> AOD at least twice;
+- no need to re-test Keyguard <-> AOD unless a regression is visible;
+- return the diagnostic report from the same session;
+- the decisive fields are `hostVisual`, `contentVisual`, and `systemIconsVisual` around the visible flash.
+
+If one ancestor becomes hidden / alpha 0 while `system_icons` remains logically ready, the next runtime change should bridge only that proven cross-host visibility gap and must continue to preserve HyperOS-owned motion.
 
 ## Immediate next step
 
-Record Build-628 rejection/Build-630 alpha root cause, then freeze runtime and produce one signed Work Branch Canary from the exact reviewed Build-630 branch.
+Run exact-HEAD Runtime CI for Build 634. If clean, produce one signed diagnostic Canary and use the resulting Home -> AOD ancestor trace to choose the narrowest cross-host bridge.
 
 ## Reference priority
 
