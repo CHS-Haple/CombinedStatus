@@ -1,6 +1,7 @@
 package com.chaners.guiyuan.xposed
 
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ColorFilter
 import android.graphics.Matrix
 import android.graphics.Paint
@@ -354,6 +355,24 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 compact +
                     (finalWidth - compact) * p
                 ).roundToInt().coerceAtLeast(compact)
+        }
+
+        fun interpolateColor(
+            source: Int,
+            target: Int,
+            progress: Float,
+        ): Int {
+            val p = progress.coerceIn(0f, 1f)
+            fun channel(from: Int, to: Int): Int =
+                (from + (to - from) * p)
+                    .roundToInt()
+                    .coerceIn(0, 255)
+            return Color.argb(
+                channel(Color.alpha(source), Color.alpha(target)),
+                channel(Color.red(source), Color.red(target)),
+                channel(Color.green(source), Color.green(target)),
+                channel(Color.blue(source), Color.blue(target)),
+            )
         }
 
         fun interpolateGeometry(
@@ -868,9 +887,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     currentSnapshot = latest
                     lastStateVersion = latest.stateVersion
                 }
-                if (cachedNativePeerTint == null) {
-                    refreshNativePeerTint()
-                }
+                refreshNativePeerTint()
                 syncTransitionReservation()
                 drawable.setBounds(0, 0, rootView.width, rootView.height)
                 drawable.invalidateSelf()
@@ -1221,23 +1238,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             centerTint = tint,
                             mobileTint = tint,
                             batteryTextTint =
-                                if (
-                                    currentSnapshot.visualSettings
-                                        .batteryTopTextFollowsBatteryColor
-                                ) {
-                                    currentSnapshot.colors.batteryTextTint
-                                } else {
-                                    tint
-                                },
+                                Policy.interpolateColor(
+                                    source = currentSnapshot.colors.batteryTextTint,
+                                    target = tint,
+                                    progress = motionProgress,
+                                ),
                             chargingIconTint =
-                                if (
-                                    currentSnapshot.visualSettings
-                                        .batteryTopChargingIconFollowsBatteryColor
-                                ) {
-                                    currentSnapshot.colors.chargingIconTint
-                                } else {
-                                    tint
-                                },
+                                Policy.interpolateColor(
+                                    source = currentSnapshot.colors.chargingIconTint,
+                                    target = tint,
+                                    progress = motionProgress,
+                                ),
                         )
                     }
                     ?: currentSnapshot.colors
@@ -2085,9 +2096,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
 
         private fun refreshNativePeerTint() {
-            cachedNativePeerTint =
-                SystemUiNativeNetworkSuppressionOwner
-                    .currentAppliedStatusIconTintForGroup(finalStatusIcons)
+            SystemUiNativeNetworkSuppressionOwner
+                .currentAppliedStatusIconTintForGroup(finalStatusIcons)
+                ?.let { tint ->
+                    cachedNativePeerTint = tint
+                }
         }
 
         private fun syncTransitionReservation() {
