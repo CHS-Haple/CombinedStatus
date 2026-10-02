@@ -2711,3 +2711,40 @@ Lifecycle review checked install failure rollback, Session stop, island-mid-gest
 ### Device gate
 
 Validate charging-only island with dual SIM, another island event, and ordinary no-island pull-down. Native dual-signal layout and HyperOS island avoidance must remain authoritative; Build-652 charging/tint behavior must remain unchanged.
+
+
+## 2026-10-03 — Build 654: island-native presentation fallback and occupancy reconciliation
+
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 653 -> 654
+
+### Device evidence
+
+Build 653 proved that removing the fake island-width projection was insufficient. Generic island events were detected correctly and transition padding was already disabled (`native-island-authority` / no native transition reservation), yet:
+- charging-island pull-down could still collapse dual-SIM to a single visible mobile participant;
+- remaining native status icons could follow the partially-masked QS fake carrier vertically;
+- charging-island steady avoidance was still incorrect.
+
+### Root cause boundary
+
+The remaining Control Center defect is ownership, not island geometry:
+- `ControlCenterFakeStatusIcons` was still prearmed with represented slots masked/ignored while an island was active;
+- removing padding did not release that fake-row ownership, so HyperOS did not retain a complete native participant set for its own island behavior.
+
+The charging-island Home path remains tied to the previously accepted Build-321 contract:
+`MiuiBatteryMeterView.updateIslandChanged -> MiuiStatusBatteryContainer.setIsHideBattery -> combined_status slot occupancy`.
+Build 654 does not replace that contract; it re-reads the authoritative native hide state on island events to reconcile stale/missed occupancy state.
+
+### Build 654
+
+- Publish island status as a functional event independent of diagnostics.
+- Any active island latches Control Center Native fallback and releases Guiyuan fake presentation ownership.
+- If the island ends while the panel remains visible, do not re-enter Guiyuan during that gesture.
+- Clear the fallback only once the panel is closed and no island is showing, then prearm normally.
+- Reconcile `combined_status` Home occupancy from the live native battery-hide field using the existing slot-width owner.
+- Add bounded event diagnostics for island fallback and charging-island occupancy.
+- Preserve Build-652/653 no-island motion, tint, charging Clip timing, target geometry, and target reveal.
+
+### Review boundary
+
+No timer, delay, polling, new island classifier, peer translation write, or replacement island geometry was added. The Control Center fallback is fail-native and gesture-latched; the Home reconciliation is idempotent and uses the same native `mIsHideBattery` authority as the existing callback.
