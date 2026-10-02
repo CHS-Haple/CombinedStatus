@@ -23,6 +23,7 @@ internal object CombinedStatusControlCenterRenderSession {
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
     private var sceneEligible = false
+    private var islandShowing = false
 
     @Synchronized
     fun prearmAfterNextNativeLayout(
@@ -95,6 +96,7 @@ internal object CombinedStatusControlCenterRenderSession {
             ) == true
         ) {
             existing.setSceneEligible(sceneEligible)
+            existing.setIslandShowing(islandShowing)
             existing.refresh()
             return existing.prepareNativePresentation(reused = true)
         }
@@ -115,6 +117,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
                 initialSceneEligible = sceneEligible,
+                initialIslandShowing = islandShowing,
             )
         current = session
         session.start()
@@ -124,6 +127,20 @@ internal object CombinedStatusControlCenterRenderSession {
     @Synchronized
     fun setRequestedVisible(visible: Boolean): Boolean =
         current?.setRequestedVisible(visible) ?: false
+
+    @Synchronized
+    fun setIslandShowing(showing: Boolean) {
+        islandShowing = showing
+        val session = current ?: return
+        val shouldResume = session.setIslandShowing(showing)
+        if (showing) {
+            SystemUiHomePresentationOwner.deactivateControlCenter(
+                "island-native-fallback",
+            )
+        } else if (shouldResume) {
+            session.prepareNativePresentation(reused = true)
+        }
+    }
 
     @Synchronized
     fun setSceneEligible(eligible: Boolean) {
@@ -459,6 +476,7 @@ internal object CombinedStatusControlCenterRenderSession {
         layoutReady: Boolean,
         hostAttached: Boolean,
         nativePresentationReady: Boolean,
+        islandNativeFallbackLatched: Boolean = false,
     ): Boolean =
         featureEnabled &&
             sceneEligible &&
@@ -466,7 +484,15 @@ internal object CombinedStatusControlCenterRenderSession {
             tintReady &&
             layoutReady &&
             hostAttached &&
-            nativePresentationReady
+            nativePresentationReady &&
+            !islandNativeFallbackLatched
+
+    internal fun resolveIslandNativeFallbackLatched(
+        currentLatched: Boolean,
+        islandShowing: Boolean,
+        requestedVisible: Boolean,
+    ): Boolean =
+        islandShowing || (currentLatched && requestedVisible)
 
     private class Session(
         host: ViewGroup,
@@ -478,6 +504,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         private val onProjectionReadinessChanged: (Boolean) -> Unit,
         initialSceneEligible: Boolean,
+        initialIslandShowing: Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val statusBarArea = WeakReference(statusBarArea)
@@ -496,6 +523,8 @@ internal object CombinedStatusControlCenterRenderSession {
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
         private var sceneEligible = initialSceneEligible
+        private var islandShowing = initialIslandShowing
+        private var islandNativeFallbackLatched = initialIslandShowing
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
@@ -602,15 +631,53 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setRequestedVisible(visible: Boolean): Boolean {
             requestedVisible = visible
+            val wasFallbackLatched = islandNativeFallbackLatched
+            islandNativeFallbackLatched =
+                resolveIslandNativeFallbackLatched(
+                    currentLatched = islandNativeFallbackLatched,
+                    islandShowing = islandShowing,
+                    requestedVisible = requestedVisible,
+                )
+            if (
+                wasFallbackLatched &&
+                !islandNativeFallbackLatched &&
+                featureEnabled &&
+                sceneEligible
+            ) {
+                prepareNativePresentation(reused = true)
+            }
             syncPresentation("visibility")
             return projectionReady()
         }
 
+        fun setIslandShowing(showing: Boolean): Boolean {
+            islandShowing = showing
+            val wasFallbackLatched = islandNativeFallbackLatched
+            islandNativeFallbackLatched =
+                resolveIslandNativeFallbackLatched(
+                    currentLatched = islandNativeFallbackLatched,
+                    islandShowing = islandShowing,
+                    requestedVisible = requestedVisible,
+                )
+            if (islandNativeFallbackLatched) {
+                nativePresentationReady = false
+            }
+            syncPresentation("island")
+            return wasFallbackLatched &&
+                !islandNativeFallbackLatched &&
+                featureEnabled &&
+                sceneEligible
+        }
+
         fun prepareNativePresentation(reused: Boolean): AttachResult {
-            if (!featureEnabled || !sceneEligible) {
+            if (!featureEnabled || !sceneEligible || islandNativeFallbackLatched) {
                 nativePresentationReady = false
                 syncPresentation(
-                    if (!featureEnabled) "feature-ineligible" else "scene-ineligible",
+                    when {
+                        !featureEnabled -> "feature-ineligible"
+                        !sceneEligible -> "scene-ineligible"
+                        else -> "island-native-fallback"
+                    },
                 )
                 return AttachResult.Ready
             }
@@ -885,6 +952,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 layoutReady = layoutReady,
                 hostAttached = host.get()?.isAttachedToWindow == true,
                 nativePresentationReady = nativePresentationReady,
+                islandNativeFallbackLatched = islandNativeFallbackLatched,
             )
 
         private fun syncPresentation(source: String) {
