@@ -47,74 +47,65 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingGlyphIsHiddenByHalfRingAndRevealsOnlyNearHandoffEnd() {
+    fun chargingGlyphUsesOpaqueClipHideAndSlowerLateReveal() {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
-        val (fadeStart, fadeEnd) = policy.sourceFadeWindow()
+        val (hideStart, hideEnd) = policy.sourceHideWindow()
         val (revealStart, revealEnd) = policy.targetRevealWindow()
-        assertEquals(0.88f, revealStart, 0.0001f)
+        val previous633RevealComplete =
+            (0.88f + (hideEnd - hideStart)).coerceAtMost(0.98f)
 
-        assertEquals(0.60f, policy.chargingRingRemaining(fadeStart), 0.01f)
-        assertEquals(0.50f, policy.chargingRingRemaining(fadeEnd), 0.01f)
+        assertEquals(0.85f, revealStart, 0.0001f)
+        assertEquals(previous633RevealComplete, revealEnd, 0.001f)
+        assertTrue(revealEnd - revealStart > hideEnd - hideStart)
+
+        assertEquals(0.60f, policy.chargingRingRemaining(hideStart), 0.01f)
+        assertEquals(0.50f, policy.chargingRingRemaining(hideEnd), 0.01f)
         assertEquals(
             1f,
-            policy.chargingOpacity(
-                progress = fadeStart,
+            policy.chargingVisibleFraction(
+                progress = hideStart,
                 targetAvailable = true,
             ),
             0.0001f,
         )
         assertEquals(
             0f,
-            policy.chargingOpacity(
-                progress = fadeEnd,
+            policy.chargingVisibleFraction(
+                progress = hideEnd,
                 targetAvailable = true,
             ),
             0.0001f,
         )
 
-        // The hidden glyph may travel to its verified native target, but it stays
-        // fully invisible until the overall handoff is already near completion.
-        assertTrue(policy.chargingMotionProgress(fadeEnd + 0.05f) > 0f)
-        assertTrue(
-            policy.chargingOpacity(
-                progress = 0.90f,
-                targetAvailable = true,
-            ) > 0f,
-        )
+        // The glyph is fully clipped before its independent target travel starts.
+        assertTrue(policy.chargingMotionProgress(hideEnd + 0.05f) > 0f)
         assertEquals(
             0f,
-            policy.chargingOpacity(
+            policy.chargingVisibleFraction(
                 progress = revealStart,
                 targetAvailable = true,
             ),
             0.0001f,
         )
         assertTrue(
-            policy.chargingOpacity(
+            policy.chargingVisibleFraction(
                 progress = (revealStart + revealEnd) / 2f,
                 targetAvailable = true,
             ) in 0f..1f,
         )
         assertEquals(
             1f,
-            policy.chargingOpacity(
+            policy.chargingVisibleFraction(
                 progress = revealEnd,
                 targetAvailable = true,
             ),
             0.0001f,
         )
 
-        // Fade-out and fade-in use the same progress duration and smoothstep.
-        assertEquals(
-            fadeEnd - fadeStart,
-            revealEnd - revealStart,
-            0.001f,
-        )
-
         // Fail-native: without a reliable charging target there is no reveal.
         assertEquals(
             0f,
-            policy.chargingOpacity(
+            policy.chargingVisibleFraction(
                 progress = 1f,
                 targetAvailable = false,
             ),
@@ -123,18 +114,18 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingGlyphNeverUsesItsOwnTargetMotionWhileSourceOpacityRemains() {
+    fun chargingGlyphNeverUsesItsOwnTargetMotionWhileSourceClipRemains() {
         val policy = CombinedStatusPainter.BatteryNumberFollowerPolicy
-        val (_, fadeEnd) = policy.sourceFadeWindow()
-        var observedSourceFade = false
+        val (_, hideEnd) = policy.sourceHideWindow()
+        var observedPartialClip = false
 
         for (sample in 0..400) {
             val progress = sample / 1000f
-            val sourceOpacity = policy.chargingSourceOpacity(progress)
-            if (sourceOpacity in 0.0001f..0.9999f) {
-                observedSourceFade = true
+            val sourceVisible = policy.chargingSourceVisibleFraction(progress)
+            if (sourceVisible in 0.0001f..0.9999f) {
+                observedPartialClip = true
             }
-            if (sourceOpacity > 0f) {
+            if (sourceVisible > 0f) {
                 assertEquals(
                     0f,
                     policy.chargingMotionProgress(progress),
@@ -143,9 +134,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             }
         }
 
-        assertTrue(observedSourceFade)
-        assertEquals(0f, policy.chargingSourceOpacity(fadeEnd), 0.0001f)
-        assertTrue(policy.chargingMotionProgress(fadeEnd + 0.05f) > 0f)
+        assertTrue(observedPartialClip)
+        assertEquals(0f, policy.chargingSourceVisibleFraction(hideEnd), 0.0001f)
+        assertTrue(policy.chargingMotionProgress(hideEnd + 0.05f) > 0f)
     }
 
     @Test
@@ -458,7 +449,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
 
         assertEquals(
             0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealVisibleFraction(
                 current = geometry(centerX = 95f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
@@ -468,7 +459,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertEquals(
             0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealVisibleFraction(
                 current = geometry(centerX = 79f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
@@ -478,7 +469,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealVisibleFraction(
                 current = geometry(centerX = 90f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
@@ -488,7 +479,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealVisibleFraction(
                 current = geometry(centerX = 93f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
@@ -498,7 +489,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealVisibleFraction(
                 current = target,
                 target = target,
                 visualExtent = 20f,
@@ -621,22 +612,76 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun unmatchedComponentsExitFastWithoutChangingTheirScale() {
+    fun unmatchedComponentsClipOutFastWithoutChangingTheirScale() {
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(0f),
+            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitVisibleFraction(0f),
             0.0001f,
         )
         assertEquals(
             0.125f,
-            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(0.5f),
+            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitVisibleFraction(0.5f),
             0.0001f,
         )
         assertEquals(
             0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(1f),
+            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitVisibleFraction(1f),
             0.0001f,
         )
+    }
+
+    @Test
+    fun horizontalClipKeepsPixelsOpaqueAndAnchorsTowardChosenEdge() {
+        val policy = CombinedStatusControlCenterTransitionOwner.Policy
+        val rightAnchored =
+            policy.horizontalClipBounds(
+                left = 0f,
+                top = 10f,
+                right = 100f,
+                bottom = 30f,
+                visibleFraction = 0.25f,
+                anchorRight = true,
+            )
+        requireNotNull(rightAnchored)
+        assertEquals(75f, rightAnchored[0], 0.0001f)
+        assertEquals(100f, rightAnchored[2], 0.0001f)
+
+        val leftAnchored =
+            policy.horizontalClipBounds(
+                left = 0f,
+                top = 10f,
+                right = 100f,
+                bottom = 30f,
+                visibleFraction = 0.25f,
+                anchorRight = false,
+            )
+        requireNotNull(leftAnchored)
+        assertEquals(0f, leftAnchored[0], 0.0001f)
+        assertEquals(25f, leftAnchored[2], 0.0001f)
+
+        assertNull(
+            policy.horizontalClipBounds(
+                left = 0f,
+                top = 0f,
+                right = 100f,
+                bottom = 20f,
+                visibleFraction = 0f,
+                anchorRight = true,
+            ),
+        )
+    }
+
+    @Test
+    fun finalBatteryTintBacksUpMissingStatusIconPeerTint() {
+        val policy = CombinedStatusControlCenterTransitionOwner.Policy
+        val peer = 0xffffffff.toInt()
+        val battery = 0xffeeeeee.toInt()
+        val cached = 0xffdddddd.toInt()
+
+        assertEquals(peer, policy.selectNativeTransitionTint(peer, battery, cached))
+        assertEquals(battery, policy.selectNativeTransitionTint(null, battery, cached))
+        assertEquals(cached, policy.selectNativeTransitionTint(null, null, cached))
+        assertNull(policy.selectNativeTransitionTint(null, 0x00000000, null))
     }
 
     @Test
