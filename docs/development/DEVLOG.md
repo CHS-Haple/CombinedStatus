@@ -2599,3 +2599,38 @@ Build-636 diagnostics showed `controlCenterProjection state=native authority=key
 - when Control Center is hidden, native fraction is zero, and no Keyguard Control Center lease is active, Keyguard readiness-lost/fail/deactivate no longer changes Control Center projection;
 - the next native Control Center visible callback resolves the actual `realSystemIcons` source scene and selects HOME/KEYGUARD projection from current state;
 - active/visible Control Center and a live Keyguard lease still reconcile immediately.
+
+
+## 2026-10-03 — Build 645: outgoing-child ownership fixes Keyguard/AOD cutover
+
+**Type:** device evidence / Keyguard-AOD lifecycle ownership  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 643 -> 645
+
+### Build-643 evidence
+
+Device feedback identified three failures:
+- with Keyguard and AOD Guiyuan both enabled, AOD -> Keyguard followed by an immediate fast Control Center pull can start with no Guiyuan transition and later jump into the already-progressed transition;
+- with Keyguard enabled and AOD disabled, Keyguard -> native AOD keeps Guiyuan visible too long;
+- with Keyguard disabled and AOD enabled, the Keyguard screen can still show Guiyuan.
+
+The detailed log proves the third issue is a child-ownership defect rather than preference propagation: Keyguard feature teardown completes, then the enabled AOD renderer is attached from the same `feature-settings` update and AOD presentation becomes active on the Keyguard host.
+
+### Root cause
+
+The animating family policy treated an existing AOD/Keyguard presentation claim mainly as a retention preference. During a real family transition, however, that claim is stronger evidence of the **outgoing** child:
+- outgoing AOD + verified steady Keyguard means transfer to the enabled Keyguard child, or Native if Keyguard is disabled;
+- outgoing Keyguard during AOD animation means transfer to the enabled AOD child, or Native if AOD is disabled.
+
+The Home -> AOD transient Keyguard interval remains distinguishable through still-owned Home presentation and does not require `toAod` / `animToAod`.
+
+### Build-645 correction
+
+- Interpret family presentation ownership as outgoing-child evidence during AOD animation.
+- Preserve Home-owned AOD prearm as the higher-priority Home -> AOD exception.
+- AOD-owned + steady Keyguard -> Keyguard when enabled, otherwise Native.
+- Keyguard-owned + AOD animation -> AOD when enabled, otherwise Native.
+- No currently-owned family child + steady Keyguard -> acquire Keyguard when enabled.
+- UNKNOWN scene preserves only a currently-owned enabled child; otherwise Native.
+
+The existing single family RenderSession is retargeted in place. No timer, polling, second owner, native geometry writer, or rejected direction-field inference is introduced.
