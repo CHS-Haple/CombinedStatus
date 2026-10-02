@@ -409,7 +409,7 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
-        private const val CHARGING_HIDE_COMPLETE_RING_LIFETIME = 0.50f
+        private const val CHARGING_HIDE_COMPLETE_RING_LIFETIME = 0.40f
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
         private const val CHARGING_TARGET_REVEAL_START = 0.85f
         private const val CHARGING_TARGET_REVEAL_COMPLETE = 0.90f
@@ -447,7 +447,8 @@ internal class CombinedStatusPainter(
         fun chargingMotionProgress(progress: Float): Float {
             // Source and number remain one visual group while the charging glyph
             // is clipped directly against the ring-retract lifetime. Clipping starts
-            // with retract and completes exactly halfway through that lifetime.
+            // with retract and completes at the device-calibrated visual midpoint
+            // (40% lifetime; ~32% retained arc under the current front-loaded curve).
             // Target travel begins only after that boundary.
             if (chargingSourceVisibleFraction(progress) > 0f) return 0f
             val hiddenTravel =
