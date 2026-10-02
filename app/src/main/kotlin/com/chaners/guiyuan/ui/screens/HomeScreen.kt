@@ -224,6 +224,7 @@ private fun HomeRuntimeStatusCard(
                 color = containerColor,
                 contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
             ),
+        pressFeedbackType = PressFeedbackType.Tilt,
     ) {
         Box(
             modifier =
