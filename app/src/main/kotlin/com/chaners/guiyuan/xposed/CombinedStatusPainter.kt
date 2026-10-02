@@ -418,15 +418,8 @@ internal class CombinedStatusPainter(
             progress: Float,
             targetAvailable: Boolean,
         ): Float {
-            val remaining = chargingRingRemaining(progress)
-            if (remaining > CHARGING_FADE_END_REMAINING) {
-                val retained =
-                    (
-                        (remaining - CHARGING_FADE_END_REMAINING) /
-                            (CHARGING_FADE_START_REMAINING - CHARGING_FADE_END_REMAINING)
-                    ).coerceIn(0f, 1f)
-                return smooth(retained)
-            }
+            val sourceOpacity = chargingSourceOpacity(progress)
+            if (sourceOpacity > 0f) return sourceOpacity
             if (!targetAvailable) return 0f
             val motion = chargingMotionProgress(progress)
             val reveal =
@@ -437,7 +430,21 @@ internal class CombinedStatusPainter(
             return smooth(reveal)
         }
 
+        internal fun chargingSourceOpacity(progress: Float): Float {
+            val remaining = chargingRingRemaining(progress)
+            if (remaining <= CHARGING_FADE_END_REMAINING) return 0f
+            val retained =
+                (
+                    (remaining - CHARGING_FADE_END_REMAINING) /
+                        (CHARGING_FADE_START_REMAINING - CHARGING_FADE_END_REMAINING)
+                ).coerceIn(0f, 1f)
+            return smooth(retained)
+        }
+
         fun chargingMotionProgress(progress: Float): Float {
+            // Hard phase boundary: target translation/scale is forbidden while
+            // any source-side charging glyph alpha remains visible.
+            if (chargingSourceOpacity(progress) > 0f) return 0f
             val remaining = chargingRingRemaining(progress)
             val hiddenTravel =
                 (
