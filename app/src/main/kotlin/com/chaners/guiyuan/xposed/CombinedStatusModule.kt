@@ -3229,6 +3229,33 @@ class CombinedStatusModule : XposedModule() {
     private fun onRuntimeVisualSettingsChanged(
         settings: com.chaners.guiyuan.settings.CombinedStatusVisualSettings,
     ) {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            val dispatch =
+                Runnable {
+                    onRuntimeVisualSettingsChanged(settings)
+                }
+            val hostView = SystemUiHostRegistry.currentStatusHost() as? android.view.View
+            val scheduled =
+                (hostView?.post(dispatch) == true) ||
+                    Handler(Looper.getMainLooper()).post(dispatch)
+            if (scheduled) {
+                return
+            }
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "visualSettings.dispatch",
+                component = "renderer",
+                state = "error",
+                "reason" to "main-thread-dispatch-failed",
+                "fallback" to "retain-last-visual-settings",
+            )
+            return
+        }
+
+        if (settings != RuntimeVisualPreferencesOwner.currentSettings()) {
+            return
+        }
+
         CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onVisualSettingsChanged(settings)
@@ -3240,6 +3267,9 @@ class CombinedStatusModule : XposedModule() {
                 component = "renderer",
                 state = "ready",
                 "layout" to settings.contentLayout.persistedValue,
+                "combinedScale" to settings.combinedScale,
+                "wifiSizeScale" to settings.wifiSizeScale,
+                "mobileTypeSizeScale" to settings.mobileTypeSizeScale,
                 "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
                 "networkFollowsBattery" to settings.centerFollowsBatteryColor,
                 "batteryNumber" to settings.batteryTopReadoutEnabled,
@@ -3248,6 +3278,7 @@ class CombinedStatusModule : XposedModule() {
                 "chargingIconFollowsBattery" to
                     settings.batteryTopChargingIconFollowsBatteryColor,
                 "eventDriven" to true,
+                "mainThread" to true,
             )
         }
     }

@@ -32,6 +32,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Visual sizing ranges now allow 60%-100% overall size and 40%-125% Wi-Fi/mobile-type size while preserving 5% slider increments; mobile-type labels (5G/5GA/etc.) follow the user overall-size scale, and visual preference commits are serialized on the SystemUI main thread with stale slider callbacks coalesced.
+
 - Battery-center Wi-Fi ring avoidance now follows the actual disconnected optical components of the rendered Wi-Fi drawable instead of reserving the empty corners of one union rectangle; the existing visual clearance and numeric readout avoidance remain unchanged.
 
 - Development display version advanced to **0.0.4** after integrating the accepted Build 612 product/runtime line into `dev`; this remains a pre-release development checkpoint and does not change the planned first formal release target of 1.0.0.

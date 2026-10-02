@@ -14,6 +14,10 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MAX
 import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
+import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MAX as SETTINGS_MOBILE_TYPE_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MIN as SETTINGS_MOBILE_TYPE_SIZE_SCALE_MIN
+import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX as SETTINGS_WIFI_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN as SETTINGS_WIFI_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import kotlin.math.cos
@@ -1110,6 +1114,7 @@ internal class CombinedStatusPainter(
             wifiSizeScale = visualSettings.wifiSizeScale,
             mobileTypeSizeScale = visualSettings.mobileTypeSizeScale,
             mobileTypeWeight = visualSettings.mobileTypeWeight,
+            combinedScale = visualSettings.combinedScale,
         )
 
     private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
@@ -2912,17 +2917,19 @@ internal class CombinedStatusPainter(
             }
 
         val mainTextSize =
-            if (scaleWithCanvas || scale <= 0f) {
-                geometry.mobileTypeTextSize
-            } else {
-                geometry.mobileTypeTextSize / scale
-            }
+            CombinedStatusMobileTypeScalePolicy.localValue(
+                baseValue = geometry.mobileTypeTextSize,
+                canvasScale = scale,
+                combinedScale = geometry.combinedScale,
+                scaleWithCanvas = scaleWithCanvas,
+            )
         val suffixTextSize =
-            if (scaleWithCanvas || scale <= 0f) {
-                geometry.mobileTypeSuffixSize
-            } else {
-                geometry.mobileTypeSuffixSize / scale
-            }
+            CombinedStatusMobileTypeScalePolicy.localValue(
+                baseValue = geometry.mobileTypeSuffixSize,
+                canvasScale = scale,
+                combinedScale = geometry.combinedScale,
+                scaleWithCanvas = scaleWithCanvas,
+            )
 
         configureTransitionTextStyle(
             sourceTypeface = mobileTypeTypeface(geometry.mobileTypeWeight),
@@ -2984,11 +2991,12 @@ internal class CombinedStatusPainter(
                 MOBILE_TYPE_SUFFIX_GAP -
                 mobileTypeSuffixBounds.left
         val suffixOffset =
-            if (scaleWithCanvas || scale <= 0f) {
-                geometry.mobileTypeSuffixRise
-            } else {
-                geometry.mobileTypeSuffixRise / scale
-            }
+            CombinedStatusMobileTypeScalePolicy.localValue(
+                baseValue = geometry.mobileTypeSuffixRise,
+                canvasScale = scale,
+                combinedScale = geometry.combinedScale,
+                scaleWithCanvas = scaleWithCanvas,
+            )
         val suffixCenterY =
             MOBILE_TYPE_CENTER_Y +
                 CombinedStatusMobileTypeSuffixPolicy.verticalOffset(
@@ -3579,6 +3587,25 @@ internal class CombinedStatusPainter(
 
 
 
+internal object CombinedStatusMobileTypeScalePolicy {
+    fun localValue(
+        baseValue: Float,
+        canvasScale: Float,
+        combinedScale: Float,
+        scaleWithCanvas: Boolean,
+    ): Float {
+        if (scaleWithCanvas || !canvasScale.isFinite() || canvasScale <= 0f) {
+            return baseValue
+        }
+        val userScale =
+            combinedScale
+                .takeIf(Float::isFinite)
+                ?.coerceIn(COMBINED_SCALE_MIN, COMBINED_SCALE_MAX)
+                ?: COMBINED_SCALE_DEFAULT
+        return baseValue * userScale / canvasScale
+    }
+}
+
 internal object CombinedStatusMobileTypeSuffixPolicy {
     fun verticalOffset(
         suffix: String,
@@ -3727,10 +3754,10 @@ internal object CombinedStatusNativeRenderGeometry {
 internal object CombinedStatusCenterGeometry {
     const val DEFAULT_WIFI_SIZE_SCALE = 1.00f
     const val DEFAULT_MOBILE_TYPE_SIZE_SCALE = 1.00f
-    const val MIN_WIFI_SIZE_SCALE = 0.70f
-    const val MAX_WIFI_SIZE_SCALE = 1.40f
-    const val MIN_MOBILE_TYPE_SIZE_SCALE = 0.70f
-    const val MAX_MOBILE_TYPE_SIZE_SCALE = 1.40f
+    const val MIN_WIFI_SIZE_SCALE = SETTINGS_WIFI_SIZE_SCALE_MIN
+    const val MAX_WIFI_SIZE_SCALE = SETTINGS_WIFI_SIZE_SCALE_MAX
+    const val MIN_MOBILE_TYPE_SIZE_SCALE = SETTINGS_MOBILE_TYPE_SIZE_SCALE_MIN
+    const val MAX_MOBILE_TYPE_SIZE_SCALE = SETTINGS_MOBILE_TYPE_SIZE_SCALE_MAX
     const val DEFAULT_MOBILE_TYPE_WEIGHT = 800
     const val MIN_MOBILE_TYPE_WEIGHT = 500
     const val MAX_MOBILE_TYPE_WEIGHT = 950
@@ -3754,12 +3781,14 @@ internal object CombinedStatusCenterGeometry {
         val mobileTypeSuffixSize: Float,
         val mobileTypeSuffixRise: Float,
         val mobileTypeWeight: Int,
+        val combinedScale: Float,
     )
 
     fun resolve(
         wifiSizeScale: Float,
         mobileTypeSizeScale: Float,
         mobileTypeWeight: Int,
+        combinedScale: Float = COMBINED_SCALE_DEFAULT,
     ): Resolved {
         val normalizedWifi =
             wifiSizeScale.takeIf(Float::isFinite)?.coerceIn(MIN_WIFI_SIZE_SCALE, MAX_WIFI_SIZE_SCALE)
@@ -3770,6 +3799,11 @@ internal object CombinedStatusCenterGeometry {
                 ?: DEFAULT_MOBILE_TYPE_SIZE_SCALE
         val normalizedWeight =
             mobileTypeWeight.coerceIn(MIN_MOBILE_TYPE_WEIGHT, MAX_MOBILE_TYPE_WEIGHT)
+        val normalizedCombined =
+            combinedScale
+                .takeIf(Float::isFinite)
+                ?.coerceIn(COMBINED_SCALE_MIN, COMBINED_SCALE_MAX)
+                ?: COMBINED_SCALE_DEFAULT
         return Resolved(
             wifiSizeScale = normalizedWifi,
             mobileTypeSizeScale = normalizedMobile,
@@ -3781,6 +3815,7 @@ internal object CombinedStatusCenterGeometry {
             mobileTypeSuffixSize = BASE_MOBILE_TYPE_SUFFIX_SIZE * normalizedMobile,
             mobileTypeSuffixRise = BASE_MOBILE_TYPE_SUFFIX_RISE * normalizedMobile,
             mobileTypeWeight = normalizedWeight,
+            combinedScale = normalizedCombined,
         )
     }
 }

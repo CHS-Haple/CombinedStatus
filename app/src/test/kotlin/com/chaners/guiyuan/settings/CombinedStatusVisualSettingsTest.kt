@@ -35,6 +35,9 @@ class CombinedStatusVisualSettingsTest {
         assertEquals(400, MOBILE_TYPE_WEIGHT_MIN)
         assertEquals(900, MOBILE_TYPE_WEIGHT_DEFAULT)
         assertEquals(1400, MOBILE_TYPE_WEIGHT_MAX)
+        assertEquals(0.60f, COMBINED_SCALE_MIN, 0.0001f)
+        assertEquals(0.40f, WIFI_SIZE_SCALE_MIN, 0.0001f)
+        assertEquals(0.40f, MOBILE_TYPE_SIZE_SCALE_MIN, 0.0001f)
     }
 
     @Test

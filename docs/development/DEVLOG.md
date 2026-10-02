@@ -1,3 +1,33 @@
+## 2026-10-02 — Build 615 size ranges, mobile-type overall scale, and visual-update serialization
+
+**Type:** Runtime visual geometry / settings transport  
+**Display version:** 0.0.4  
+**Build:** 615 / `20261002-615`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Requested sizing changes
+- Overall minimum: 60%.
+- Wi-Fi minimum: 40%.
+- Mobile-type minimum: 40%.
+- 5G/5GA must follow overall size.
+
+The previous UI stopped Wi-Fi/mobile type at 80%, while `CombinedStatusCenterGeometry` independently kept a hidden 70% renderer floor. Both are removed in favor of one shared settings range. Slider cadence remains 5%.
+
+### Mobile-type root cause
+Production `resolveMobileTypeLayout()` divided mobile-type text/suffix geometry by the full Canvas scale. The Canvas scale already included `combinedScale`, so that division cancelled the user's overall-size setting. Build 615 compensates only the host viewport portion: physical 5G/5GA size now follows `combinedScale` while remaining stable across host viewport scale.
+
+### Transient presentation loss evidence
+Maintainer reported one transient loss of Guiyuan while adjusting overall size on Build 612; disabling/re-enabling the feature restored it. The supplied diagnostic showed Build 612 Canary, a recovered combined Home presentation, and later healthy battery/Wi-Fi model-to-draw events; it contained no Java/Kotlin exception in the retained log window.
+
+Code review found an unsafe asymmetry:
+- feature preferences explicitly dispatch to the SystemUI main thread before presentation mutation;
+- visual preferences did not, although their callback immediately updates RenderViews, manual layout, and end reservation.
+
+Build 615 gives visual preferences the same main-thread ownership boundary and coalesces stale queued slider snapshots. This is root-cause hardening, not a retry/timer repair. Diagnostics now record scale values and `mainThread=true`.
+
+### Boundaries
+No polling, delayed retry, geometry fudge factor, duplicate SystemUI writer, or animation ownership change.
+
 ## 2026-10-02 — Build 614 component-aware Wi-Fi ring avoidance
 
 **Type:** Runtime visual geometry / battery-ring avoidance  
