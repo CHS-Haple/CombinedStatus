@@ -2444,3 +2444,57 @@ No custom AOD animator, delay, timer, threshold, native alpha writer or duplicat
 - Unit coverage now locks that family child alpha does not copy independent Battery AOD alpha.
 - Exact Build-630 Runtime CI #2322 succeeds.
 - Focused signed-Canary device evidence remains mandatory.
+
+
+## 2026-10-03 — Build 630 device narrowing; Build 634 ancestor-visibility diagnostic
+
+**Type:** device evidence / cross-host AOD handoff / diagnostic checkpoint  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 630 -> 634
+
+### Device evidence
+
+Build 630 succeeds for Keyguard <-> AOD: the earlier Guiyuan-only blank interval is gone and native represented icons do not flash back.
+
+One edge remains: Home -> AOD flashes once.
+
+The matching Build-630 trace shows:
+- Home -> AOD traverses HOME -> KEYGUARD -> AOD;
+- Keyguard presentation reaches `state=combined` almost immediately after the steady scene changes;
+- family RenderSession readiness remains true;
+- AOD retarget later reuses the same family session and remains `overlayVisible=true`;
+- `childAlpha=1` throughout the relevant AOD callbacks;
+- `systemIconsAlphaReadOnly=1` while the flash can still be observed.
+
+This excludes the Build-628/630 child-alpha failure and another native-slot ownership gap.
+
+### Exact-target evidence
+
+SystemUI-Reference verifies:
+- `MiuiKeyguardStatusBarView`;
+- field `mKeyguardStatusBarContent`;
+- `mStatusIconAnim`, `mHideStatusIconAnim`, `mShowStatusIconAnim`;
+- method `animateIconContainer(boolean)`;
+- `KeyguardStatusBarViewControllerInject.animateFullAod(boolean, boolean)`.
+
+The existing reference rule also states that a child / ViewOverlay inherits its host ancestor visibility and alpha lifecycle. Therefore `system_icons.alpha == 1` alone does not prove the on-screen family host is visible.
+
+### Build 634 diagnostic
+
+- Add read-only visual-chain summaries for:
+  - `MiuiKeyguardStatusBarView`;
+  - reflected `mKeyguardStatusBarContent`;
+  - `mSystemIconsContainer`.
+- Each summary records:
+  - each ancestor class;
+  - `visibility`;
+  - local `alpha`;
+  - `isShown`;
+  - accumulated effective alpha / all-visible result.
+- Emit these fields on the existing AOD state diagnostic path.
+
+No visual behavior, ownership, masking, scene policy, geometry, timer, animator, delay, or native writer is changed.
+
+### Decision gate
+
+One detailed Home -> AOD device trace from Build 634 is required. The first ancestor whose effective visibility collapses during the flash determines the correct bridge host. Do not introduce a root-level bridge before that evidence identifies the failing native layer.
