@@ -147,8 +147,20 @@ class CombinedStatusScenePolicyTest {
             resolve(true, true, true, true, false),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             resolve(true, true, true, true, true),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            resolve(true, true, true, false, true),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(true, true, false, true, true),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolve(true, false, true, false, true),
         )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
