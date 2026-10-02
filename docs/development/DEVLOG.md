@@ -1,3 +1,109 @@
+## 2026-10-02 — Build 617 off-center Wi-Fi badge ring avoidance
+
+**Type:** Battery-ring optical geometry  
+**Display version:** 0.0.4  
+**Build:** 617 / `20261002-617`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Device/preview evidence
+Preview Sandbox hotspot and no-internet states showed the right-side native badge approaching the battery-ring right shoulder even though ordinary Wi-Fi component-aware avoidance was already improved.
+
+Preview uses the real HyperOS hotspot/unavailable drawable resources and the same `CombinedStatusPainter` native optical probe as runtime, so there is no separate preview-only badge overlay to patch.
+
+### Root cause
+`CombinedStatusBatteryTopArcPolicy.resolveGap()` retained an old early-return condition for content wholly left or right of `ringCenterX`. That assumption was valid only for centered text/Wi-Fi envelopes. A disconnected hotspot-link or no-internet badge can be entirely right of center, so its optical component was probed correctly but then discarded by the gap policy.
+
+### Correction
+- Preserve the accepted center-crossing gap formula unchanged.
+- For components wholly left/right of center, derive the exact angular intervals where the ring centerline lies inside the clearance-expanded component rectangle.
+- Merge that interval with the central Wi-Fi component intervals.
+- Add symmetric left/right badge tests and a regression asserting a right badge extends only the right shoulder.
+
+### Boundaries
+No badge-specific shrink/expand factor, fixed gap angle, resource-name special case, new renderer path, animation ownership, or SystemUI writer.
+
+## 2026-10-02 — Build 616 profile defaults and top-information offset ownership
+
+**Type:** Visual defaults / layout-profile geometry / companion UI  
+**Display version:** 0.0.4  
+**Build:** 616 / `20261002-616`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Maintainer direction
+- Network centered battery-number default: 120%.
+- Battery centered mobile-type default: 80%.
+- Battery centered battery-number default: 140%.
+- Rename the old battery-information vertical offset to Top information vertical offset and move the control into the Global UI section.
+- Offset target depends on layout: number + charging glyph in Network centered, network content in Battery centered.
+
+### Implementation
+- `batteryTopTextUiScaleDefault(layout)` is now 1.2 / 1.4 for Network/Battery centered.
+- Added layout-aware `mobileTypeSizeScaleDefault(layout)`: 1.0 for Network centered and 0.8 for Battery centered.
+- Existing saved profile overrides remain authoritative; only missing/reset defaults change.
+- Kept the historical persisted vertical-offset key to avoid a settings migration.
+- Added a layout-aware top-info offset policy:
+  - Network centered forwards the raw accepted readout offset and leaves network translation unchanged.
+  - Battery centered pins readout offset to its baseline and converts the same user-facing offset into network-top translation.
+- Ring avoidance, top-overflow calculation and transition source geometry share that network translation.
+- Moved the slider out of the battery AnimatedPreferenceGroup into the Global section; it is always visible and remains profile-scoped.
+
+### Boundaries
+No new animation/timer, state source, polling, native writer, migration rewrite or geometry fudge factor.
+
+## 2026-10-02 — Build 615 size ranges, mobile-type overall scale, and visual-update serialization
+
+**Type:** Runtime visual geometry / settings transport  
+**Display version:** 0.0.4  
+**Build:** 615 / `20261002-615`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Requested sizing changes
+- Overall minimum: 60%.
+- Wi-Fi minimum: 40%.
+- Mobile-type minimum: 40%.
+- 5G/5GA must follow overall size.
+
+The previous UI stopped Wi-Fi/mobile type at 80%, while `CombinedStatusCenterGeometry` independently kept a hidden 70% renderer floor. Both are removed in favor of one shared settings range. Slider cadence remains 5%.
+
+### Mobile-type root cause
+Production `resolveMobileTypeLayout()` divided mobile-type text/suffix geometry by the full Canvas scale. The Canvas scale already included `combinedScale`, so that division cancelled the user's overall-size setting. Build 615 compensates only the host viewport portion: physical 5G/5GA size now follows `combinedScale` while remaining stable across host viewport scale.
+
+### Transient presentation loss evidence
+Maintainer reported one transient loss of Guiyuan while adjusting overall size on Build 612; disabling/re-enabling the feature restored it. The supplied diagnostic showed Build 612 Canary, a recovered combined Home presentation, and later healthy battery/Wi-Fi model-to-draw events; it contained no Java/Kotlin exception in the retained log window.
+
+Code review found an unsafe asymmetry:
+- feature preferences explicitly dispatch to the SystemUI main thread before presentation mutation;
+- visual preferences did not, although their callback immediately updates RenderViews, manual layout, and end reservation.
+
+Build 615 gives visual preferences the same main-thread ownership boundary and coalesces stale queued slider snapshots. This is root-cause hardening, not a retry/timer repair. Diagnostics now record scale values and `mainThread=true`.
+
+### Boundaries
+No polling, delayed retry, geometry fudge factor, duplicate SystemUI writer, or animation ownership change.
+
+## 2026-10-02 — Build 614 component-aware Wi-Fi ring avoidance
+
+**Type:** Runtime visual geometry / battery-ring avoidance  
+**Display version:** 0.0.4  
+**Build:** 614 / `20261002-614`  
+**Branch:** `fix/wifi-ring-shape-avoidance`
+
+### Root cause
+Battery-center Wi-Fi already used the actual native drawable for rendering and optical sizing, but top-ring avoidance kept only the union optical envelope. A Wi-Fi glyph is layered/disconnected: the wide upper arc, narrower middle arc, and compact lower arc leave large empty envelope corners. Treating that entire rectangle as occupied made the ring opening visibly wider than necessary. Numeric readout avoidance did not show the defect because text is close to rectangular.
+
+### Change
+- Preserve the drawable probe's disconnected optical components in the native center-asset cache.
+- Map components through the same resolved draw width/height and center as the actual native glyph.
+- Carry those components through top-slot appearance scaling and vertical translation.
+- Compute the required top-ring gap per component and merge the resulting angular intervals.
+- Use individual fallback Wi-Fi path bounds when a native resource is unavailable.
+- Keep the existing 2f visual clearance, ring-stroke clearance, Wi-Fi size, and single-envelope path for text/non-Wi-Fi content.
+
+### Boundaries
+No screenshot-derived shrink factor, hard-coded Wi-Fi gap angle, new state source, SystemUI writer, animation/timing change, or numeric-readout geometry change.
+
+### Validation
+Focused unit coverage compares a layered Wi-Fi-like shape against its union envelope and verifies that component-aware avoidance reduces only empty-corner reservation. Exact-head Runtime CI and signed Canary are required before the focused device check.
+
 ## 2026-10-02 — Build 612 device acceptance and transition-capacity closure
 
 **Type:** runtime acceptance / transition geometry ownership  

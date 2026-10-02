@@ -23,7 +23,7 @@
     <string name="battery_text_follow_battery_color_summary">When off, use the current status-bar foreground tint</string>
     <string name="charging_icon_follow_battery_color">Match charging icon color to ring</string>
     <string name="charging_icon_follow_battery_color_summary">When off, use the current status-bar foreground tint</string>
-    <string name="battery_content_vertical_offset">Battery content vertical offset (+ up / − down)</string>
+    <string name="top_info_vertical_offset">Top information vertical offset (+ up / − down)</string>
     <string name="settings_title">Settings</string>
     <string name="section_appearance_interaction">Appearance &amp; interaction</string>
     <string name="section_app">App</string>
