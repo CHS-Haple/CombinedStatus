@@ -2634,3 +2634,52 @@ The Home -> AOD transient Keyguard interval remains distinguishable through stil
 - UNKNOWN scene preserves only a currently-owned enabled child; otherwise Native.
 
 The existing single family RenderSession is retargeted in place. No timer, polling, second owner, native geometry writer, or rejected direction-field inference is introduced.
+
+
+## 2026-10-03 — Build 651: stable family-scene latch and authoritative first-pull source
+
+**Type:** device evidence / lifecycle state-machine correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 645 -> 651
+
+### Build-645 evidence
+
+Device feedback showed:
+- both child features ON: AOD -> Home and Keyguard -> Home followed by immediate fast Control Center pull can probabilistically remain native for the whole gesture;
+- disabling Keyguard Guiyuan does not reliably keep Keyguard native;
+- with AOD Guiyuan disabled, AOD <-> Keyguard switching can expose native represented icons for one interval before Guiyuan reappears;
+- AOD -> Keyguard + immediate partial pull can start native and recover only after holding the gesture.
+
+The diagnostic repeatedly records:
+`prepared/active -> cleanup(keyguard-aod-native or cutover-projection-ineligible) -> fresh attach`.
+
+### Root cause
+
+Build 645 interpreted **current presentation ownership** as AOD-animation direction evidence. Ownership is mutable output of the same attach/cleanup state machine, so repeated native callbacks can flip the decision after each mutation and create a self-sustaining KEYGUARD -> NATIVE -> KEYGUARD oscillation.
+
+Two related lifecycle races also remained:
+- direct AOD -> Home could clear family origin before the outgoing AOD animation finished, allowing a later callback to look like Home -> AOD prearm;
+- the first Control Center visible callback after unlock can still carry stale KEYGUARD `realSystemIcons` identity even after the scene source has authoritatively reached HOME.
+
+### Build-651 correction
+
+- Add `StableKeyguardAodScene { UNKNOWN, KEYGUARD, AOD }`.
+- Update it only from non-animating runtime evidence; freeze it for the duration of AOD animation.
+- Remove `keyguardPresentationOwned/aodPresentationOwned` from ScenePolicy direction inputs.
+- Latched KEYGUARD routes only to enabled AOD, else Native.
+- Latched AOD routes only to enabled Keyguard, else Native.
+- Home -> AOD prearm is allowed only from UNKNOWN family history while Home still owns the visible source.
+- AOD -> Home retains AOD history through the outgoing animation and clears it only after stable HOME + non-animating + `toAod=false` evidence.
+- Verified steady scene overrides a stale first Control Center callback source after lifecycle transitions.
+- Feed the same effective scene to Control Center eligibility and TransitionOwner.
+- Reset the family latch on both hot-reload reset and old-generation teardown.
+
+### Review notes
+
+Lifecycle review additionally verified:
+- SceneUpdate and AOD state are both sourced from `MiuiBatteryMeterView`, so the latch reads the same host object rather than crossing view classes;
+- hidden Control Center remains isolated from unrelated Keyguard readiness churn;
+- the family renderer remains single-writer;
+- no `toAod/animToAod` direction inference is restored.
+
+No timer, delay, polling, extra owner, native visibility/alpha/geometry write, or copied SystemUI animation is introduced.
