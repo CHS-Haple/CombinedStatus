@@ -257,9 +257,54 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
         }
 
-        fun unmatchedExitOpacity(rawProgress: Float): Float {
+        fun unmatchedExitVisibleFraction(rawProgress: Float): Float {
             val remaining = 1f - geometryProgress(rawProgress)
             return remaining * remaining * remaining
+        }
+
+        fun horizontalClipBounds(
+            left: Float,
+            top: Float,
+            right: Float,
+            bottom: Float,
+            visibleFraction: Float,
+            anchorRight: Boolean,
+        ): FloatArray? {
+            if (
+                !left.isFinite() ||
+                !top.isFinite() ||
+                !right.isFinite() ||
+                !bottom.isFinite() ||
+                right <= left ||
+                bottom <= top
+            ) {
+                return null
+            }
+            val fraction =
+                visibleFraction
+                    .takeIf(Float::isFinite)
+                    ?.coerceIn(0f, 1f)
+                    ?: 0f
+            if (fraction <= 0f) return null
+            if (fraction >= 1f) return floatArrayOf(left, top, right, bottom)
+            val width = (right - left) * fraction
+            return if (anchorRight) {
+                floatArrayOf(right - width, top, right, bottom)
+            } else {
+                floatArrayOf(left, top, left + width, bottom)
+            }
+        }
+
+        fun selectNativeTransitionTint(
+            statusIconPeerTint: Int?,
+            finalBatteryTint: Int?,
+            cachedTint: Int?,
+        ): Int? {
+            fun valid(color: Int?): Int? =
+                color?.takeIf { candidate -> candidate ushr 24 != 0 }
+            return valid(statusIconPeerTint)
+                ?: valid(finalBatteryTint)
+                ?: valid(cachedTint)
         }
 
         fun usesSemanticTransitionReservation(
@@ -880,6 +925,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var lastWitnessSummary = "pending"
         private var batteryNumberProbeSummary = "pending"
         private var cachedNativePeerTint: Int? = null
+        private var cachedNativePeerTintAuthority = "none"
         private var frozenReservationSpans: List<Policy.ReservationSpan>? = null
         private var lastReservationWidthPx: Int? = null
         private var lastNativeReservationWidthPx: Int? = null
@@ -934,6 +980,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",appearance=" + nativeAppearance +
                 ",appearanceAnimated=" + nativeAppearanceAnimated +
                 ",nativePeers=systemui" +
+                ",nativeTint=" +
+                (cachedNativePeerTint?.toUInt()?.toString(16)?.padStart(8, '0') ?: "none") +
+                ",nativeTintAuthority=" + cachedNativePeerTintAuthority +
                 ",sourceAnchor=" + (sourceAnchorRef.get()?.javaClass?.simpleName ?: "none") +
                 ",sourceOrigin=" + (frozenSource?.source ?: "qs-fake-live") +
                 ",sourceStateVersion=" + lastStateVersion +
@@ -1341,6 +1390,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     null
                 }
 
+            val batterySourceCenterX =
+                specs.firstOrNull {
+                    it.component == CombinedStatusPainter.TransitionComponent.BATTERY
+                }?.sourceBounds?.centerX
+
             val batteryNumberFollowerFrames =
                 specs.firstOrNull {
                     it.component ==
@@ -1424,20 +1478,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 CombinedStatusPainter.TransitionComponent.CENTER &&
                                 model.centerIndicator is CenterIndicator.MobileType
                         )
-                val chargingSourceOpacity =
+                val chargingSourceVisibleFraction =
                     if (
                         spec.component ==
                         CombinedStatusPainter.TransitionComponent.CHARGING_ICON
                     ) {
                         CombinedStatusPainter.BatteryNumberFollowerPolicy
-                            .chargingSourceOpacity(motionProgress)
+                            .chargingSourceVisibleFraction(motionProgress)
                     } else {
                         0f
                     }
                 val chargingSourceLocked =
                     spec.component ==
                         CombinedStatusPainter.TransitionComponent.CHARGING_ICON &&
-                        chargingSourceOpacity > 0f
+                        chargingSourceVisibleFraction > 0f
                 val componentMotionProgress =
                     if (
                         spec.component ==
@@ -1490,23 +1544,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 carrierFrames = carrierFrames,
                             )
                     }
-                val componentOpacity =
+                val componentVisibleFraction =
                     if (
                         spec.component ==
                         CombinedStatusPainter.TransitionComponent.CHARGING_ICON
                     ) {
-                        opacity *
-                            CombinedStatusPainter.BatteryNumberFollowerPolicy
-                                .chargingOpacity(
-                                    progress = motionProgress,
-                                    targetAvailable = targetGeometry != null,
-                                )
+                        CombinedStatusPainter.BatteryNumberFollowerPolicy
+                            .chargingVisibleFraction(
+                                progress = motionProgress,
+                                targetAvailable = targetGeometry != null,
+                            )
                     } else if (targetGeometry != null) {
-                        opacity
+                        1f
                     } else {
-                        opacity * Policy.unmatchedExitOpacity(motionProgress)
+                        Policy.unmatchedExitVisibleFraction(motionProgress)
                     }
-                if (componentOpacity <= 0f) return@forEach
+                if (componentVisibleFraction <= 0f || opacity <= 0f) return@forEach
                 val matrixBounds =
                     when {
                         spec.component ==
@@ -1545,9 +1598,34 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val save =
                     canvas.saveLayerAlpha(
                         null,
-                        (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                        (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
                     )
                 canvas.concat(matrix)
+                if (componentVisibleFraction < 1f) {
+                    val clipAnchorRight =
+                        if (
+                            spec.component ==
+                            CombinedStatusPainter.TransitionComponent.CHARGING_ICON &&
+                            batterySourceCenterX != null
+                        ) {
+                            batterySourceCenterX >= matrixBounds.centerX
+                        } else {
+                            sourceView.layoutDirection != View.LAYOUT_DIRECTION_RTL
+                        }
+                    val clip =
+                        Policy.horizontalClipBounds(
+                            left = matrixBounds.left,
+                            top = matrixBounds.top,
+                            right = matrixBounds.right,
+                            bottom = matrixBounds.bottom,
+                            visibleFraction = componentVisibleFraction,
+                            anchorRight = clipAnchorRight,
+                        ) ?: run {
+                            canvas.restoreToCount(save)
+                            return@forEach
+                        }
+                    canvas.clipRect(clip[0], clip[1], clip[2], clip[3])
+                }
                 painter.drawTransitionComponent(
                     canvas = canvas,
                     width = sourceWidth,
@@ -2173,11 +2251,31 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
 
         private fun refreshNativePeerTint() {
-            SystemUiNativeNetworkSuppressionOwner
-                .currentAppliedStatusIconTintForGroup(finalStatusIcons)
-                ?.let { tint ->
-                    cachedNativePeerTint = tint
-                }
+            val peerTint =
+                SystemUiNativeNetworkSuppressionOwner
+                    .currentAppliedStatusIconTintForGroup(finalStatusIcons)
+            val finalBatteryTint =
+                SystemUiTintStateSource
+                    .currentState(finalBattery)
+                    ?.let { state ->
+                        state.statusIconTint ?: state.appliedTint
+                    }
+            val resolved =
+                Policy.selectNativeTransitionTint(
+                    statusIconPeerTint = peerTint,
+                    finalBatteryTint = finalBatteryTint,
+                    cachedTint = cachedNativePeerTint,
+                )
+            if (resolved != null) {
+                cachedNativePeerTint = resolved
+                cachedNativePeerTintAuthority =
+                    when {
+                        peerTint != null && resolved == peerTint -> "final-status-icons-peer"
+                        finalBatteryTint != null && resolved == finalBatteryTint ->
+                            "final-battery-tint"
+                        else -> "cached-last-valid"
+                    }
+            }
         }
 
         private fun syncTransitionReservation() {
