@@ -83,7 +83,7 @@
     <string name="outer_weight_summary">Adjusts the ring, signal dots, and unavailable mark together</string>
     <string name="wifi_size">Wi-Fi size</string>
     <string name="airplane_size">Airplane mode size</string>
-    <string name="no_sim_size">No-SIM size</string>
+    <string name="no_sim_size">No SIM size</string>
     <string name="mobile_type_size">Mobile type size</string>
     <string name="mobile_type_weight">Mobile type weight</string>
     <string name="percent_value">%1$d%%</string>
