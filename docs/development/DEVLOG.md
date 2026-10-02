@@ -2727,3 +2727,36 @@ No timer, delay, polling, duplicate owner, native geometry/alpha/visibility writ
 
 Focused tests cover both unlock and lock conflict directions, prearm gating, stale Home ownership, and disabled-destination outgoing retention. Exact-HEAD Runtime is required, followed by signed Canary device validation because the change affects scene ownership and first-pull lifecycle ordering.
 
+## 2026-10-03 — Build 653: visible-host scene authority and native visual cutover
+
+**Type:** device evidence / lifecycle authority correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 652 -> 653
+
+### Device evidence
+
+Build-652 validation separates two remaining defects:
+- with Keyguard enabled, Keyguard/AOD -> Home followed by an immediate fast Control Center pull can start fully native and remain native for the whole gesture;
+- single-child Keyguard/AOD mode now releases the outgoing Guiyuan presentation too late because Build 652 waits for the native AOD animation flag to end.
+
+### Root cause
+
+`SystemUiSceneStateSource` hooks class-wide `MiuiBatteryMeterView.updateState()`. More than one Home/Keyguard Battery view can publish structurally valid state in the same lifecycle interval. Build 652 stored the last matching callback in one global `steadyStatusSourceScene` without checking whether that source host was actually shown.
+
+Historical Build-634 evidence already proved that HyperOS can report Keyguard ancestry while `MiuiKeyguardStatusBarView` is not shown. A hidden structural callback is therefore observation/host-discovery evidence, not ownership authority.
+
+Waiting for `isAodAnimate=false` is also not the visual cutover boundary. Exact-target evidence shows `animateFullAod()` independently changes native Keyguard status-icon/Battery visual state during the animation.
+
+### Build-653 correction
+
+- Separate structural host discovery from visible scene ownership.
+- Only a shown Home/Keyguard native host can update the steady source and stable-family latch.
+- Hidden Keyguard events still feed the host resolver so Home -> AOD can prepare the verified family host without granting it scene authority.
+- Add a read-only native Keyguard status-presentation fact: the host must be shown and either status-icons or Battery must be shown with positive native alpha.
+- In Keyguard-only mode, hand off to Native as soon as that Keyguard presentation has yielded during AOD animation.
+- In AOD-only mode, hand off to Native only when qualified visible KEYGUARD source evidence and visible native Keyguard presentation agree.
+- If the native visual fact is unavailable, keep the existing conservative retention path.
+- Dual-enabled family transfer remains driven by the stable family latch.
+
+No timer, delay, polling, alpha/visibility/geometry writer, copied native animator, or `animToAod` direction inference is introduced.
+

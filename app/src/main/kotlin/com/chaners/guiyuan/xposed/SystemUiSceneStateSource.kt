@@ -67,11 +67,31 @@ internal object SystemUiSceneStateSource {
 
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
-    fun steadySourceScene(update: SceneUpdate): CombinedStatusSourceScene {
+    fun steadySourceScene(update: SceneUpdate): CombinedStatusSourceScene =
+        qualifySteadySourceScene(
+            structuralScene = steadySourceScene(update.sourceView),
+            surface = update.surface,
+            hostShown = true,
+        )
+
+    fun visibleSteadySourceScene(update: SceneUpdate): CombinedStatusSourceScene {
         val structural = steadySourceScene(update.sourceView)
-        return when (structural) {
+        return qualifySteadySourceScene(
+            structuralScene = structural,
+            surface = update.surface,
+            hostShown = sceneHostShown(update.sourceView, structural),
+        )
+    }
+
+    internal fun qualifySteadySourceScene(
+        structuralScene: CombinedStatusSourceScene,
+        surface: Surface,
+        hostShown: Boolean,
+    ): CombinedStatusSourceScene {
+        if (!hostShown) return CombinedStatusSourceScene.UNKNOWN
+        return when (structuralScene) {
             CombinedStatusSourceScene.HOME ->
-                if (update.surface == Surface.UNLOCKED_STATUS_BAR) {
+                if (surface == Surface.UNLOCKED_STATUS_BAR) {
                     CombinedStatusSourceScene.HOME
                 } else {
                     CombinedStatusSourceScene.UNKNOWN
@@ -79,8 +99,8 @@ internal object SystemUiSceneStateSource {
 
             CombinedStatusSourceScene.KEYGUARD ->
                 if (
-                    update.surface == Surface.KEYGUARD ||
-                    update.surface == Surface.SHADE_LOCKED
+                    surface == Surface.KEYGUARD ||
+                    surface == Surface.SHADE_LOCKED
                 ) {
                     CombinedStatusSourceScene.KEYGUARD
                 } else {
@@ -90,6 +110,12 @@ internal object SystemUiSceneStateSource {
             CombinedStatusSourceScene.UNKNOWN -> CombinedStatusSourceScene.UNKNOWN
         }
     }
+
+    internal fun sceneHostShown(
+        sourceView: View,
+        structuralScene: CombinedStatusSourceScene = steadySourceScene(sourceView),
+    ): Boolean =
+        findSceneHost(sourceView, structuralScene)?.isShown == true
 
     fun steadySourceScene(sourceView: View): CombinedStatusSourceScene {
         var current: View? = sourceView
@@ -101,6 +127,24 @@ internal object SystemUiSceneStateSource {
             current = current.parent as? View
         }
         return CombinedStatusSourceScene.UNKNOWN
+    }
+
+    private fun findSceneHost(
+        start: View,
+        scene: CombinedStatusSourceScene,
+    ): View? {
+        val className =
+            when (scene) {
+                CombinedStatusSourceScene.HOME -> HOME_HOST_CLASS_NAME
+                CombinedStatusSourceScene.KEYGUARD -> KEYGUARD_HOST_CLASS_NAME
+                CombinedStatusSourceScene.UNKNOWN -> return null
+            }
+        var current: View? = start
+        while (current != null) {
+            if (current.javaClass.name == className) return current
+            current = current.parent as? View
+        }
+        return null
     }
 
     internal fun classifySteadySourceAncestors(

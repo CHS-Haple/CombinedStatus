@@ -164,6 +164,7 @@ internal object CombinedStatusScenePolicy {
         steadySourceScene: CombinedStatusSourceScene = CombinedStatusSourceScene.UNKNOWN,
         lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
         homePresentationOwned: Boolean = false,
+        keyguardPresentationVisible: Boolean? = null,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (isAodAnimate) {
@@ -173,6 +174,7 @@ internal object CombinedStatusScenePolicy {
                 steadySourceScene = steadySourceScene,
                 lastStableFamilyScene = lastStableFamilyScene,
                 homePresentationOwned = homePresentationOwned,
+                keyguardPresentationVisible = keyguardPresentationVisible,
             )
         }
         if (
@@ -215,6 +217,7 @@ internal object CombinedStatusScenePolicy {
         steadySourceScene: CombinedStatusSourceScene,
         lastStableFamilyScene: StableKeyguardAodScene,
         homePresentationOwned: Boolean,
+        keyguardPresentationVisible: Boolean? = null,
     ): KeyguardAodProjection {
         if (steadySourceScene == CombinedStatusSourceScene.HOME) {
             return if (
@@ -243,6 +246,24 @@ internal object CombinedStatusScenePolicy {
             // ownership as prearm evidence. A latched AOD/Keyguard origin is
             // stronger and must not be overridden by stale Home ownership.
             return KeyguardAodProjection.AOD
+        }
+
+        // Single-child mode hands off at the native visual boundary, not at
+        // animation start and not at the late isAodAnimate=false callback.
+        if (
+            keyguardEnabled &&
+            !aodEnabled &&
+            keyguardPresentationVisible == false
+        ) {
+            return KeyguardAodProjection.NATIVE
+        }
+        if (
+            !keyguardEnabled &&
+            aodEnabled &&
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            keyguardPresentationVisible == true
+        ) {
+            return KeyguardAodProjection.NATIVE
         }
 
         // Do not derive AOD animation direction from current presentation

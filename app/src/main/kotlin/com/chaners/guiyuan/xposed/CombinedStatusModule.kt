@@ -1915,12 +1915,34 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        val structuralSourceScene =
+            SystemUiSceneStateSource.steadySourceScene(update)
+        val sourceScene =
+            SystemUiSceneStateSource.visibleSteadySourceScene(update)
+        if (
+            structuralSourceScene != CombinedStatusSourceScene.UNKNOWN &&
+            sourceScene == CombinedStatusSourceScene.UNKNOWN &&
+            !SystemUiSceneStateSource.sceneHostShown(
+                update.sourceView,
+                structuralSourceScene,
+            )
+        ) {
+            logDiagnostic(
+                level = Log.INFO,
+                event = "scene.evidence",
+                component = "steadyStatus",
+                state = "ignored",
+                "structuralScene" to structuralSourceScene.name,
+                "surface" to update.surface.name,
+                "reason" to "source-host-hidden",
+                "nativeGeometryWrites" to 0,
+            )
+        }
         if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
             steadyStatusSourceScene = sourceScene
         }
         refreshStableKeyguardAodSceneFromSceneState(update, sourceScene)
-        if (sourceScene == CombinedStatusSourceScene.KEYGUARD) {
+        if (structuralSourceScene == CombinedStatusSourceScene.KEYGUARD) {
             SystemUiKeyguardHostResolver.observe(update)?.let { resolution ->
                 onKeyguardHostResolution(
                     resolution = resolution,
@@ -2097,6 +2119,9 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiHomePresentationOwner
                     .currentHomeRepresentedSlotOwnership()
                     .isNotEmpty(),
+            keyguardPresentationVisible =
+                SystemUiKeyguardHostResolver
+                    .isStatusPresentationVisible(resolved),
         )
     }
 

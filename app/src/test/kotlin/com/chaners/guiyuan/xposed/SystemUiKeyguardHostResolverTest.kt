@@ -18,4 +18,44 @@ class SystemUiKeyguardHostResolverTest {
         assertTrue(SystemUiKeyguardHostResolver.isKeyguardHostClassName("com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView"))
         assertFalse(SystemUiKeyguardHostResolver.isKeyguardHostClassName("com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView"))
     }
+    @Test
+    fun keyguardStatusPresentationVisibilityUsesNativeVisualState() {
+        assertTrue(
+            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
+                hostShown = true,
+                statusIconsShown = true,
+                statusIconsAlpha = 1f,
+                batteryShown = true,
+                batteryAlpha = 0f,
+            ),
+        )
+        assertTrue(
+            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
+                hostShown = true,
+                statusIconsShown = true,
+                statusIconsAlpha = 0f,
+                batteryShown = true,
+                batteryAlpha = 1f,
+            ),
+        )
+        assertFalse(
+            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
+                hostShown = true,
+                statusIconsShown = true,
+                statusIconsAlpha = 0f,
+                batteryShown = true,
+                batteryAlpha = 0f,
+            ),
+        )
+        assertFalse(
+            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
+                hostShown = false,
+                statusIconsShown = true,
+                statusIconsAlpha = 1f,
+                batteryShown = true,
+                batteryAlpha = 1f,
+            ),
+        )
+    }
+
 }

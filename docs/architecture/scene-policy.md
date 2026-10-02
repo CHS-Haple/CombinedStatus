@@ -222,3 +222,15 @@ Build-651 device evidence refines the Keyguard/AOD family contract without addin
 
 This supersedes Build-651 assumptions that a disabled destination must force Native at animation start and that steady scene identity always outranks the panel source. It does not restore mutable presentation ownership as direction evidence.
 
+### Build 653 visible-source and single-child cutover rule
+
+Build-652 device evidence refines the scene authority boundary:
+
+- `MiuiBatteryMeterView.updateState()` is a class-wide state callback and can arrive from hidden Home/Keyguard instances. Structural ancestry plus raw status-bar state is valid host evidence, but it is not sufficient steady-scene ownership evidence.
+- A structural Keyguard callback may continue to resolve/cache the verified Keyguard family host while hidden. Only a shown native scene host may advance the global steady source or stable-family latch.
+- In single-child AOD/Keyguard mode, `isAodAnimate=false` is not the visual cutover boundary. The verified Keyguard host exposes read-only native visual state during `animateFullAod()`; host visibility plus status-icons/Battery shown/alpha state is used only to decide when the still-enabled outgoing child has visibly yielded.
+- Dual-enabled family handoff remains one host-scoped owner/RenderView and does not use native alpha as a project animation clock.
+- No native alpha/visibility/translation/geometry property is written, and no arbitrary threshold, timer, or copied SystemUI animation is introduced.
+
+This supersedes Build-652's assumption that every structurally matching scene callback may write global steady ownership and that a disabled destination must retain the outgoing child until the AOD animation flag clears.
+
