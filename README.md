@@ -16,7 +16,7 @@
 
 ### Project status
 
-> **Pre-release development.** The active development line is **0.0.4**. The first planned formal release is **1.0.0**; current `0.0.x` versions are development checkpoints rather than formal releases.
+> **Pre-release development.** The active development line is **0.0.5**. The first planned formal release is **1.0.0**; current `0.0.x` versions are development checkpoints rather than formal releases.
 
 | Item | Current scope |
 | --- | --- |
@@ -79,7 +79,7 @@ Guiyuan is free software licensed under the GNU General Public License as publis
 
 ### 项目状态
 
-> **预发布开发阶段。** 当前开发版本线为 **0.0.4**。计划首个正式发布版本为 **1.0.0**；当前 `0.0.x` 均属于开发检查点，不是正式发布版本。
+> **预发布开发阶段。** 当前开发版本线为 **0.0.5**。计划首个正式发布版本为 **1.0.0**；当前 `0.0.x` 均属于开发检查点，不是正式发布版本。
 
 | 项目 | 当前范围 |
 | --- | --- |
