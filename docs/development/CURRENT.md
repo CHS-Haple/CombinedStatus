@@ -13,7 +13,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Active objective
 
-Branch: `feat/network-state-size-controls`.
+Branch: `feat/network-state-size-controls` / PR #195.
 
 Build 619 adds two independent network-state visual controls:
 - Airplane mode size: 40%-125%, default 100%.
