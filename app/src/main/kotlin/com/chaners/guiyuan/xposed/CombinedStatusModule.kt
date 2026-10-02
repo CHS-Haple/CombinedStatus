@@ -27,6 +27,7 @@ class CombinedStatusModule : XposedModule() {
     private var steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
+    private var aodRuntimeAttached = false
     private var keyguardPresentationReadyObserved = false
     private var keyguardControlCenterLeaseActive = false
     private var controlCenterGeometryProbeBucket = -1
@@ -1892,21 +1893,23 @@ class CombinedStatusModule : XposedModule() {
             sourceScene == CombinedStatusSourceScene.HOME &&
                 shouldRetainKeyguardControlCenterLease()
         if (sourceScene == CombinedStatusSourceScene.HOME) {
-            val retainAodHandoff =
-                SystemUiHomePresentationOwner.currentAodPresentationClaimed()
-            if (!retainAodHandoff) {
-                deactivateAodRuntime("home-source-active")
-            } else {
-                logDiagnostic(
-                    level = Log.INFO,
-                    event = "scene.defer",
-                    component = "aodPresentation",
-                    state = "retained",
-                    "source" to "steady-source-view",
-                    "observedScene" to sourceScene.name,
-                    "reason" to "aod-to-home-continuous-handoff",
-                    "nativeGeometryWrites" to 0,
-                )
+            if (aodRuntimeAttached) {
+                val retainAodHandoff =
+                    SystemUiHomePresentationOwner.currentAodPresentationClaimed()
+                if (!retainAodHandoff) {
+                    deactivateAodRuntime("home-source-active")
+                } else {
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "scene.defer",
+                        component = "aodPresentation",
+                        state = "retained",
+                        "source" to "steady-source-view",
+                        "observedScene" to sourceScene.name,
+                        "reason" to "aod-to-home-continuous-handoff",
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
             }
             if (retainKeyguardLease) {
                 logDiagnostic(
@@ -2104,6 +2107,7 @@ class CombinedStatusModule : XposedModule() {
                 )
         ) {
             CombinedStatusKeyguardRenderSession.AttachResult.Ready -> {
+                aodRuntimeAttached = false
                 logDiagnostic(
                     level = Log.INFO,
                     event = "renderer.attach",
@@ -2157,6 +2161,7 @@ class CombinedStatusModule : XposedModule() {
                 )
         ) {
             CombinedStatusKeyguardRenderSession.AttachResult.Ready -> {
+                aodRuntimeAttached = true
                 logDiagnostic(
                     level = Log.INFO,
                     event = "renderer.attach",
@@ -2515,6 +2520,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun deactivateAodRuntime(source: String) {
+        aodRuntimeAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod(source)
         CombinedStatusKeyguardRenderSession.detachAod()
@@ -2562,6 +2568,7 @@ class CombinedStatusModule : XposedModule() {
         steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
+        aodRuntimeAttached = false
         keyguardPresentationReadyObserved = false
         keyguardControlCenterLeaseActive = false
         CombinedStatusControlCenterTransitionOwner.detach("hotReload-oldGeneration")
