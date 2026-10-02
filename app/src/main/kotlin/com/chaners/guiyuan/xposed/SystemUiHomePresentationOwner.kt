@@ -1143,6 +1143,7 @@ internal object SystemUiHomePresentationOwner {
             if (started) {
                 syncEndReservation()
                 if (isLayoutCutoverReady()) {
+                    layoutReadyCallback = null
                     return refreshClipMasks()
                 }
                 return if (
