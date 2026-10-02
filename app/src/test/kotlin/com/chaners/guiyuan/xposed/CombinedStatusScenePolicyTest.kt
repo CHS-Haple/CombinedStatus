@@ -116,59 +116,117 @@ class CombinedStatusScenePolicyTest {
 
     @Test
     fun keyguardAndAodProjectionMatrixKeepsChildPreferencesIndependent() {
-        val resolve = { feature: Boolean, keyguard: Boolean, aod: Boolean, toAod: Boolean, animate: Boolean ->
+        fun resolveStable(
+            feature: Boolean,
+            keyguard: Boolean,
+            aod: Boolean,
+            toAod: Boolean,
+            source: CombinedStatusSourceScene,
+        ) =
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = feature,
                 keyguardEnabled = keyguard,
                 aodEnabled = aod,
                 toAod = toAod,
-                isAodAnimate = animate,
+                isAodAnimate = false,
+                steadySourceScene = source,
             )
-        }
 
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
-            resolve(true, true, false, false, false),
+            resolveStable(true, true, false, false, CombinedStatusSourceScene.KEYGUARD),
         )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            resolve(true, false, true, false, false),
+            resolveStable(true, false, true, false, CombinedStatusSourceScene.KEYGUARD),
         )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
-            resolve(true, false, true, true, false),
+            resolveStable(true, false, true, true, CombinedStatusSourceScene.KEYGUARD),
         )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            resolve(true, true, false, true, false),
+            resolveStable(true, true, false, true, CombinedStatusSourceScene.KEYGUARD),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
-            resolve(true, true, true, true, false),
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolveStable(true, true, true, false, CombinedStatusSourceScene.HOME),
         )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            resolveStable(false, true, true, false, CombinedStatusSourceScene.KEYGUARD),
+        )
+    }
+
+    @Test
+    fun aodAnimationRoutesByVisiblePresentationOwnershipNotDirectionFields() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
-            resolve(true, true, true, true, true),
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardPresentationOwned = true,
+            ),
         )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
-            resolve(true, true, true, false, true),
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                aodPresentationOwned = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = true,
+            ),
         )
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            resolve(true, true, false, true, true),
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardPresentationOwned = true,
+            ),
         )
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            resolve(true, false, true, false, true),
+    }
+
+    @Test
+    fun aodPrearmRequiresAodFeatureAndVisibleHomeOwnership() {
+        assertTrue(
+            CombinedStatusScenePolicy.aodProjectionEligible(
+                featureEnabled = true,
+                aodEnabled = true,
+                stableAod = false,
+                homeTransitionPrearm = true,
+            ),
         )
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            resolve(false, true, true, false, false),
-        )
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
-            resolve(false, true, true, true, false),
+        assertFalse(
+            CombinedStatusScenePolicy.aodProjectionEligible(
+                featureEnabled = true,
+                aodEnabled = false,
+                stableAod = false,
+                homeTransitionPrearm = true,
+            ),
         )
     }
 
