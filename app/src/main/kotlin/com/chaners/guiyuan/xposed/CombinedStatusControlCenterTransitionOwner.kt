@@ -832,6 +832,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",batteryNumberProbe=" + batteryNumberProbeSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
+                ",iconCapacity=" + statusIconCapacitySummary() +
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
@@ -849,6 +850,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         else -> "inactive"
                     } +
                 "}"
+
+        private fun statusIconCapacitySummary(): String {
+            fun summary(group: ViewGroup): String {
+                val usableWidth =
+                    (group.width - group.paddingStart - group.paddingEnd)
+                        .coerceAtLeast(0)
+                return group.width +
+                    "/start=" + group.paddingStart +
+                    "/end=" + group.paddingEnd +
+                    "/usable=" + usableWidth
+            }
+            return "{fake=" + summary(fakeStatusIcons) +
+                ",final=" + summary(finalStatusIcons) + "}"
+        }
 
         fun matches(
             root: ViewGroup,
