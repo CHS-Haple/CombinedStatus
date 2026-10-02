@@ -409,8 +409,8 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
-        private const val CHARGING_HIDE_START_REMAINING = 0.60f
-        private const val CHARGING_HIDE_END_REMAINING = 0.50f
+        private const val CHARGING_HIDE_START_REMAINING = 0.26f
+        private const val CHARGING_HIDE_END_REMAINING = 0.20f
         private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
         private const val CHARGING_TARGET_REVEAL_START = 0.85f
         private const val CHARGING_TARGET_REVEAL_COMPLETE_BASE_START = 0.88f
@@ -451,8 +451,9 @@ internal class CombinedStatusPainter(
         }
 
         fun chargingMotionProgress(progress: Float): Float {
-            // Source and number remain one visual group until the charging glyph
-            // is fully clipped. Target travel begins only after that boundary.
+            // Source and number remain one visual group until the retracting ring
+            // has visually reached the charging-glyph region and the glyph is fully clipped.
+            // Target travel begins only after that boundary.
             if (chargingSourceVisibleFraction(progress) > 0f) return 0f
             val hiddenTravel =
                 (
