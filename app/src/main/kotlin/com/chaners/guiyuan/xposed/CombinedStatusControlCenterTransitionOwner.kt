@@ -667,7 +667,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return normalized * normalized * (3f - 2f * normalized)
         }
 
-        fun latentRevealOpacity(
+        fun latentRevealVisibleFraction(
             current: FloatArray,
             target: FloatArray,
             visualExtent: Float,
@@ -1859,20 +1859,35 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         geometry = geometry,
                         bounds = mobileSpec.sourceBounds,
                     ) ?: return@forEach
-                val revealProgress =
-                    latentRevealOpacity(
+                val revealVisibleFraction =
+                    latentRevealVisibleFraction(
                         currentGeometry = geometry,
                         targetGeometry = targetGeometry,
                         witness = witness,
                     )
-                val componentOpacity = opacity * revealProgress
-                if (componentOpacity <= 0f) return@forEach
+                if (revealVisibleFraction <= 0f || opacity <= 0f) return@forEach
                 val save =
                     canvas.saveLayerAlpha(
                         null,
-                        (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                        (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
                     )
                 canvas.concat(matrix)
+                val clip =
+                    Policy.horizontalClipBounds(
+                        left = mobileSpec.sourceBounds.left,
+                        top = mobileSpec.sourceBounds.top,
+                        right = mobileSpec.sourceBounds.right,
+                        bottom = mobileSpec.sourceBounds.bottom,
+                        visibleFraction = revealVisibleFraction,
+                        anchorRight =
+                            (sourceViewRef.get()?.layoutDirection
+                                ?: View.LAYOUT_DIRECTION_LTR) !=
+                                View.LAYOUT_DIRECTION_RTL,
+                    ) ?: run {
+                        canvas.restoreToCount(save)
+                        return@forEach
+                    }
+                canvas.clipRect(clip[0], clip[1], clip[2], clip[3])
                 painter.drawTransitionComponent(
                     canvas = canvas,
                     width = sourceWidth,
@@ -1956,26 +1971,40 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     carrierFrames = carrierFrames,
                 )
             val geometry = pathGeometry
-            val revealProgress =
-                latentRevealOpacity(
+            val revealVisibleFraction =
+                latentRevealVisibleFraction(
                     currentGeometry = geometry,
                     targetGeometry = targetGeometry,
                     witness = witness,
                 )
-            if (revealProgress <= 0f) return null
+            if (revealVisibleFraction <= 0f || opacity <= 0f) return null
             val matrix =
                 matrixForBoundsGeometry(
                     geometry = geometry,
                     bounds = bounds,
                 ) ?: return null
-            val componentOpacity = opacity * revealProgress
-            if (componentOpacity <= 0f) return null
             val save =
                 canvas.saveLayerAlpha(
                     null,
-                    (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                    (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
                 )
             canvas.concat(matrix)
+            val clip =
+                Policy.horizontalClipBounds(
+                    left = bounds.left,
+                    top = bounds.top,
+                    right = bounds.right,
+                    bottom = bounds.bottom,
+                    visibleFraction = revealVisibleFraction,
+                    anchorRight =
+                        (sourceViewRef.get()?.layoutDirection
+                            ?: View.LAYOUT_DIRECTION_LTR) !=
+                            View.LAYOUT_DIRECTION_RTL,
+                ) ?: run {
+                    canvas.restoreToCount(save)
+                    return null
+                }
+            canvas.clipRect(clip[0], clip[1], clip[2], clip[3])
             painter.drawTransitionAirplane(
                 canvas = canvas,
                 width = sourceWidth,
@@ -2042,26 +2071,40 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     carrierFrames = carrierFrames,
                 )
             val geometry = pathGeometry
-            val revealProgress =
-                latentRevealOpacity(
+            val revealVisibleFraction =
+                latentRevealVisibleFraction(
                     currentGeometry = geometry,
                     targetGeometry = targetGeometry,
                     witness = witness,
                 )
-            if (revealProgress <= 0f) return null
+            if (revealVisibleFraction <= 0f || opacity <= 0f) return null
             val matrix =
                 matrixForBoundsGeometry(
                     geometry = geometry,
                     bounds = bounds,
                 ) ?: return null
-            val componentOpacity = opacity * revealProgress
-            if (componentOpacity <= 0f) return null
             val save =
                 canvas.saveLayerAlpha(
                     null,
-                    (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                    (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
                 )
             canvas.concat(matrix)
+            val clip =
+                Policy.horizontalClipBounds(
+                    left = bounds.left,
+                    top = bounds.top,
+                    right = bounds.right,
+                    bottom = bounds.bottom,
+                    visibleFraction = revealVisibleFraction,
+                    anchorRight =
+                        (sourceViewRef.get()?.layoutDirection
+                            ?: View.LAYOUT_DIRECTION_LTR) !=
+                            View.LAYOUT_DIRECTION_RTL,
+                ) ?: run {
+                    canvas.restoreToCount(save)
+                    return null
+                }
+            canvas.clipRect(clip[0], clip[1], clip[2], clip[3])
             painter.drawTransitionNoSim(
                 canvas = canvas,
                 width = sourceWidth,
@@ -2130,7 +2173,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 )
             } ?: source.copyOf()
 
-        private fun latentRevealOpacity(
+        private fun latentRevealVisibleFraction(
             currentGeometry: FloatArray,
             targetGeometry: FloatArray,
             witness: TargetWitness,
@@ -2169,7 +2212,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     requiredReservationPx = requiredReservation,
                     visualWidthPx = targetWidth,
                 )
-            return Policy.latentRevealOpacity(
+            return Policy.latentRevealVisibleFraction(
                 current = currentGeometry,
                 target = targetGeometry,
                 visualExtent = visualExtent,
