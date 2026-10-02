@@ -2316,3 +2316,43 @@ Build 629 therefore makes the phase boundary explicit:
 - target-side reappearance near the destination remains unchanged.
 
 A dense unit sample across the fade interval protects the no-motion invariant independently of the exact fade constants.
+
+
+## 2026-10-03 — Build 629 device rejection; Build 631 number-relative charging handoff
+
+**Type:** device evidence / relative geometry / charging alpha timing  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 629 -> 631
+
+### Device evidence
+
+Build 629 confirms the terminal ring cleanup direction but rejects the charging-glyph handoff:
+- the source glyph is held in root/screen coordinates while the percentage number continues its transition, so their relative spacing changes;
+- the glyph remains visible after retained ring progress has crossed 50%;
+- target-side glyph becomes visible too soon after ring completion.
+
+The intended source-side invariant is relative, not absolute: while visible, the glyph belongs visually to the percentage readout group and must follow the number's transform. Only a fully invisible glyph may separate and travel toward its independent native target.
+
+### Build 631 correction
+
+- Restore source fade to the ring-defined 60% -> 50% retained interval.
+- Numerically derive the corresponding handoff-progress start/end from the existing ring policy once, so 50% retained ring is the exact source-alpha-zero boundary.
+- Reuse that derived progress span as the late target fade-in duration.
+- Start target reveal at overall handoff progress 92%; use the same smoothstep and equal progress duration as source fade.
+- Keep target alpha at zero throughout hidden travel and after target arrival until the late reveal window.
+- Replace Build-629 root-coordinate freeze with a battery-number follower transform:
+  - compute the current battery-number geometry from its normal transition path;
+  - express charging-glyph center/basis in the source number's local basis;
+  - map that local geometry through the current number basis;
+  - preserve relative offset, scale and orientation while the source glyph is visible/fading.
+- Keep independent charging-target motion hard-gated until source alpha reaches zero.
+- Keep exact `mBatteryChargingView` target scaling/position and no-target fail-native behavior.
+
+No additional animator, wall-clock timer, guessed coordinate or native target writer is introduced.
+
+### Review / tests
+
+- Follower-geometry unit coverage verifies translation/scale propagation relative to the number.
+- Fade-window tests verify 60%/50% ring thresholds, late 92% reveal and equal source/target fade durations.
+- Dense source-opacity sampling still guarantees charging-target motion remains zero while any source alpha is present.
+- Build 624 ring progress/easing remains untouched.
