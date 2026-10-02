@@ -37,52 +37,63 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 624 remains the accepted main battery-ring/fill retract baseline. Build 629 is device-rejected for charging-glyph handoff semantics:
-- “no movement while visible” was interpreted as freezing the glyph in screen/root coordinates, but the intended behavior is to remain fixed **relative to the battery percentage** and move with that number;
-- the glyph still remained visible after the ring had passed the 50% retained point;
-- target-side reappearance happened too soon after ring completion.
+Build 624 remains the accepted battery-ring/fill retract baseline. Build 629 was device-rejected because the charging glyph was frozen in root coordinates, remained visible beyond the 50% retained-ring point, and reappeared too early. Build 631 corrected the source-side contract by keeping the visible/fading glyph fixed relative to the battery percentage, hiding it fully by 50% retained ring, moving it only while hidden, and revealing it only near the end. Build 632 moves the final reveal slightly earlier from 92% to 88%.
 
-Build 631 corrects the handoff contract while preserving the accepted ring path:
-- derive source fade timing from the existing ring policy's real 60% -> 50% retained interval;
-- source glyph is fully invisible by 50% retained ring;
-- while source alpha is non-zero, target motion is still forbidden, but glyph geometry follows the battery-number participant through the same affine transform so their relative offset/scale stays fixed;
-- after source alpha reaches zero, the glyph may travel invisibly to exact native `mBatteryChargingView` target geometry;
-- target travel completes before the late reveal phase;
-- target reveal begins near overall handoff progress 88%;
-- reveal duration is exactly the same progress span as source fade and uses the same smoothstep easing, giving symmetric fade-out/fade-in speed;
-- no reliable target still means source fade only, with no guessed motion or reveal.
+Build 633 adds the requested Control Center color handoff:
+- only elements that are **actually colorized** by the current battery semantic color source participate;
+- elements already following the system/status-icon tint do not get a second artificial color animation;
+- when enabled, colorized participants keep their source color through the first 35% of handoff, transition quickly with smoothstep from 35% -> 65%, then hold the final native status-icon tint through the last 35%;
+- the target tint comes from the real final `statusIcons` native peer tint and is refreshed read-only during the transition;
+- when no reliable final tint is available, source color is retained rather than guessing black/white;
+- the behavior is controlled by the new global **Pull-down tint transition / 下拉反色过渡** switch, default ON;
+- when the switch is OFF, colorized participants keep their source color throughout the pull-down; this switch does not alter steady-state color policy.
+
+Colorized participants are selected semantically:
+- battery ring whenever the active battery color source resolves to a preset/custom color;
+- mobile dots/unavailable mark only when Mobile follows battery color;
+- center Wi-Fi/mobile type/airplane/no-SIM/hotspot only when Center follows battery color;
+- battery number only when Battery number follows battery color;
+- charging glyph only when Charging icon follows battery color.
+
+Charging geometry/alpha contract remains unchanged:
+- source glyph fades over retained ring 60% -> 50% and is fully invisible by 50%;
+- while visible/fading it follows the percentage-number affine transform;
+- independent target motion starts only after source alpha reaches zero;
+- target travel remains invisible;
+- final target reveal starts at overall handoff progress 88%;
+- fade-in reuses the same progress duration and smoothstep as fade-out;
+- exact native `mBatteryChargingView` geometry and no-target fail-native behavior remain unchanged.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003632` / Build `20261003-632`.
-- Build 629 device video confirms the incorrect root-coordinate freeze, source visibility beyond the 50% ring point, and target reappearance too close to ring completion.
+- Candidate identity: `0.0.5` / versionCode `261003633` / Build `20261003-633`.
 - Unit coverage locks:
-  - ring 60% -> 50% as the source fade window;
-  - full source invisibility at the 50% retained point;
-  - zero charging-target motion while any source alpha remains;
-  - battery-number-relative follower geometry during the visible/fading source phase;
-  - equal fade-out/fade-in progress duration;
-  - no target-side reveal before the late 88% handoff phase;
-  - no-target fail-native behavior.
-- The accepted Build-624 main ring/fill curve remains unchanged; the terminal ROUND-cap cleanup from 629 remains intact.
+  - 60% -> 50% charging source fade and 50% full invisibility;
+  - battery-number-relative charging-glyph geometry;
+  - hidden-only target travel and 88% late reveal;
+  - equal fade-out/fade-in duration;
+  - ARGB transition endpoints and 35% / 50% / 65% middle-only tint curve;
+  - actual tinted-state semantics versus FOLLOW_SYSTEM;
+  - switch OFF keeps colorized participants at source color;
+  - non-colorized participants stay on the native tint path;
+  - switch default is true and participates in visual-runtime sync.
+- Build-624 main ring/fill curve remains unchanged; terminal ROUND-cap cleanup remains intact.
 
 ## Device gate
 
-Focused Build-631 charging validation:
-- before and during fade-out, charging glyph must move with the percentage number and keep the same relative offset; it must not be screen/root locked;
-- glyph should begin fading around retained ring 60% and be completely invisible by 50%;
-- after full invisibility it may separate from the number and travel invisibly to the native charging target;
-- no target-side glyph should appear immediately after ring completion;
-- only near the end of the whole transition should the glyph smoothly fade back in;
-- fade-in and fade-out should feel equally fast and use the same smooth character;
-- percentage number must not jump;
-- target position/size must still converge to exact native charging geometry;
-- missing target must produce fade-out only;
-- reverse gesture should remain continuous.
+Focused Build-633 validation:
+- charging glyph remains relative to the percentage number before full hide;
+- glyph is fully hidden by 50% retained ring;
+- glyph does not reappear immediately after ring completion and starts final reveal around 88% handoff;
+- fade-in/fade-out speed remains symmetric;
+- with **下拉反色过渡 ON**, colorized elements hold their color initially, change mainly through the middle 35%-65%, then remain on system reverse tint;
+- with the switch OFF, the same colorized elements remain in their source color during pull-down;
+- elements already following system tint should not show a second visible color transition;
+- no color jump, guessed black/white, geometry regression, percentage jump, or target mismatch.
 
 ## Immediate next step
 
-Finish exact-HEAD Runtime CI and final geometry review for Build 632. If clean, freeze runtime and produce one signed Work Branch Canary for focused device validation.
+Run exact-HEAD Runtime CI for Build 633 after final review. If clean, freeze runtime and produce one signed Work Branch Canary for combined charging/tint validation.
 
 ## Reference priority
 
