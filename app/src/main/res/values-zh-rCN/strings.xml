@@ -44,6 +44,8 @@
     <string name="section_hyperos_display">系统界面</string>
     <string name="section_color_linkage">配色联动</string>
     <string name="section_battery_top_readout">顶部电量</string>
+    <string name="battery_fill_follow_retract">电量段跟随回收</string>
+    <string name="battery_fill_follow_retract_summary">实心电量段随回收端点移动，空心区域耗尽后再缩短</string>
     <string name="battery_top_readout">显示电量数字</string>
     <string name="battery_top_readout_summary">显示电量百分比，电量环自动避让</string>
     <string name="battery_top_text_size">数字大小</string>
