@@ -409,10 +409,11 @@ internal class CombinedStatusPainter(
     }
 
     internal object BatteryNumberFollowerPolicy {
-        private const val CHARGING_FADE_START_REMAINING = 0.26f
-        private const val CHARGING_FADE_END_REMAINING = 0.20f
-        private const val CHARGING_MOTION_END_REMAINING = 0.04f
-        private const val CHARGING_TARGET_REVEAL_START = 0.82f
+        private const val CHARGING_FADE_START_REMAINING = 0.60f
+        private const val CHARGING_FADE_END_REMAINING = 0.50f
+        private const val CHARGING_TARGET_TRAVEL_COMPLETE = 0.80f
+        private const val CHARGING_TARGET_REVEAL_START = 0.92f
+        private const val CHARGING_TARGET_REVEAL_COMPLETE = 0.942f
 
         fun chargingOpacity(
             progress: Float,
@@ -421,11 +422,10 @@ internal class CombinedStatusPainter(
             val sourceOpacity = chargingSourceOpacity(progress)
             if (sourceOpacity > 0f) return sourceOpacity
             if (!targetAvailable) return 0f
-            val motion = chargingMotionProgress(progress)
             val reveal =
                 (
-                    (motion - CHARGING_TARGET_REVEAL_START) /
-                        (1f - CHARGING_TARGET_REVEAL_START)
+                    (progress.coerceIn(0f, 1f) - CHARGING_TARGET_REVEAL_START) /
+                        (CHARGING_TARGET_REVEAL_COMPLETE - CHARGING_TARGET_REVEAL_START)
                 ).coerceIn(0f, 1f)
             return smooth(reveal)
         }
@@ -442,16 +442,31 @@ internal class CombinedStatusPainter(
         }
 
         fun chargingMotionProgress(progress: Float): Float {
-            // Hard phase boundary: target translation/scale is forbidden while
-            // any source-side charging glyph alpha remains visible.
+            // Source and number remain one visual group until the charging glyph
+            // is fully transparent. Target travel begins only after that boundary.
             if (chargingSourceOpacity(progress) > 0f) return 0f
-            val remaining = chargingRingRemaining(progress)
+            val fadeCompleteProgress =
+                firstProgressAtOrBelowRemaining(CHARGING_FADE_END_REMAINING)
             val hiddenTravel =
                 (
-                    (CHARGING_FADE_END_REMAINING - remaining) /
-                        (CHARGING_FADE_END_REMAINING - CHARGING_MOTION_END_REMAINING)
+                    (progress.coerceIn(0f, 1f) - fadeCompleteProgress) /
+                        (CHARGING_TARGET_TRAVEL_COMPLETE - fadeCompleteProgress)
                 ).coerceIn(0f, 1f)
             return smooth(hiddenTravel)
+        }
+
+        private fun firstProgressAtOrBelowRemaining(threshold: Float): Float {
+            var low = 0f
+            var high = 1f
+            repeat(12) {
+                val mid = (low + high) / 2f
+                if (chargingRingRemaining(mid) <= threshold) {
+                    high = mid
+                } else {
+                    low = mid
+                }
+            }
+            return high
         }
 
         internal fun chargingRingRemaining(progress: Float): Float {
