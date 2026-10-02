@@ -2096,10 +2096,6 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiHomePresentationOwner
                     .currentHomeRepresentedSlotOwnership()
                     .isNotEmpty(),
-            keyguardPresentationOwned =
-                SystemUiHomePresentationOwner.currentKeyguardPresentationClaimed(),
-            aodPresentationOwned =
-                SystemUiHomePresentationOwner.currentAodPresentationClaimed(),
         )
     }
 
