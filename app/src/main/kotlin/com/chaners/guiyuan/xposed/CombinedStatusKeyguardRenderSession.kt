@@ -336,7 +336,7 @@ internal object CombinedStatusKeyguardRenderSession {
             applyResolvedVisibility()
             dispatchPresentationReadiness(
                 source = "scene-transfer",
-                force = true,
+                force = shouldForceReadinessDispatch(changedScene),
             )
         }
 
