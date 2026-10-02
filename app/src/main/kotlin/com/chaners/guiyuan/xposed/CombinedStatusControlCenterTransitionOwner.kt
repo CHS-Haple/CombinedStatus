@@ -1231,23 +1231,65 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     Policy.horizontalExitDirection(source, target)
                 } ?: CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
 
+            val batteryTinted =
+                CombinedStatusBatteryColorPolicy.isTinted(
+                    state = model.batterySemanticState,
+                    settings = currentSnapshot.visualSettings,
+                )
             val transitionColors =
                 cachedNativePeerTint
                     ?.let { tint ->
-                        currentSnapshot.colors.copy(
-                            centerTint = tint,
-                            mobileTint = tint,
-                            batteryTextTint =
+                        fun resolveTint(
+                            source: Int,
+                            tinted: Boolean,
+                        ): Int =
+                            if (tinted) {
                                 Policy.interpolateColor(
-                                    source = currentSnapshot.colors.batteryTextTint,
+                                    source = source,
                                     target = tint,
                                     progress = motionProgress,
+                                )
+                            } else {
+                                tint
+                            }
+
+                        currentSnapshot.colors.copy(
+                            centerTint =
+                                resolveTint(
+                                    source = currentSnapshot.colors.centerTint,
+                                    tinted =
+                                        batteryTinted &&
+                                            currentSnapshot.visualSettings
+                                                .centerFollowsBatteryColor,
+                                ),
+                            mobileTint =
+                                resolveTint(
+                                    source = currentSnapshot.colors.mobileTint,
+                                    tinted =
+                                        batteryTinted &&
+                                            currentSnapshot.visualSettings
+                                                .mobileFollowsBatteryColor,
+                                ),
+                            batteryTint =
+                                resolveTint(
+                                    source = currentSnapshot.colors.batteryTint,
+                                    tinted = batteryTinted,
+                                ),
+                            batteryTextTint =
+                                resolveTint(
+                                    source = currentSnapshot.colors.batteryTextTint,
+                                    tinted =
+                                        batteryTinted &&
+                                            currentSnapshot.visualSettings
+                                                .batteryTopTextFollowsBatteryColor,
                                 ),
                             chargingIconTint =
-                                Policy.interpolateColor(
+                                resolveTint(
                                     source = currentSnapshot.colors.chargingIconTint,
-                                    target = tint,
-                                    progress = motionProgress,
+                                    tinted =
+                                        batteryTinted &&
+                                            currentSnapshot.visualSettings
+                                                .batteryTopChargingIconFollowsBatteryColor,
                                 ),
                         )
                     }
