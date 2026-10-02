@@ -773,6 +773,12 @@ private fun BatteryAddSchemePage(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
+                    val plusColor =
+                        if (enabled) {
+                            Color.White
+                        } else {
+                            MiuixTheme.colorScheme.disabledOnSecondaryVariant
+                        }
                     Surface(
                         modifier = Modifier.size(60.dp),
                         shape = CircleShape,
@@ -794,12 +800,6 @@ private fun BatteryAddSchemePage(
                                 val inset = 5.dp.toPx()
                                 val midX = size.width / 2f
                                 val midY = size.height / 2f
-                                val plusColor =
-                                    if (enabled) {
-                                        Color.White
-                                    } else {
-                                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
-                                    }
                                 drawLine(
                                     color = plusColor,
                                     start = androidx.compose.ui.geometry.Offset(inset, midY),
