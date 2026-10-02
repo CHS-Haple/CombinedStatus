@@ -197,6 +197,27 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
     }
 
     @Test
+    fun leftExitCarriesFixedFillAcrossTopGapWhileHollowRemains() {
+        val progress = 0.12f
+        val result =
+            CombinedStatusBatteryRingTransitionPolicy.resolve(
+                drawableArcs =
+                    listOf(
+                        CombinedStatusBatteryTopArcPolicy.Arc(150f, 90f),
+                        CombinedStatusBatteryTopArcPolicy.Arc(300f, 90f),
+                    ),
+                batteryPercent = 50,
+                progress = progress,
+                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
+            )
+        val activeSweep = result.active.sumOf { it.sweepDegrees.toDouble() }.toFloat()
+        val backgroundSweep = result.background.sumOf { it.sweepDegrees.toDouble() }.toFloat()
+        assertTrue(backgroundSweep > 90f)
+        assertEquals(90f, activeSweep, 0.0001f)
+        assertTrue(result.active.size >= 1)
+    }
+
+    @Test
     fun leftExitStartsShrinkingFillOnlyAfterHollowIsExhausted() {
         val progress = 0.5f
         val result =
