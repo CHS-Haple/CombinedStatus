@@ -2284,3 +2284,47 @@ No timer, delay, polling, copied AOD motion, alpha/translation writer, or projec
 - Runtime CI #2257 passes Build 623 on the pinned HyperOS target profile.
 - Signed Canary and focused device validation are still required before integration.
 
+## 2026-10-03 — Build 623 device rejection; Build 625 Keyguard-family continuous ownership
+
+**Type:** Keyguard/AOD presentation ownership / lifecycle handoff  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 623 -> 625
+
+### Problem
+
+Build 623 removed AOD-direction guessing, but device testing still shows native represented status icons flashing during both Home <-> AOD and Keyguard <-> AOD transitions.
+
+### Evidence
+
+The retained Build-623 trace shows a structural handoff gap rather than another direction-state error:
+- the outgoing Keyguard/AOD presentation loses readiness and performs cleanup, restoring clip bounds, end reservation and ignored-slot ownership;
+- the target presentation then enters `prepared` with `fallbackVisual=native-until-native-layout`;
+- only the next native status-icon layout marks the target presentation `active` and releases native handoff.
+
+That sequence deliberately exposes native represented visuals between two otherwise valid Guiyuan sessions.
+
+### Conclusion
+
+Keyguard and AOD are distinct scene semantics but, on the verified target, they resolve to the same native Keyguard-family host. Their represented-slot suppression, reversible visual mask and end reservation therefore require one continuous host-scoped presentation owner across an internal family scene change. Likewise, one module render View should retarget scene semantics rather than detach/re-add at the same host.
+
+Home remains a distinct host. Home -> AOD may pre-mask the target native represented visuals during explicit prearm, but compact-layout readiness remains a separate native-layout fact; pre-mask does not grant layout ownership or renderer readiness.
+
+### Change
+
+- Collapse separate Keyguard/AOD presentation sessions into one role-retargetable Keyguard-family Session.
+- Collapse separate Keyguard/AOD render sessions into one role-retargetable Session / RenderView.
+- Guard role-specific cleanup so an outgoing-role cleanup cannot stop the already-retargeted target.
+- Distinguish presentation claim from compact-layout readiness for transition routing.
+- Permit reversible AOD pre-mask only during explicit Home -> AOD prearm.
+- Reset child alpha to 1 when leaving AOD for Keyguard.
+- Keep child feature gates independent and preserve fail-native restoration when the family host/topology is invalid.
+
+No native animation clock, timer, delay, polling loop, native translation writer or native visibility writer is added.
+
+### Validation
+
+- Focused unit coverage protects role-retarget cleanup, AOD pre-mask gating, independent child feature gates and AOD->Keyguard alpha reset.
+- Runtime CI #2278 succeeds on reviewed runtime head `5aa8752197ce8328496d3ca68c8ee5875e98ef91`.
+- Manual ownership review confirms one family presentation owner and one family RenderView.
+- Signed Canary and focused device validation remain required before integration.
+
