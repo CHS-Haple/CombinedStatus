@@ -1,6 +1,7 @@
 package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -74,6 +75,26 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
         assertEquals(0.34119043f, remainingAtGlobal(0.175f), 0.0001f)
         assertEquals(0.01148136f, remainingAtGlobal(0.35f), 0.0001f)
         assertEquals(0f, remainingAtGlobal(0.45f), 0.0001f)
+    }
+
+    @Test
+    fun terminalRoundCapTailEndsWhenArcLengthFallsBelowStrokeWidth() {
+        assertFalse(
+            CombinedStatusBatteryRingTransitionPolicy.isTerminalCapDominated(
+                remainingFraction = 0.05f,
+                totalSweepDegrees = 240f,
+                radiusPx = 50f,
+                strokeWidthPx = 8.25f,
+            ),
+        )
+        assertTrue(
+            CombinedStatusBatteryRingTransitionPolicy.isTerminalCapDominated(
+                remainingFraction = 0.03f,
+                totalSweepDegrees = 240f,
+                radiusPx = 50f,
+                strokeWidthPx = 8.25f,
+            ),
+        )
     }
 
     @Test
