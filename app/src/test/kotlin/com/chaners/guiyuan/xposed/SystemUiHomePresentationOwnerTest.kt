@@ -21,6 +21,46 @@ class SystemUiHomePresentationOwnerTest {
         assertEquals(listOf("alarm_clock", "wifi"), slots)
     }
 
+
+    @Test
+    fun islandControlCenterKeepsHyperOsNativeLayoutAuthority() {
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyIgnoredSlots(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyEndReservation(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyIgnoredSlots(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyEndReservation(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyEndReservation(
+                    surfaceName = "home",
+                    nativeLayoutAuthority = true,
+                ),
+        )
+    }
+
     @Test
     fun persistentIgnoredSlotRestoreRemovesOnlySessionOwnedDelta() {
         val existing = listOf("alarm_clock", "wifi")
