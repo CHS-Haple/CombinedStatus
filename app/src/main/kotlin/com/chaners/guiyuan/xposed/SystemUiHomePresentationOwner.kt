@@ -849,24 +849,27 @@ internal object SystemUiHomePresentationOwner {
                 maskedViews = maskedViews,
                 reused = reused,
             )
+        val nativeLayoutAuthority = session.usesNativeLayoutAuthority()
+        val slotExclusion =
+            if (nativeLayoutAuthority) {
+                "native-layout-visual-mask-only"
+            } else {
+                "session-native-ignored-slots"
+            }
+        val carrierReservation =
+            if (nativeLayoutAuthority) {
+                "native-layout-authority"
+            } else {
+                "qs-fake-capacity-lease+status-icons-end-padding"
+            }
         controlCenterEventSink?.invoke(
             "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + maskedViews +
-                " slotExclusion=" +
-                if (session.usesNativeLayoutAuthority()) {
-                    "native-layout-visual-mask-only "
-                } else {
-                    "session-native-ignored-slots "
-                } +
-                "carrierReservation=" +
-                if (session.usesNativeLayoutAuthority()) {
-                    "native-layout-authority "
-                } else {
-                    "qs-fake-capacity-lease+status-icons-end-padding "
-                } +
-                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
-                "cutover=compact-layout-ready nativeLayoutReservationOwner=single " +
+                " slotExclusion=" + slotExclusion +
+                " carrierReservation=" + carrierReservation +
+                " carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "cutover=layout-ready nativeLayoutReservationOwner=single " +
                 "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
         )
         controlCenterReadySink?.invoke(active)
