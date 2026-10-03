@@ -1081,7 +1081,11 @@ internal object SystemUiHomePresentationOwner {
         fun captureNativePeerVerticalBand() {
             if (
                 !active ||
-                surfaceName != CONTROL_CENTER_FAKE_SURFACE
+                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
+                (
+                    peerBandTopInsetPx != null &&
+                        peerBandBottomInsetPx != null
+                )
             ) {
                 return
             }
