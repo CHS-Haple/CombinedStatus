@@ -192,9 +192,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             created.start()
         }
 
-        val islandNativeLayoutAuthority =
-            SystemUiHomePresentationOwner.currentControlCenterNativeLayoutAuthority()
-
         current?.update(
             progress = progress,
             sourceSnapshot = sourceSnapshot,
@@ -205,11 +202,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceScene = sourceScene,
                     charging = sourceSnapshot.model.charging,
                     nativeBatteryIslandActive = nativeBatteryIslandActive,
-                    islandNativeLayoutAuthority = islandNativeLayoutAuthority,
                 ),
             sourceScene = sourceScene,
             genericIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
-            islandNativeLayoutAuthority = islandNativeLayoutAuthority,
         )
     }
 
@@ -339,16 +334,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
             sourceScene: CombinedStatusSourceScene,
             charging: Boolean = false,
             nativeBatteryIslandActive: Boolean? = null,
-            islandNativeLayoutAuthority: Boolean = false,
         ): Boolean =
             when (sourceScene) {
                 CombinedStatusSourceScene.HOME ->
-                    !charging ||
-                        nativeBatteryIslandActive == false ||
-                        (
-                            nativeBatteryIslandActive == true &&
-                                islandNativeLayoutAuthority
-                        )
+                    !charging || nativeBatteryIslandActive == false
                 CombinedStatusSourceScene.KEYGUARD ->
                     true
                 CombinedStatusSourceScene.UNKNOWN ->
@@ -358,14 +347,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun allowsNativeTransitionPaddingExpansion(
             sourceScene: CombinedStatusSourceScene,
             genericIslandShowing: Boolean?,
-            islandNativeLayoutAuthority: Boolean = false,
         ): Boolean {
-            if (
-                genericIslandShowing == true &&
-                !islandNativeLayoutAuthority
-            ) {
-                return false
-            }
+            if (genericIslandShowing == true) return false
             return when (sourceScene) {
                 CombinedStatusSourceScene.HOME,
                 CombinedStatusSourceScene.KEYGUARD,
@@ -920,6 +903,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         sourceAnchor: View,
         sourceSnapshot: CombinedStatusControlCenterRenderSession.TransitionSourceSnapshot,
         private val frozenSource: FrozenSourceGeometry?,
+        sourceStatusIcons: ViewGroup?,
         private val fakeStatusIcons: ViewGroup,
         private val finalStatusIcons: ViewGroup,
         private val finalBattery: View,
@@ -929,6 +913,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private val finalRootRef = WeakReference(finalRoot)
         private val sourceViewRef = WeakReference(sourceView)
         private val sourceAnchorRef = WeakReference(sourceAnchor)
+        private val sourceStatusIconsRef =
+            sourceStatusIcons?.let { group -> WeakReference(group) }
         private val painter = CombinedStatusPainter(root.context)
         private val drawable = TransitionDrawable(this)
         private val sourceMask = MaskState(
@@ -961,7 +947,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var transitionReservationEnabled = false
         private var nativePaddingExpansionAllowed = true
         private var genericIslandShowing: Boolean? = null
-        private var islandNativeLayoutAuthority = false
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -1022,15 +1007,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",batteryNumberProbe=" + batteryNumberProbeSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
-                ",islandNativeLayout=" + islandNativeLayoutAuthority +
                 ",iconCapacity=" + statusIconCapacitySummary() +
                 ",nativeRows=" + nativeStatusRowSummary() +
                 ",fakeCarrier=" + fakeCarrierHierarchySummary() +
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
-                    genericIslandShowing == true && nativePaddingExpansionAllowed ->
-                        "native-island-progress-padding"
                     genericIslandShowing == true -> "native-island-authority"
                     !nativePaddingExpansionAllowed -> "native-padding-guard"
                     else -> "native-progress-total-padding"
@@ -1097,7 +1079,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
             fun groupIslandToken(group: ViewGroup): String {
                 val animatorController = readFieldValue(group, "animatorController")
-                return "islandProbe=v2" +
+                return "islandProbe=v3" +
                     "/islandWidth=" + valueToken(readFieldValue(group, "islandWidth")) +
                     "/islandWidthChanged=" +
                     valueToken(readFieldValue(group, "islandWidthChanged")) +
@@ -1135,6 +1117,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 NativeParticipantRuntimeAccess.slotOf(child)
                                     ?: NativeParticipantRuntimeAccess.resourceEntryName(child)
                                     ?: child.javaClass.simpleName
+                            val screen = IntArray(2)
+                            val screenLocated =
+                                runCatching {
+                                    child.getLocationOnScreen(screen)
+                                    true
+                                }.getOrDefault(false)
                             add(
                                 slot +
                                     "(state=" +
@@ -1147,6 +1135,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     ",l=" + child.left +
                                     ",r=" + child.right +
                                     ",w=" + child.width +
+                                    ",sx=" +
+                                    (if (screenLocated) screen[0] else Int.MIN_VALUE) +
+                                    ",sy=" +
+                                    (if (screenLocated) screen[1] else Int.MIN_VALUE) +
                                     "," + childIslandToken(group, child) + ")",
                             )
                         }
@@ -1156,8 +1148,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     "/items=[" + children + "]"
             }
 
-            return "{fakeRoot=" + rootToken(fakeRootRef.get()) +
+            val sourceStatusIcons = sourceStatusIconsRef?.get()
+            return "{sourceRoot=" + rootToken(sourceStatusIcons) +
+                ",fakeRoot=" + rootToken(fakeRootRef.get()) +
                 ",finalRoot=" + rootToken(finalRootRef.get()) +
+                ",source=" +
+                (sourceStatusIcons?.let(::groupToken) ?: "none") +
                 ",fake=" + groupToken(fakeStatusIcons) +
                 ",final=" + groupToken(finalStatusIcons) + "}"
         }
@@ -1229,7 +1225,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             transitionReservationEnabled: Boolean,
             sourceScene: CombinedStatusSourceScene,
             genericIslandShowing: Boolean?,
-            islandNativeLayoutAuthority: Boolean,
         ) {
             val appearanceChanged =
                 this.nativeAppearance != nativeAppearance ||
@@ -1238,21 +1233,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.currentSnapshot = sourceSnapshot
             this.nativeAppearance = nativeAppearance
             this.nativeAppearanceAnimated = nativeAppearanceAnimated
-            val nativeLayoutAuthorityChanged =
-                this.islandNativeLayoutAuthority != islandNativeLayoutAuthority
             this.transitionReservationEnabled = transitionReservationEnabled
             this.genericIslandShowing = genericIslandShowing
-            this.islandNativeLayoutAuthority = islandNativeLayoutAuthority
 
             this.nativePaddingExpansionAllowed =
                 Policy.allowsNativeTransitionPaddingExpansion(
                     sourceScene = sourceScene,
                     genericIslandShowing = genericIslandShowing,
-                    islandNativeLayoutAuthority = islandNativeLayoutAuthority,
                 )
-            if (nativeLayoutAuthorityChanged) {
-                lastNativeReservationWidthPx = null
-            }
             if (appearanceChanged) {
                 refreshNativePeerTint()
             }
@@ -1265,7 +1253,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 "transition-" + source,
             )
             genericIslandShowing = null
-            islandNativeLayoutAuthority = false
             if (!started) return
             started = false
             val rootView = rootRef.get()
@@ -3980,6 +3967,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val finalBattery =
                     uniqueDescendantView(finalRoot, BATTERY_VIEW_CLASS_NAME)
                         ?: return null
+                val sourceStatusIcons =
+                    steadySourceWitness?.motionCarrier as? ViewGroup
                 val frozenSource =
                     steadySourceWitness
                         ?.takeIf { witness ->
@@ -4055,6 +4044,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceAnchor = sourceSnapshot.anchorView,
                     sourceSnapshot = sourceSnapshot,
                     frozenSource = frozenSource,
+                    sourceStatusIcons = sourceStatusIcons,
                     fakeStatusIcons = fakeStatusIcons,
                     finalStatusIcons = finalStatusIcons,
                     finalBattery = finalBattery,

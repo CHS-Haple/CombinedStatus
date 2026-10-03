@@ -62,10 +62,6 @@ internal object SystemUiHomePresentationOwner {
         keyguardCurrent?.ownedRepresentedSlots() ?: emptySet()
 
     @Synchronized
-    internal fun currentControlCenterNativeLayoutAuthority(): Boolean =
-        controlCenterCurrent?.usesNativeLayoutAuthority() == true
-
-    @Synchronized
     fun onVisualSettingsChanged() {
         current?.syncEndReservation()
         keyguardCurrent?.syncEndReservation()
@@ -1029,7 +1025,7 @@ internal object SystemUiHomePresentationOwner {
             this.deferVisualMaskUntilLayout = deferVisualMaskUntilLayout
             this.layoutReadyCallback = onLayoutReady
             if (started) {
-                if (!syncEndReservation()) return 0
+                syncEndReservation()
                 return if (isLayoutCutoverReady()) refreshClipMasks() else 0
             }
 
@@ -1326,12 +1322,7 @@ internal object SystemUiHomePresentationOwner {
             if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return true
             if (transitionRequestedSlotWidthPx == null) return true
             transitionRequestedSlotWidthPx = null
-            val restored =
-                if (nativeLayoutAuthority) {
-                    restoreEndReservation()
-                } else {
-                    syncEndReservation()
-                }
+            val restored = syncEndReservation()
             onEvent(
                 eventPrefix +
                     " transitionReservation cleared source=" + source +
@@ -1346,7 +1337,6 @@ internal object SystemUiHomePresentationOwner {
                 !ControlCenterLayoutPolicy.shouldApplyEndReservation(
                     surfaceName = surfaceName,
                     nativeLayoutAuthority = nativeLayoutAuthority,
-                    transitionReservationActive = transitionRequestedSlotWidthPx != null,
                 )
             ) {
                 return true
@@ -1428,21 +1418,11 @@ internal object SystemUiHomePresentationOwner {
                     actualBatteryWidthPx = actualBatteryWidthPx,
                     requestedSlotWidthPx = requestedSlotWidthPx,
                 )
-            val capacityLeaseEnabled =
-                ControlCenterLayoutPolicy.shouldApplyFakeCarrierCapacityLease(
-                    surfaceName = surfaceName,
-                    nativeLayoutAuthority = nativeLayoutAuthority,
-                )
             val capacityDeltaPx =
-                if (capacityLeaseEnabled) {
-                    ensureFakeCarrierCapacityLease(hostView)
-                        ?: return false
-                } else {
-                    0
-                }
+                ensureFakeCarrierCapacityLease(hostView)
+                    ?: return false
             if (
                 surfaceName == CONTROL_CENTER_FAKE_SURFACE &&
-                capacityLeaseEnabled &&
                 reservationDelta.coerceAtLeast(0) > capacityDeltaPx
             ) {
                 onFailNative("fake-carrier-capacity-insufficient")
@@ -1478,17 +1458,9 @@ internal object SystemUiHomePresentationOwner {
                         " basePaddingEnd=" + baseline.end +
                         " appliedPaddingEnd=" + target.end +
                         " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
-                        " fakeCarrierCapacityDelta=" +
-                        (if (capacityLeaseEnabled) capacityDeltaPx else -1) +
+                        " fakeCarrierCapacityDelta=" + capacityDeltaPx +
                         " carrierAuthority=battery_icon_container " +
-                        "owner=" +
-                        (
-                            if (capacityLeaseEnabled) {
-                                "qs-fake-capacity-lease+statusIcons-paddingEnd"
-                            } else {
-                                "qs-fake-island-progress-padding"
-                            }
-                        ),
+                        "owner=qs-fake-capacity-lease+statusIcons-paddingEnd",
                 )
             }
             return true
@@ -1888,17 +1860,8 @@ internal object SystemUiHomePresentationOwner {
         fun shouldApplyEndReservation(
             surfaceName: String,
             nativeLayoutAuthority: Boolean,
-            transitionReservationActive: Boolean,
         ): Boolean =
-            surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
-                !nativeLayoutAuthority ||
-                transitionReservationActive
-
-        fun shouldApplyFakeCarrierCapacityLease(
-            surfaceName: String,
-            nativeLayoutAuthority: Boolean,
-        ): Boolean =
-            surfaceName == CONTROL_CENTER_FAKE_SURFACE && !nativeLayoutAuthority
+            surfaceName != CONTROL_CENTER_FAKE_SURFACE || !nativeLayoutAuthority
     }
 
     internal object PersistentIgnoredSlotPolicy {

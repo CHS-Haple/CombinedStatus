@@ -37,58 +37,53 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 660 is rejected by device evidence.
+Build 660 is device-rejected: its island-only fixed fake-carrier capacity lease preserved peers only by widening QS_FAKE enough to remove HyperOS island avoidance, while the row still settled horizontally at gesture entry. The supplied Build-660 report is from the expected Canary / exact target.
 
-The returned Build-660 video and detailed diagnostic establish two simultaneous regressions:
-- HyperOS island avoidance / knife-hide is absent;
-- native peers still settle horizontally at gesture entry and then mainly follow the fake carrier downward.
+Build 661 is superseded by review before Canary. It removed the fixed lease and re-enabled progress-synchronous `statusIcons.paddingEnd` only under exact island-native-layout authority. That is structurally cleaner than Build 660 and Runtime CI is green, but it cannot explain the already-proven Build-658 first-bucket failure: with zero project padding and zero fixed capacity lease, QS_FAKE `network_speed` / `vpn` were already terminal/hidden. Adding positive end padding reduces usable width further; it has no mechanism to restore those peers.
 
-This matches a documented historical failure. Build 506 used a one-shot final-width occupancy cutover and was device-rejected because the native peer row jumped to its final horizontal layout at gesture entry. Build 507 corrected that class of failure by deriving reservation width from the same raw HyperOS expansion progress that drives Control Center motion.
+Build 662 therefore returns island runtime behavior to the Build-658/655 ownership boundary and changes diagnostics only:
+- no island fake-carrier capacity lease;
+- no island project end-padding;
+- no represented-slot re-exclusion;
+- no `getIslandShowing()` / `getIslandTranslationX()` semantic override;
+- no peer state / alpha / visibility / translation / island-width write;
+- extend the existing bounded `islandProbe` from v2 to v3 with the steady source status row beside QS_FAKE and final QS;
+- record each sampled child’s actual screen X/Y in addition to layout-local state.
 
-Build 660 recreated the same structural mistake through a different property: the fixed fake-carrier capacity lease expanded the island QS_FAKE carrier to the full parent width before meaningful expansion. The diagnostic then shows an early island bucket around fraction 0.13 with the fake row already near full width, peers kept at normal island state, and stable large fake-row X offsets. This preserves peer visibility by removing the capacity pressure that HyperOS uses for island avoidance, rather than preserving native avoidance.
-
-Build 661 therefore supersedes Build 660:
-- remove the fixed fake-carrier capacity lease from island-native-layout mode;
-- keep represented native Wi-Fi/mobile/Battery participants measured and laid out (no island `ignoredSlots`);
-- keep the removed `getIslandTranslationX()` compensation absent;
-- permit only the already-existing semantic `statusIcons.paddingEnd` reservation while a transition reservation is active, with its width driven directly by raw HyperOS expansion progress;
-- no steady/base island padding is applied before transition start, and clearing the transition restores the native padding baseline;
-- ordinary no-island Control Center keeps the accepted Build-611/612 fixed capacity lease unchanged;
-- the Build-494 charging/Battery-Island reservation exclusion remains unchanged for ordinary layout, but is lifted only when the exact current QS_FAKE Session is already in Build-655 island-native-layout mode, because that mode intentionally removed the compact reservation Build 494 assumed.
+The missing causal fact is now precise: whether a peer such as `network_speed` / `vpn` is already terminal in the Home source row, or becomes terminal only when QS_FAKE computes its own `NewStatusIconState`.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003661` / Build `20261003-661`.
-- Review must confirm there is no fixed island carrier-width lease, no island-boundary return-value hook, no represented-slot exclusion, and no independent timing curve.
-- Exact-HEAD Runtime CI is required before one signed Canary.
-- Device evidence is mandatory because the candidate deliberately re-tests progress-synchronous end reservation under the newer Build-655 native-layout split.
+- Candidate identity: `0.0.5` / versionCode `261003662` / Build `20261003-662`.
+- Build 661 Runtime CI `37089713115` succeeded, but 661 is intentionally not Canary-tested because review found the zero-padding contradiction above.
+- Build 662 must receive exact-HEAD Runtime CI and one signed Canary because the new source-row evidence is runtime-only.
+- Runtime behavior is intentionally restored to the Build-658 island path; this checkpoint is diagnostic, not a visual fix.
 
 ## Device gate
 
-Validate one signed Build-661 Canary:
+One active-island slow Home -> Control Center pull is sufficient, preferably with the same charging-island + dual-SIM setup. Export one detailed diagnostic.
 
-1. Active generic island: slow Home -> Control Center pull and return. Native peers should move horizontally with the gesture instead of settling at the first sample, while HyperOS island avoidance remains active.
-2. Charging island + dual SIM: verify the second mobile presentation is neither consumed immediately nor allowed to overlap the island.
-3. Verify there is no Build-611 style initial whole-row left jump.
-4. Verify fake peer visibility/avoidance changes evolve with expansion rather than one-shot at entry.
-5. Recheck one ordinary no-island pull and export one detailed diagnostic.
+Expected `islandProbe=v3` evidence must contain, in the same expansion buckets:
+- `source=` Home status row;
+- `fake=` QS_FAKE row;
+- `final=` final QS row;
+- per-peer `visibleState / inIslandState / beforeInIslandState / layoutTranslationX / sx / sy`.
 
-Expected diagnostic evidence:
-- island sessions report `reservationMode=native-island-progress-padding`;
-- `fakeCarrierWidth=-1` / no island fixed capacity lease;
-- `nativeReservation` follows the progress-derived logical reservation instead of remaining `-1`;
-- child island state / visibility remains HyperOS-owned.
+Decision rule:
+- source normal, fake terminal at first bucket -> fix the source-to-QS_FAKE handoff/state calculation;
+- source already terminal before fake -> fix Home island occupancy/source state;
+- source/fake state match but screen X diverges -> inspect carrier/root transform ownership instead of state membership.
 
 No Keyguard/AOD validation is required for this checkpoint.
 
 ## Immediate next step
 
-Review Build 661, run exact-HEAD Runtime CI, then one signed Canary. Freeze runtime after Canary until the focused island device gate returns.
+Review Build 662, run exact-HEAD Runtime CI, then one signed Canary and freeze runtime for the single source-to-fake diagnostic pass.
 
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
 2. this file;
 3. current source / exact-target SystemUI evidence;
-4. `docs/reference/statusbar-composition-patterns.md` Build-506/507 reservation lifecycle;
+4. task-specific architecture/reference docs;
 5. relevant `DEVLOG.md` history.

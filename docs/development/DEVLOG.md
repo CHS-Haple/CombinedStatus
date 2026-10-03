@@ -2982,3 +2982,40 @@ The candidate intentionally re-tests a narrower variant of a historically blocke
 ### Validation
 
 Run exact-head Runtime CI, then one signed Canary. Device acceptance requires progressive horizontal peer motion, restored island avoidance, charging island + dual SIM, no initial left jump, ordinary no-island regression, and one detailed diagnostic.
+
+
+## 2026-10-03 — Build 662: source-to-QS_FAKE island handoff probe
+
+**Type:** device-feedback rollback / bounded read-only diagnostic  
+**Display version:** 0.0.5  
+**Build:** 662 / `20261003-662`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Evidence
+
+Build 660 is device-rejected: the island-only fixed fake-carrier lease removes native island avoidance and does not remove the gesture-entry horizontal settling.
+
+Build 661 replaced that one-shot carrier expansion with the historical native-progress total-padding curve and passed Runtime CI. Review then found a stronger contradiction before Canary: Build 658 had already captured QS_FAKE peers terminal/hidden in the first island bucket while project island padding and fixed capacity lease were both absent. Positive end padding can only reduce the fake row's usable width; therefore Build 661 has no mechanism to recover the already-hidden peer and is superseded without device testing.
+
+### Build-662 change
+
+- Restore `SystemUiHomePresentationOwner`, its focused tests, and the island scene-policy runtime boundary to Build 658.
+- Restore `CombinedStatusControlCenterTransitionOwner` reservation behavior to Build 658.
+- Keep the existing v2 child-state accessor through `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)`.
+- Advance the bounded detailed transition diagnostic to `islandProbe=v3`.
+- Carry the already-existing steady `CombinedStatusTransitionSourceWitness.motionCarrier` into the transition Session as a **read-only source status-row witness**.
+- Report source / QS_FAKE / final rows in the same diagnostic snapshot.
+- Add each sampled child’s actual `getLocationOnScreen()` X/Y beside local bounds and `NewStatusIconState`.
+
+### Ownership
+
+No functional hook, state source, layout request, ignored-slot mutation, padding mutation, carrier-width mutation, alpha/visibility write, peer translation write, island-width write, animator, timer or retry is added. The source row is a weak read-only witness and is sampled only inside the existing detailed/bucketed diagnostic path.
+
+### Decision gate
+
+One active-island slow pull with detailed diagnostics is sufficient:
+- source normal -> fake terminal: source-to-QS_FAKE handoff/state calculation is the next boundary;
+- source already terminal: Home island occupancy/state is the next boundary;
+- source/fake state equal but screen X diverges: carrier/root transform is the next boundary.
+
+Build 662 requires exact-head Runtime CI and one signed Canary.
