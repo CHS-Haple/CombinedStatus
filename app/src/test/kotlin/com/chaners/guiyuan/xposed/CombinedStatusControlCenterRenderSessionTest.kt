@@ -52,6 +52,47 @@ class CombinedStatusControlCenterRenderSessionTest {
             ),
         )
     }
+
+    @Test
+    fun islandNativeLayoutLatchesForTheActiveGesture() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeLayoutLatched(
+                currentLatched = false,
+                islandShowing = true,
+                requestedVisible = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeLayoutLatched(
+                currentLatched = true,
+                islandShowing = false,
+                requestedVisible = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeLayoutLatched(
+                currentLatched = true,
+                islandShowing = false,
+                requestedVisible = false,
+            ),
+        )
+    }
+
+    @Test
+    fun islandNativeLayoutStillAllowsGuiyuanControlCenterProjection() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                sceneEligible = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+                nativePresentationReady = true,
+            ),
+        )
+    }
+
     @Test
     fun firstLayoutRetryOnlyCoversEarlyGeometryReadinessFailures() {
         assertTrue(

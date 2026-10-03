@@ -21,6 +21,79 @@ class SystemUiHomePresentationOwnerTest {
         assertEquals(listOf("alarm_clock", "wifi"), slots)
     }
 
+
+    @Test
+    fun controlCenterFakeAlwaysLeasesCapacityWhenPreciseIslandAvoidanceOwnsPeers() {
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyFakeCarrierCapacityLease(
+                    surfaceName = "control-center-fake",
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyFakeCarrierCapacityLease(
+                    surfaceName = "home",
+                ),
+        )
+    }
+
+    @Test
+    fun opticalIslandCollisionDoesNotHideSeparatedPeer() {
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 900f,
+                    top = 70f,
+                    right = 940f,
+                    bottom = 130f,
+                    islandLeft = 522f,
+                    islandTop = 31f,
+                    islandRight = 918f,
+                    islandBottom = 156f,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 950f,
+                    top = 70f,
+                    right = 1010f,
+                    bottom = 130f,
+                    islandLeft = 522f,
+                    islandTop = 31f,
+                    islandRight = 918f,
+                    islandBottom = 156f,
+                ),
+        )
+    }
+
+    @Test
+    fun island2DGateRequiresRealRectangleOverlap() {
+        fun intersects(
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+        ): Boolean =
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = left,
+                    top = top,
+                    right = right,
+                    bottom = bottom,
+                    islandLeft = 522,
+                    islandTop = 31,
+                    islandRight = 918,
+                    islandBottom = 156,
+                )
+
+        assertTrue(intersects(left = 768, top = 89, right = 1246, bottom = 164))
+        assertFalse(intersects(left = 747, top = 204, right = 1225, bottom = 279))
+        assertFalse(intersects(left = 919, top = 89, right = 1200, bottom = 164))
+        assertFalse(intersects(left = 768, top = 156, right = 1246, bottom = 231))
+    }
+
     @Test
     fun persistentIgnoredSlotRestoreRemovesOnlySessionOwnedDelta() {
         val existing = listOf("alarm_clock", "wifi")
@@ -108,6 +181,42 @@ class SystemUiHomePresentationOwnerTest {
                 actualBatteryWidthPx = 135,
                 requestedSlotWidthPx = 105,
             ),
+        )
+    }
+
+    @Test
+    fun islandMidGestureCapacityLeaseCountsOnlyPostActivationGrowth() {
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 200,
+                    baselineReservationPx = 200,
+                ),
+        )
+        assertEquals(
+            49,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 249,
+                    baselineReservationPx = 200,
+                ),
+        )
+        assertEquals(
+            250,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 250,
+                    baselineReservationPx = 0,
+                ),
+        )
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 180,
+                    baselineReservationPx = 200,
+                ),
         )
     }
 

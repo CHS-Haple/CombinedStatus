@@ -1,14 +1,21 @@
 package com.chaners.guiyuan.xposed
 
 import android.graphics.Rect
+import android.graphics.RectF
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
+import java.lang.reflect.Modifier
+import java.util.ArrayDeque
+import java.util.Collections
+import java.util.IdentityHashMap
 
 internal object SystemUiHomePresentationOwner {
     private const val HOME_HOST =
@@ -26,6 +33,10 @@ internal object SystemUiHomePresentationOwner {
         "combinedstatus.homePresentation.statusIconsLayout"
     private const val BATTERY_HIDE_HOOK_ID =
         "combinedstatus.homePresentation.batteryHideState"
+    private const val FAKE_ISLAND_MONITOR_CLASS =
+        "com.android.systemui.statusbar.IslandMonitor\$FakeContainerIslandMonitor"
+    private const val FAKE_ISLAND_WIDTH_HOOK_ID =
+        "combinedstatus.homePresentation.fakeIslandWidth2D"
     private const val CONTROL_CENTER_FAKE_SURFACE = "control-center-fake"
 
     private val representedSlots =
@@ -34,6 +45,7 @@ internal object SystemUiHomePresentationOwner {
     private var measureHook: HookHandle? = null
     private var layoutHook: HookHandle? = null
     private var batteryHideHook: HookHandle? = null
+    private var fakeIslandWidthHook: HookHandle? = null
     private var ignoredSlotsField: Field? = null
     private var addIgnoredSlotsMethod: java.lang.reflect.Method? = null
     private var setIgnoredSlotsMethod: java.lang.reflect.Method? = null
@@ -49,6 +61,8 @@ internal object SystemUiHomePresentationOwner {
     private var keyguardEventSink: ((String) -> Unit)? = null
     private var keyguardFailNativeSink: ((String) -> Unit)? = null
     private var keyguardReadySink: ((StateResult.Active) -> Unit)? = null
+    private var contractProbeEnabled: () -> Boolean = { false }
+    private var controlCenterIslandContractProbeSummary: String? = null
 
     val installedHookCount: Int
         @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
@@ -60,6 +74,19 @@ internal object SystemUiHomePresentationOwner {
     @Synchronized
     internal fun currentKeyguardRepresentedSlotOwnership(): Set<String> =
         keyguardCurrent?.ownedRepresentedSlots() ?: emptySet()
+
+    @Synchronized
+    internal fun currentControlCenterNativeLayoutAuthority(): Boolean =
+        controlCenterCurrent?.usesNativeLayoutAuthority() == true
+
+    @Synchronized
+    internal fun currentControlCenterIslandContractProbeSummary(): String =
+        controlCenterIslandContractProbeSummary ?: "unavailable"
+
+    @Synchronized
+    private fun publishControlCenterIslandContractProbeSummary(summary: String) {
+        controlCenterIslandContractProbeSummary = summary
+    }
 
     @Synchronized
     fun onVisualSettingsChanged() {
@@ -74,10 +101,12 @@ internal object SystemUiHomePresentationOwner {
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
         onFailNative: ((String) -> Unit)? = null,
+        isProbeEnabled: () -> Boolean = { false },
     ): InstallResult {
         if (installedHookCount == 3) {
             eventSink = onEvent
             failNativeSink = onFailNative
+            contractProbeEnabled = isProbeEnabled
             return InstallResult.AlreadyInstalled
         }
         if (installedHookCount != 0) {
@@ -188,6 +217,7 @@ internal object SystemUiHomePresentationOwner {
 
         eventSink = onEvent
         failNativeSink = onFailNative
+        contractProbeEnabled = isProbeEnabled
         ignoredSlotsField = field
         addIgnoredSlotsMethod = addIgnoredSlots
         setIgnoredSlotsMethod = setIgnoredSlots
@@ -236,6 +266,31 @@ internal object SystemUiHomePresentationOwner {
         measureHook = first
         layoutHook = second
         batteryHideHook = third
+        fakeIslandWidthHook =
+            runCatching {
+                val monitorClass =
+                    Class.forName(FAKE_ISLAND_MONITOR_CLASS, false, classLoader)
+                val getIslandWidth =
+                    monitorClass.declaredMethods
+                        .filter { method ->
+                            method.name == "getIslandWidth" &&
+                                method.parameterCount == 0 &&
+                                method.returnType == Int::class.javaPrimitiveType
+                        }
+                        .singleOrNull()
+                        ?.apply { isAccessible = true }
+                        ?: error("get-island-width-contract-missing")
+                module
+                    .hook(getIslandWidth)
+                    .setId(FAKE_ISLAND_WIDTH_HOOK_ID)
+                    .intercept(fakeIslandWidthHooker())
+            }.onFailure { error ->
+                eventSink?.invoke(
+                    "controlCenterIslandWidthGate unavailable reason=" +
+                        (error.message ?: error.javaClass.simpleName) +
+                        " fallback=native",
+                )
+            }.getOrNull()
         return InstallResult.Installed
     }
 
@@ -466,6 +521,7 @@ internal object SystemUiHomePresentationOwner {
         onEvent: (String) -> Unit,
         onFailNative: (String) -> Unit,
         onReady: (ControlCenterStateResult.Active) -> Unit,
+        nativeLayoutAuthority: Boolean = false,
     ): ControlCenterStateResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return ControlCenterStateResult.Failure("main-thread-required")
@@ -516,7 +572,8 @@ internal object SystemUiHomePresentationOwner {
                 batteryContainer = batteryContainer,
                 battery = battery,
                 batteryCarrier = batteryCarrier,
-            ) == true
+            ) == true &&
+            existing.usesNativeLayoutAuthority() == nativeLayoutAuthority
         ) {
             val masked =
                 existing.start(
@@ -559,6 +616,8 @@ internal object SystemUiHomePresentationOwner {
                 surfaceName = "control-center-fake",
                 eventPrefix = "controlCenterPresentation",
                 retainReservationOnTransientLiveWidthLoss = true,
+                nativeLayoutAuthority = nativeLayoutAuthority,
+                isProbeEnabled = { contractProbeEnabled() },
                 onEvent = { event -> controlCenterEventSink?.invoke(event) },
                 onFailNative = ::onControlCenterSessionFailure,
             )
@@ -697,6 +756,7 @@ internal object SystemUiHomePresentationOwner {
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
         runCatching { batteryHideHook?.unhook() }
+        runCatching { fakeIslandWidthHook?.unhook() }
         clearInstallState()
     }
 
@@ -757,7 +817,28 @@ internal object SystemUiHomePresentationOwner {
                 val masked = session.refreshClipMasks()
                 session.onNativeLayoutCompleted(masked)
             }
+            if (refreshMasksAfter) {
+                session.updatePreciseIslandAvoidanceAfterNativeLayout()
+            }
             result
+        }
+
+    private fun fakeIslandWidthHooker(): Hooker =
+        Hooker { chain ->
+            val nativeResult = chain.proceed()
+            val nativeWidth =
+                nativeResult as? Int
+                    ?: return@Hooker nativeResult
+            if (nativeWidth <= 0) {
+                return@Hooker nativeResult
+            }
+            val monitor = chain.thisObject
+            val session =
+                synchronized(this) {
+                    controlCenterCurrent
+                        ?.takeIf { candidate -> candidate.ownsIslandMonitor(monitor) }
+                } ?: return@Hooker nativeResult
+            session.resolve2DIslandWidth(nativeWidth)
         }
 
     private fun batteryHideStateHooker(): Hooker =
@@ -846,14 +927,22 @@ internal object SystemUiHomePresentationOwner {
                 maskedViews = maskedViews,
                 reused = reused,
             )
+        val nativeLayoutAuthority = session.usesNativeLayoutAuthority()
+        val slotExclusion = "session-native-ignored-slots"
+        val carrierReservation =
+            if (nativeLayoutAuthority) {
+                "qs-fake-capacity-lease+optical-island-clip+statusIcons-paddingEnd"
+            } else {
+                "qs-fake-capacity-lease+status-icons-end-padding"
+            }
         controlCenterEventSink?.invoke(
             "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + maskedViews +
-                " slotExclusion=session-native-ignored-slots " +
-                "carrierReservation=qs-fake-capacity-lease+status-icons-end-padding " +
-                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
-                "cutover=compact-layout-ready nativeLayoutReservationOwner=single " +
+                " slotExclusion=" + slotExclusion +
+                " carrierReservation=" + carrierReservation +
+                " carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "cutover=layout-ready nativeLayoutReservationOwner=single " +
                 "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
         )
         controlCenterReadySink?.invoke(active)
@@ -878,6 +967,7 @@ internal object SystemUiHomePresentationOwner {
         measureHook = null
         layoutHook = null
         batteryHideHook = null
+        fakeIslandWidthHook = null
         ignoredSlotsField = null
         addIgnoredSlotsMethod = null
         setIgnoredSlotsMethod = null
@@ -892,6 +982,8 @@ internal object SystemUiHomePresentationOwner {
         keyguardEventSink = null
         keyguardFailNativeSink = null
         keyguardReadySink = null
+        contractProbeEnabled = { false }
+        controlCenterIslandContractProbeSummary = null
     }
 
     private class Session(
@@ -908,6 +1000,8 @@ internal object SystemUiHomePresentationOwner {
         private val surfaceName: String,
         private val eventPrefix: String,
         private val retainReservationOnTransientLiveWidthLoss: Boolean,
+        private val nativeLayoutAuthority: Boolean = false,
+        private val isProbeEnabled: () -> Boolean = { false },
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -928,11 +1022,23 @@ internal object SystemUiHomePresentationOwner {
         private var nativeFakeCarrierParentContentWidthPx: Int? = null
         private var appliedFakeCarrierWidthPx: Int? = null
         private var fakeCarrierCapacityDeltaPx: Int? = null
+        private var fakeCarrierCapacityBaselineReservationPx: Int? = null
         private var fakeCarrierCapacityLeaseAwaitingLayout = false
         private var transientLiveBatteryWidthUnavailable = false
         private var persistentIgnoredSlotsApplied = false
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
         private var transitionRequestedSlotWidthPx: Int? = null
+        private var islandContractProbeReported = false
+        private var islandMonitorRef = WeakReference<Any>(null)
+        private val islandRectBuffer = Rect()
+        private val opticalRectBuffer = RectF()
+        private val screenLocationBuffer = IntArray(2)
+        private var preciseIslandAvoidanceActive = false
+        private var preciseIslandModeReported = false
+        private var island2DGeometryUnavailableReported = false
+        private val opticalGeometryUnavailableSlots = linkedSetOf<String>()
+        private val latchedIslandAvoidedSlots = linkedSetOf<String>()
+        private val islandPeerClipStates = mutableListOf<ClipState>()
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -988,6 +1094,456 @@ internal object SystemUiHomePresentationOwner {
         fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
             active && batteryContainer.get() === candidate
 
+        fun usesNativeLayoutAuthority(): Boolean = nativeLayoutAuthority
+
+        fun ownsIslandMonitor(candidate: Any): Boolean =
+            active && islandMonitorRef.get() === candidate
+
+        private fun captureControlCenterIslandMonitor(group: ViewGroup) {
+            if (
+                !active ||
+                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
+                islandMonitorRef.get() != null
+            ) {
+                return
+            }
+            val field =
+                generateSequence<Class<*>>(group.javaClass) { owner -> owner.superclass }
+                    .takeWhile { owner -> owner != Any::class.java }
+                    .mapNotNull { owner ->
+                        runCatching {
+                            owner.getDeclaredField("_islandMonitor").apply {
+                                isAccessible = true
+                            }
+                        }.getOrNull()
+                    }
+                    .firstOrNull()
+                    ?: run {
+                        reportIsland2DGeometryUnavailableOnce("fake-island-monitor-field-missing")
+                        return
+                    }
+            val monitor =
+                runCatching { field.get(group) }.getOrNull()
+                    ?.takeIf { value -> value.javaClass.name == FAKE_ISLAND_MONITOR_CLASS }
+                    ?: run {
+                        reportIsland2DGeometryUnavailableOnce("fake-island-monitor-unavailable")
+                        return
+                    }
+            islandMonitorRef = WeakReference(monitor)
+            onEvent(
+                eventPrefix +
+                    " islandWidth2DGate monitorBound=true" +
+                    " monitor=" + monitor.javaClass.simpleName +
+                    " fallback=native-on-geometry-loss nativeGeometryWrites=0",
+            )
+        }
+
+        fun resolve2DIslandWidth(nativeWidth: Int): Int {
+            if (
+                nativeWidth <= 0 ||
+                !active ||
+                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
+                !nativeLayoutAuthority
+            ) {
+                return nativeWidth
+            }
+            val group =
+                statusIcons.get()
+                    ?: run {
+                        reportIsland2DGeometryUnavailableOnce("fake-status-icons-released")
+                        return nativeWidth
+                    }
+            if (
+                !group.isAttachedToWindow ||
+                group.width <= 0 ||
+                group.height <= 0
+            ) {
+                reportIsland2DGeometryUnavailableOnce("fake-not-laid-out")
+                return nativeWidth
+            }
+            if (!SystemUiIslandMotionSource.copyCurrentIslandRect(islandRectBuffer)) {
+                reportIsland2DGeometryUnavailableOnce("live-island-rect-unavailable")
+                return nativeWidth
+            }
+
+            preciseIslandAvoidanceActive = true
+            if (!preciseIslandModeReported) {
+                preciseIslandModeReported = true
+                onEvent(
+                    eventPrefix +
+                        " islandOpticalGate active=true" +
+                        " nativeWidth=" + nativeWidth +
+                        " exposedWidth=0" +
+                        " authority=per-peer-optical-collision" +
+                        " fallback=native-on-geometry-loss" +
+                        " nativeGeometryWrites=0 peerStateWrites=0",
+                )
+            }
+            return 0
+        }
+
+        fun updatePreciseIslandAvoidanceAfterNativeLayout() {
+            if (
+                !active ||
+                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
+                !nativeLayoutAuthority ||
+                !preciseIslandAvoidanceActive
+            ) {
+                return
+            }
+            if (!SystemUiIslandMotionSource.copyCurrentIslandRect(islandRectBuffer)) {
+                reportIsland2DGeometryUnavailableOnce("live-island-rect-unavailable-after-layout")
+                return
+            }
+            val group =
+                statusIcons.get()
+                    ?: run {
+                        onFailNative("island-optical-status-icons-released")
+                        return
+                    }
+
+            for (index in 0 until group.childCount) {
+                val child = group.getChildAt(index)
+                val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+                if (
+                    slot in representedSlots ||
+                    slot in latchedIslandAvoidedSlots ||
+                    child.visibility != View.VISIBLE ||
+                    child.width <= 0 ||
+                    child.height <= 0
+                ) {
+                    continue
+                }
+
+                val opticalSource =
+                    resolvePeerOpticalBoundsOnScreen(
+                        view = child,
+                        out = opticalRectBuffer,
+                    )
+                if (opticalSource == null) {
+                    if (opticalGeometryUnavailableSlots.add(slot)) {
+                        onEvent(
+                            eventPrefix +
+                                " islandOpticalGate geometry=unavailable" +
+                                " slot=" + slot +
+                                " action=keep-visible" +
+                                " fallback=no-overhide",
+                        )
+                    }
+                    continue
+                }
+
+                if (
+                    ControlCenterIslandOverlapPolicy.intersects(
+                        left = opticalRectBuffer.left,
+                        top = opticalRectBuffer.top,
+                        right = opticalRectBuffer.right,
+                        bottom = opticalRectBuffer.bottom,
+                        islandLeft = islandRectBuffer.left.toFloat(),
+                        islandTop = islandRectBuffer.top.toFloat(),
+                        islandRight = islandRectBuffer.right.toFloat(),
+                        islandBottom = islandRectBuffer.bottom.toFloat(),
+                    )
+                ) {
+                    latchedIslandAvoidedSlots += slot
+                    onEvent(
+                        eventPrefix +
+                            " islandOpticalGate latch=" + slot +
+                            " optical=(" +
+                            opticalRectBuffer.left.toInt() + "," +
+                            opticalRectBuffer.top.toInt() + "," +
+                            opticalRectBuffer.right.toInt() + "," +
+                            opticalRectBuffer.bottom.toInt() + ")" +
+                            " island=(" +
+                            islandRectBuffer.left + "," +
+                            islandRectBuffer.top + "," +
+                            islandRectBuffer.right + "," +
+                            islandRectBuffer.bottom + ")" +
+                            " source=" + opticalSource +
+                            " sticky=session",
+                    )
+                }
+            }
+            refreshIslandPeerLatchMasks()
+        }
+
+        private fun resolvePeerOpticalBoundsOnScreen(
+            view: View,
+            out: RectF,
+        ): String? {
+            out.setEmpty()
+            return collectPeerOpticalBoundsOnScreen(
+                view = view,
+                out = out,
+                depth = 0,
+            )
+        }
+
+        private fun collectPeerOpticalBoundsOnScreen(
+            view: View,
+            out: RectF,
+            depth: Int,
+        ): String? {
+            if (
+                view.visibility != View.VISIBLE ||
+                view.width <= 0 ||
+                view.height <= 0
+            ) {
+                return null
+            }
+
+            if (view is ImageView) {
+                imageDrawableBoundsOnScreen(view, out)?.let { return it }
+            }
+            if (view is TextView) {
+                textLayoutBoundsOnScreen(view, out)?.let { return it }
+            }
+            if (view !is ViewGroup || depth >= 3) {
+                return null
+            }
+
+            var source: String? = null
+            val childBounds = RectF()
+            for (index in 0 until view.childCount) {
+                val child = view.getChildAt(index)
+                val childSource =
+                    collectPeerOpticalBoundsOnScreen(
+                        view = child,
+                        out = childBounds,
+                        depth = depth + 1,
+                    ) ?: continue
+                if (source == null) {
+                    out.set(childBounds)
+                    source = "descendant-" + childSource
+                } else {
+                    out.union(childBounds)
+                    source = "descendant-union"
+                }
+            }
+            return source
+        }
+
+        private fun imageDrawableBoundsOnScreen(
+            image: ImageView,
+            out: RectF,
+        ): String? {
+            val drawable = image.drawable ?: return null
+            val intrinsicWidth = drawable.intrinsicWidth.takeIf { it > 0 } ?: return null
+            val intrinsicHeight = drawable.intrinsicHeight.takeIf { it > 0 } ?: return null
+            val bounds = drawable.bounds
+            val frame =
+                RectF(
+                    if (bounds.width() > 0) bounds.left.toFloat() else 0f,
+                    if (bounds.height() > 0) bounds.top.toFloat() else 0f,
+                    if (bounds.width() > 0) bounds.right.toFloat() else intrinsicWidth.toFloat(),
+                    if (bounds.height() > 0) bounds.bottom.toFloat() else intrinsicHeight.toFloat(),
+                )
+            image.imageMatrix.mapRect(frame)
+            frame.offset(
+                image.paddingLeft.toFloat(),
+                image.paddingTop.toFloat(),
+            )
+            if (frame.width() <= 0f || frame.height() <= 0f) return null
+            image.getLocationOnScreen(screenLocationBuffer)
+            frame.offset(
+                screenLocationBuffer[0].toFloat() - image.scrollX,
+                screenLocationBuffer[1].toFloat() - image.scrollY,
+            )
+            out.set(frame)
+            return "image-drawable"
+        }
+
+        private fun textLayoutBoundsOnScreen(
+            text: TextView,
+            out: RectF,
+        ): String? {
+            val layout = text.layout ?: return null
+            if (layout.lineCount <= 0 || text.text.isNullOrEmpty()) return null
+            var left = Float.POSITIVE_INFINITY
+            var top = Int.MAX_VALUE
+            var right = Float.NEGATIVE_INFINITY
+            var bottom = Int.MIN_VALUE
+            for (line in 0 until layout.lineCount) {
+                left = minOf(left, layout.getLineLeft(line))
+                right = maxOf(right, layout.getLineRight(line))
+                top = minOf(top, layout.getLineTop(line))
+                bottom = maxOf(bottom, layout.getLineBottom(line))
+            }
+            if (
+                !left.isFinite() ||
+                !right.isFinite() ||
+                right <= left ||
+                bottom <= top
+            ) {
+                return null
+            }
+            text.getLocationOnScreen(screenLocationBuffer)
+            val screenLeft =
+                screenLocationBuffer[0] +
+                    text.compoundPaddingLeft +
+                    left -
+                    text.scrollX
+            val screenTop =
+                screenLocationBuffer[1] +
+                    text.extendedPaddingTop +
+                    top -
+                    text.scrollY
+            out.set(
+                screenLeft,
+                screenTop.toFloat(),
+                screenLocationBuffer[0] +
+                    text.compoundPaddingLeft +
+                    right -
+                    text.scrollX,
+                (
+                    screenLocationBuffer[1] +
+                        text.extendedPaddingTop +
+                        bottom -
+                        text.scrollY
+                ).toFloat(),
+            )
+            return "text-layout"
+        }
+
+        private fun reportIsland2DGeometryUnavailableOnce(reason: String) {
+            if (island2DGeometryUnavailableReported) return
+            island2DGeometryUnavailableReported = true
+            onEvent(
+                eventPrefix +
+                    " islandWidth2DGate fallback=native reason=" + reason +
+                    " nativeGeometryWrites=0",
+            )
+        }
+
+        private fun reportIslandContractOnce(group: ViewGroup) {
+            if (
+                islandContractProbeReported ||
+                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
+                !isProbeEnabled()
+            ) {
+                return
+            }
+            islandContractProbeReported = true
+
+            fun relevantToken(value: String): Boolean {
+                val token = value.lowercase()
+                return token.contains("island") ||
+                    token.contains("monitor") ||
+                    token.contains("space") ||
+                    token.contains("delegate") ||
+                    token.contains("controller")
+            }
+
+            fun simpleValue(value: Any?): String =
+                when (value) {
+                    null -> "null"
+                    is Number,
+                    is Boolean,
+                    is CharSequence,
+                    is Enum<*>,
+                    -> value.toString()
+                    else -> value.javaClass.name
+                }
+
+            fun traversable(value: Any): Boolean =
+                value !is Number &&
+                    value !is Boolean &&
+                    value !is CharSequence &&
+                    value !is Enum<*> &&
+                    value !is Class<*>
+
+            val queue = ArrayDeque<Triple<String, Any, Int>>()
+            val seen = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
+            var view: View? = group
+            var viewIndex = 0
+            while (view != null && viewIndex < 5) {
+                queue.add(Triple("view[" + viewIndex + "]", view, 0))
+                view = view.parent as? View
+                viewIndex += 1
+            }
+
+            var emitted = 0
+            val persistedTokens = mutableListOf<String>()
+            while (queue.isNotEmpty() && emitted < 12 && seen.size < 16) {
+                val (path, target, depth) = queue.removeFirst()
+                if (!seen.add(target)) continue
+
+                val fieldTokens = mutableListOf<String>()
+                val methodTokens = mutableListOf<String>()
+                generateSequence<Class<*>>(target.javaClass) { owner -> owner.superclass }
+                    .takeWhile { owner -> owner != Any::class.java }
+                    .forEach { owner ->
+                        owner.declaredFields.forEach { field ->
+                            if (Modifier.isStatic(field.modifiers)) return@forEach
+                            val fieldRelevant =
+                                relevantToken(field.name) || relevantToken(field.type.name)
+                            if (!fieldRelevant) return@forEach
+                            val value =
+                                runCatching {
+                                    field.isAccessible = true
+                                    field.get(target)
+                                }.getOrNull()
+                            if (fieldTokens.size < 24) {
+                                fieldTokens +=
+                                    owner.simpleName + "." + field.name + ":" +
+                                        field.type.simpleName + "=" + simpleValue(value)
+                            }
+                            if (
+                                depth < 2 &&
+                                value != null &&
+                                traversable(value) &&
+                                seen.size + queue.size < 16
+                            ) {
+                                queue.add(
+                                    Triple(
+                                        path + "." + field.name,
+                                        value,
+                                        depth + 1,
+                                    ),
+                                )
+                            }
+                        }
+                        owner.declaredMethods.forEach { method ->
+                            val methodRelevant =
+                                relevantToken(method.name) ||
+                                    method.name == "updateContainerSize"
+                            if (!methodRelevant || methodTokens.size >= 24) return@forEach
+                            methodTokens +=
+                                owner.simpleName + "." + method.name + "(" +
+                                    method.parameterTypes.joinToString(",") { type ->
+                                        type.simpleName
+                                    } + "):" + method.returnType.simpleName
+                        }
+                    }
+
+                val contractToken =
+                    path + ":" + target.javaClass.name +
+                        "{f=" + fieldTokens.joinToString(";") +
+                        ",m=" + methodTokens.joinToString(";") + "}"
+                if (
+                    persistedTokens.size < 8 &&
+                    (fieldTokens.isNotEmpty() || methodTokens.isNotEmpty())
+                ) {
+                    persistedTokens += contractToken
+                }
+                onEvent(
+                    eventPrefix +
+                        " islandContractProbe path=" + path +
+                        " class=" + target.javaClass.name +
+                        " fields=[" + fieldTokens.joinToString(";") + "]" +
+                        " methods=[" + methodTokens.joinToString(";") + "]" +
+                        " readOnly=true nativeGeometryWrites=0",
+                )
+                emitted += 1
+            }
+            SystemUiHomePresentationOwner
+                .publishControlCenterIslandContractProbeSummary(
+                    persistedTokens
+                        .joinToString("|")
+                        .ifEmpty { "empty" },
+                )
+        }
+
         fun ownedRepresentedSlots(): Set<String> {
             if (!active || !compactLayoutReady) return emptySet()
             return clipStates
@@ -1019,6 +1575,8 @@ internal object SystemUiHomePresentationOwner {
                         return 0
                     }
             nativePadding = PaddingState.from(group)
+            reportIslandContractOnce(group)
+            captureControlCenterIslandMonitor(group)
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
             if (!applyPersistentIgnoredSlotsIfNeeded(group)) return 0
@@ -1072,6 +1630,7 @@ internal object SystemUiHomePresentationOwner {
             if (
                 !active &&
                 clipStates.isEmpty() &&
+                islandPeerClipStates.isEmpty() &&
                 appliedPadding == null &&
                 appliedFakeCarrierWidthPx == null
             ) {
@@ -1090,6 +1649,11 @@ internal object SystemUiHomePresentationOwner {
                     requestLayout = requestLayout,
                 )
             val restored = restoreClipMasks()
+            val restoredIslandPeerLatches = restoreIslandPeerLatchMasks()
+            latchedIslandAvoidedSlots.clear()
+            opticalGeometryUnavailableSlots.clear()
+            preciseIslandAvoidanceActive = false
+            preciseIslandModeReported = false
             val explicitLayoutRequest =
                 requestLayout && ignoredSlotLifetime == IgnoredSlotLifetime.NATIVE_CALL
             if (explicitLayoutRequest) {
@@ -1098,11 +1662,12 @@ internal object SystemUiHomePresentationOwner {
             onEvent(
                 eventPrefix + " cleanup source=" + source +
                     " restoredClipBounds=" + restored +
+                    " restoredIslandPeerClips=" + restoredIslandPeerLatches +
                     " restoredEndReservation=" + reservationRestored +
                     " restoredIgnoredSlots=" + ignoredSlotsRestored +
                     " requestLayout=" + explicitLayoutRequest,
             )
-            return restored
+            return restored + restoredIslandPeerLatches
         }
 
         fun <T> withRepresentedSlotsIgnored(block: () -> T): T {
@@ -1387,12 +1952,44 @@ internal object SystemUiHomePresentationOwner {
                     actualBatteryWidthPx = actualBatteryWidthPx,
                     requestedSlotWidthPx = requestedSlotWidthPx,
                 )
+            val capacityLeaseEnabled =
+                ControlCenterLayoutPolicy.shouldApplyFakeCarrierCapacityLease(
+                    surfaceName = surfaceName,
+                )
+            val capacityActivationBaselineReservationPx =
+                if (capacityLeaseEnabled && nativeLayoutAuthority) {
+                    reservationDelta.coerceAtLeast(0)
+                } else {
+                    0
+                }
             val capacityDeltaPx =
-                ensureFakeCarrierCapacityLease(hostView)
-                    ?: return false
+                if (capacityLeaseEnabled) {
+                    ensureFakeCarrierCapacityLease(
+                        hostView = hostView,
+                        reservationBaselinePx = capacityActivationBaselineReservationPx,
+                    ) ?: return false
+                } else {
+                    0
+                }
+            val capacityBaselineReservationPx =
+                if (capacityLeaseEnabled) {
+                    fakeCarrierCapacityBaselineReservationPx ?: 0
+                } else {
+                    0
+                }
+            val capacityReservationGrowthPx =
+                if (capacityLeaseEnabled) {
+                    EndReservationPolicy.resolveCapacityReservationGrowth(
+                        currentReservationPx = reservationDelta,
+                        baselineReservationPx = capacityBaselineReservationPx,
+                    )
+                } else {
+                    0
+                }
             if (
                 surfaceName == CONTROL_CENTER_FAKE_SURFACE &&
-                reservationDelta.coerceAtLeast(0) > capacityDeltaPx
+                capacityLeaseEnabled &&
+                capacityReservationGrowthPx > capacityDeltaPx
             ) {
                 onFailNative("fake-carrier-capacity-insufficient")
                 return false
@@ -1427,9 +2024,21 @@ internal object SystemUiHomePresentationOwner {
                         " basePaddingEnd=" + baseline.end +
                         " appliedPaddingEnd=" + target.end +
                         " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
-                        " fakeCarrierCapacityDelta=" + capacityDeltaPx +
+                        " fakeCarrierCapacityDelta=" +
+                        (if (capacityLeaseEnabled) capacityDeltaPx else -1) +
+                        " fakeCarrierCapacityBaselineReservation=" +
+                        (if (capacityLeaseEnabled) capacityBaselineReservationPx else -1) +
+                        " fakeCarrierCapacityGrowth=" +
+                        (if (capacityLeaseEnabled) capacityReservationGrowthPx else -1) +
                         " carrierAuthority=battery_icon_container " +
-                        "owner=qs-fake-capacity-lease+statusIcons-paddingEnd",
+                        "owner=" +
+                        (
+                            if (capacityLeaseEnabled) {
+                                "qs-fake-capacity-lease+statusIcons-paddingEnd"
+                            } else {
+                                "qs-fake-island-progress-padding"
+                            }
+                        ),
                 )
             }
             return true
@@ -1469,7 +2078,10 @@ internal object SystemUiHomePresentationOwner {
             return paddingRestored && carrierRestored
         }
 
-        private fun ensureFakeCarrierCapacityLease(hostView: ViewGroup): Int? {
+        private fun ensureFakeCarrierCapacityLease(
+            hostView: ViewGroup,
+            reservationBaselinePx: Int,
+        ): Int? {
             if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return 0
 
             val parent =
@@ -1551,6 +2163,8 @@ internal object SystemUiHomePresentationOwner {
             nativeFakeCarrierLayoutWidthPx = params.width
             nativeFakeCarrierParentContentWidthPx = parentContentWidthPx
             fakeCarrierCapacityDeltaPx = capacityDeltaPx
+            fakeCarrierCapacityBaselineReservationPx =
+                reservationBaselinePx.coerceAtLeast(0)
 
             if (params.width != parentContentWidthPx) {
                 params.width = parentContentWidthPx
@@ -1569,6 +2183,8 @@ internal object SystemUiHomePresentationOwner {
                     " nativeWidth=" + baselineWidthPx +
                     " leasedWidth=" + parentContentWidthPx +
                     " capacityDelta=" + capacityDeltaPx +
+                    " baselineReservation=" +
+                    (fakeCarrierCapacityBaselineReservationPx ?: 0) +
                     " owner=control-center-fake-session",
             )
             return capacityDeltaPx
@@ -1630,6 +2246,7 @@ internal object SystemUiHomePresentationOwner {
             nativeFakeCarrierParentContentWidthPx = null
             appliedFakeCarrierWidthPx = null
             fakeCarrierCapacityDeltaPx = null
+            fakeCarrierCapacityBaselineReservationPx = null
             fakeCarrierCapacityLeaseAwaitingLayout = false
         }
 
@@ -1700,15 +2317,18 @@ internal object SystemUiHomePresentationOwner {
         }
 
         fun onNativeLayoutCompleted(maskedViews: Int) {
+            if (!active || !started) {
+                return
+            }
+            if (fakeCarrierCapacityLeaseAwaitingLayout) {
+                fakeCarrierCapacityLeaseAwaitingLayout = false
+            }
             if (
-                !active ||
-                !started ||
                 !deferVisualMaskUntilLayout ||
                 compactLayoutReady
             ) {
                 return
             }
-            fakeCarrierCapacityLeaseAwaitingLayout = false
             compactLayoutReady = true
             val callback = layoutReadyCallback
             layoutReadyCallback = null
@@ -1717,6 +2337,73 @@ internal object SystemUiHomePresentationOwner {
                     " maskedViews=" + maskedViews,
             )
             callback?.invoke(maskedViews)
+        }
+
+        fun reconcileIslandGestureAfterNativeLayout() {
+            updatePreciseIslandAvoidanceAfterNativeLayout()
+        }
+
+        private fun refreshIslandPeerLatchMasks(): Int {
+            val group =
+                statusIcons.get()
+                    ?: run {
+                        onFailNative("island-peer-latch-status-icons-released")
+                        return 0
+                    }
+            val targets = linkedSetOf<View>()
+            for (index in 0 until group.childCount) {
+                val child = group.getChildAt(index)
+                if (NativeParticipantRuntimeAccess.slotOf(child) in latchedIslandAvoidedSlots) {
+                    targets += child
+                }
+            }
+
+            val iterator = islandPeerClipStates.iterator()
+            while (iterator.hasNext()) {
+                val state = iterator.next()
+                val view = state.view.get()
+                if (view == null || view !in targets) {
+                    if (view != null) {
+                        restoreClipState(state)
+                    }
+                    iterator.remove()
+                }
+            }
+
+            targets.forEach { view ->
+                val existing =
+                    islandPeerClipStates
+                        .firstOrNull { state -> state.view.get() === view }
+                if (existing == null) {
+                    val nativeClip = view.clipBounds?.let(::Rect)
+                    val applied = Rect(0, 0, 0, 0)
+                    view.clipBounds = applied
+                    islandPeerClipStates +=
+                        ClipState(
+                            view = WeakReference(view),
+                            nativeClip = nativeClip,
+                            appliedClip = applied,
+                        )
+                } else if (view.clipBounds == existing.nativeClip) {
+                    view.clipBounds = existing.appliedClip
+                } else if (view.clipBounds != existing.appliedClip) {
+                    onFailNative("island-peer-latch-clip-writer-conflict")
+                    return 0
+                }
+            }
+            return islandPeerClipStates.count { state -> state.view.get() != null }
+        }
+
+        private fun restoreIslandPeerLatchMasks(): Int {
+            val states = islandPeerClipStates.toList()
+            islandPeerClipStates.clear()
+            var restored = 0
+            states.forEach { state ->
+                if (restoreClipState(state)) {
+                    restored += 1
+                }
+            }
+            return restored
         }
 
         fun refreshClipMasks(): Int {
@@ -1819,6 +2506,51 @@ internal object SystemUiHomePresentationOwner {
         PRESENTATION_SESSION,
     }
 
+    internal object ControlCenterIslandOverlapPolicy {
+        fun intersects(
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+            islandLeft: Int,
+            islandTop: Int,
+            islandRight: Int,
+            islandBottom: Int,
+        ): Boolean =
+            intersects(
+                left = left.toFloat(),
+                top = top.toFloat(),
+                right = right.toFloat(),
+                bottom = bottom.toFloat(),
+                islandLeft = islandLeft.toFloat(),
+                islandTop = islandTop.toFloat(),
+                islandRight = islandRight.toFloat(),
+                islandBottom = islandBottom.toFloat(),
+            )
+
+        fun intersects(
+            left: Float,
+            top: Float,
+            right: Float,
+            bottom: Float,
+            islandLeft: Float,
+            islandTop: Float,
+            islandRight: Float,
+            islandBottom: Float,
+        ): Boolean =
+            left < islandRight &&
+                islandLeft < right &&
+                top < islandBottom &&
+                islandTop < bottom
+    }
+
+    internal object ControlCenterLayoutPolicy {
+        fun shouldApplyFakeCarrierCapacityLease(
+            surfaceName: String,
+        ): Boolean =
+            surfaceName == CONTROL_CENTER_FAKE_SURFACE
+    }
+
     internal object PersistentIgnoredSlotPolicy {
         fun <T> ownedDelta(
             existing: Collection<T>,
@@ -1896,6 +2628,15 @@ internal object SystemUiHomePresentationOwner {
                 requested - actual
             }
         }
+
+        fun resolveCapacityReservationGrowth(
+            currentReservationPx: Int,
+            baselineReservationPx: Int,
+        ): Int =
+            (
+                currentReservationPx.coerceAtLeast(0) -
+                    baselineReservationPx.coerceAtLeast(0)
+            ).coerceAtLeast(0)
 
         fun resolveFakeCarrierCapacityDelta(
             nativeCarrierWidthPx: Int,

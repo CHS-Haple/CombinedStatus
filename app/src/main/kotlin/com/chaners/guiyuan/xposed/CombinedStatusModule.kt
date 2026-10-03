@@ -559,6 +559,7 @@ class CombinedStatusModule : XposedModule() {
                         }
                     },
                     onFailNative = ::onHomePresentationRuntimeFailure,
+                    isProbeEnabled = { detailedDiagnosticsEnabled },
                 )
         ) {
             SystemUiHomePresentationOwner.InstallResult.Installed,
@@ -935,6 +936,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiIslandMotionSource.install(
                 module = this,
                 classLoader = classLoader,
+                onStatusChanged = ::onIslandStatusChanged,
                 onEvent =
                     if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                         ::onIslandMotionEvent
@@ -978,6 +980,32 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
             )
             log(Log.ERROR, TAG, "Island motion source installation failed", error)
+        }
+    }
+
+    private fun onIslandStatusChanged(showing: Boolean) {
+        val nativeBatteryHide =
+            SystemUiNativeBatterySuppressionOwner.currentNativeLayoutHide()
+        val occupancyReconciled =
+            nativeBatteryHide?.let { hidden ->
+                SystemUiNativeCombinedParticipantOwner
+                    .onNativeBatteryLayoutHideChanged(hidden)
+            }
+
+        CombinedStatusControlCenterRenderSession.setIslandShowing(showing)
+
+        if (detailedDiagnosticsEnabled) {
+            log(
+                Log.INFO,
+                TAG,
+                "islandPresentation reconcile showing=" + showing +
+                    " nativeBatteryHide=" + (nativeBatteryHide ?: "unknown") +
+                    " occupancyReconciled=" + (occupancyReconciled ?: "not-applicable") +
+                    " occupancy=" +
+                    SystemUiNativeCombinedParticipantOwner.currentIslandOccupancyDiagnostic() +
+                    " controlCenter=" +
+                    if (showing) "native-layout-authority" else "compact-when-safe",
+            )
         }
     }
 

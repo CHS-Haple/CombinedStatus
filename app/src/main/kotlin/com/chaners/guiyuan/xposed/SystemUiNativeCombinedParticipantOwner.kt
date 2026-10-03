@@ -100,6 +100,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var unlockedGeometryLogged = false
     private var visualBoundsLogged = false
     private var slotTranslationCorrectionLogged = false
+    private var slotTranslationIslandBypassLogged = false
     private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
@@ -362,6 +363,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 target !== root ||
                                 !newStatusIconStateClass.isInstance(chain.thisObject)
                             ) {
+                                return@Hooker chain.proceed()
+                            }
+                            if (
+                                !allowsNativeSlotTranslationCorrection(
+                                    SystemUiIslandMotionSource.currentIslandShowing(),
+                                )
+                            ) {
+                                if (!slotTranslationIslandBypassLogged) {
+                                    slotTranslationIslandBypassLogged = true
+                                    eventSink?.invoke(
+                                        "nativeCombinedParticipant slotTranslation " +
+                                            "authority=hyperos-island bypass=true " +
+                                            "moduleStateWrites=0",
+                                    )
+                                }
                                 return@Hooker chain.proceed()
                             }
                             val desired =
@@ -648,6 +664,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         unlockedGeometryLogged = false
         visualBoundsLogged = false
         slotTranslationCorrectionLogged = false
+        slotTranslationIslandBypassLogged = false
         featureEnabled = false
         eventSink = null
         return true
@@ -1871,6 +1888,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
+    internal fun allowsNativeSlotTranslationCorrection(
+        islandShowing: Boolean?,
+    ): Boolean = islandShowing != true
+
     internal fun resolveNativeSlotTranslationX(
         statusIconsWidth: Int,
         rootLeft: Int,
@@ -2013,6 +2034,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private fun requestNativeLayout(root: View) {
         root.requestLayout()
         (root.parent as? View)?.requestLayout()
+    }
+
+    @Synchronized
+    fun currentIslandOccupancyDiagnostic(): String {
+        val root = rootRef?.get()
+        val visualWidth =
+            renderViewRef
+                ?.get()
+                ?.measuredWidth
+                ?.takeIf { width -> width > 0 }
+                ?: activeSlotWidth
+        return "{nativeBatteryHidden=" + nativeBatteryLayoutHidden +
+            ",rootWidth=" + (root?.layoutParams?.width ?: -1) +
+            ",visualWidth=" + visualWidth +
+            ",slotWidth=" + activeSlotWidth +
+            ",handoffCommitted=" + handoffCommitted +
+            "}"
     }
 
     @Synchronized
@@ -2298,6 +2336,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         unlockedGeometryLogged = false
         visualBoundsLogged = false
         slotTranslationCorrectionLogged = false
+        slotTranslationIslandBypassLogged = false
         renderController = null
         injected = false
         registryRestored = false

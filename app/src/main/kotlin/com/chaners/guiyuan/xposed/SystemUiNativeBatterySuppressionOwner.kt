@@ -226,6 +226,13 @@ internal object SystemUiNativeBatterySuppressionOwner {
     }
 
     @Synchronized
+    fun currentNativeLayoutHide(): Boolean? {
+        if (!suppressionActive) return null
+        val container = activeContainer?.get() ?: return latestNativeHideRequest
+        return readNativeHideLocked(container) ?: latestNativeHideRequest
+    }
+
+    @Synchronized
     fun deactivate(source: String): StateResult {
         val container = activeContainer?.get()
         val nativeHide =

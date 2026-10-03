@@ -2218,3 +2218,1123 @@ This correction is CI presentation/branch hygiene only and does not affect the A
 - Diagnostic limitation noted: the current `visualSettings.changed` summary does not yet emit `airplaneSizeScale` / `noSimSizeScale`, so exact per-profile value evidence comes from the profile-key/unit coverage plus maintainer visual validation rather than the runtime summary line itself.
 - Build 619 is accepted for integration into `dev`; no further runtime change is required for this feature.
 
+
+
+## 2026-10-03 — Build 624 accepted ring baseline; Build 627 charging-glyph target handoff
+
+**Type:** device evidence / charging transition / target geometry  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 624 -> 627
+
+### Device baseline
+
+Maintainer device testing accepts Build 624 battery-ring/fill retract behavior. Further charging-glyph work must preserve that ring path rather than retune its geometry or easing.
+
+### Requested visual contract
+
+The charging glyph should look as if the retracting ring reaches and removes it:
+- stay fully visible while the retained ring is above 60%;
+- fade smoothly as retained ring falls from 60% to 50%;
+- be fully invisible at 50%;
+- do not move before it is fully invisible;
+- after that, travel invisibly toward the corresponding native charging target;
+- only near the target should it fade back in while converging to the target;
+- target size must follow native optical geometry, not a fixed Guiyuan size;
+- if no reliable target exists, stop after the source-side fade.
+
+The percentage number must not jump when the glyph disappears.
+
+### Implementation
+
+- Split `CHARGING_ICON` from `BATTERY_NUMBER` as an independent transition participant.
+- Preserve the readout layout/group geometry while only changing charging-glyph draw alpha, so percentage X placement is not recomputed at the 50% threshold.
+- Derive source fade from `CombinedStatusBatteryRingTransitionPolicy.transitionProgress()` plus the same `remainingFraction()` used by the ring.
+- Begin charging-glyph geometry progress only after retained ring reaches 50%; hidden travel maps the remaining 50% -> 0% ring interval to a smooth target-progress curve.
+- Reappearance starts only in the final 20% of charging-glyph target travel.
+- Resolve only exact-target `MiuiBatteryMeterView.mBatteryChargingView` when it is an attached, laid-out `ImageView` with a valid drawable.
+- Use existing drawable optical-geometry sampling and `TransitionScalePolicy.TARGET`, matching the Wi-Fi principle of translation plus target-derived uniform scaling.
+- If the charging target is missing or unreliable, target resolution returns null and the glyph remains hidden after the source fade; no synthetic/fallback coordinate is generated.
+
+No timer, delayed runnable, additional animation clock, native target mutation, or guessed geometry constant is added.
+
+### Review / tests
+
+- Unit coverage verifies the glyph is hidden before target motion becomes visible, cannot reappear without a target, and reaches full target opacity/motion at completion.
+- Ownership remains single-writer: Guiyuan only draws its transition participant; native charging target is read-only geometry evidence.
+- Build 624 ring/fill implementation is otherwise unchanged.
+
+
+## 2026-10-03 — Build 627 device findings; Build 629 terminal ring and late charging handoff
+
+**Type:** device evidence / transition optics / target handoff timing  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 627 -> 629
+
+### Device evidence
+
+Build 627 preserves the accepted Build-624 main retract behavior but exposes two visual problems:
+- near the end, a tiny remaining ring segment appears to retract disproportionately slowly;
+- the charging glyph starts fading/leaving too early and too softly relative to the ring.
+
+### Root cause
+
+The ring uses ROUND stroke caps. Once the remaining centerline arc becomes comparable to the stroke width, reducing sweep no longer produces a proportionally smaller visual mark: the two round caps dominate and the remainder looks like a nearly fixed dot until mathematical progress finally reaches zero.
+
+The charging-glyph source fade in Build 627 was tied to 60% -> 50% retained ring, so it began well before the ring visually approached the glyph. Its hidden target travel also consumed the entire remaining 50% -> 0% interval, making the exit feel prolonged.
+
+### Build 629 correction
+
+- Do not retune `transitionProgress()`, `FRONT_LOAD`, fill-follow semantics or the accepted Build-624 main retract curve.
+- Compute the retained transition arc length from current drawable sweep and `CombinedStatusOuterGeometry.RING_RADIUS`.
+- Stop drawing only when that retained arc length is less than or equal to the resolved ring stroke width. This removes the cap-dominated terminal artifact and naturally adapts to outer-weight scaling and top-gap sweep.
+- Move charging fade to retained ring 26% -> 20%.
+- Begin hidden target motion only after full source disappearance; map retained ring 20% -> 4% to the complete hidden travel.
+- Start target reveal only in the final portion of that target motion.
+- Keep exact native charging-target optical geometry, target scaling, no-target fail-native behavior and percentage-layout isolation unchanged.
+
+No timer, extra animator, guessed pixel offset, native target mutation or second progress clock is introduced.
+
+### Review / validation
+
+- Geometry test distinguishes a 5% retained default arc (still drawable) from a 3% retained arc (cap-dominated terminal state).
+- Charging handoff tests verify later source visibility, full disappearance before target travel, short hidden travel and no-target no-reveal behavior.
+- Runtime CI passes the source correction before final Build identity/docs closure.
+- Signed Canary/device evidence remains mandatory before integration.
+
+
+### Source-position lock clarification
+
+Maintainer clarification after the first Build-629 timing pass: the charging glyph must not move at all while any source-side alpha remains visible.
+
+Review found that `chargingMotionProgress()` was numerically zero during fade, but the shared geometry path still rebased the source component to the current carrier before interpolation. That could produce visible movement even with zero target progress.
+
+Build 629 therefore makes the phase boundary explicit:
+- `chargingSourceOpacity(progress) > 0` hard-forces `chargingMotionProgress(progress) == 0`;
+- while that source opacity remains non-zero, Control Center rendering uses the frozen `sourceGeometry` directly;
+- carrier rebase and target interpolation are both bypassed during source fade;
+- only after source opacity reaches exactly zero may hidden target travel begin;
+- target-side reappearance near the destination remains unchanged.
+
+A dense unit sample across the fade interval protects the no-motion invariant independently of the exact fade constants.
+
+
+## 2026-10-03 — Build 629 device rejection; Build 631 number-relative charging handoff
+
+**Type:** device evidence / relative geometry / charging alpha timing  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 629 -> 631
+
+### Device evidence
+
+Build 629 confirms the terminal ring cleanup direction but rejects the charging-glyph handoff:
+- the source glyph is held in root/screen coordinates while the percentage number continues its transition, so their relative spacing changes;
+- the glyph remains visible after retained ring progress has crossed 50%;
+- target-side glyph becomes visible too soon after ring completion.
+
+The intended source-side invariant is relative, not absolute: while visible, the glyph belongs visually to the percentage readout group and must follow the number's transform. Only a fully invisible glyph may separate and travel toward its independent native target.
+
+### Build 631 correction
+
+- Restore source fade to the ring-defined 60% -> 50% retained interval.
+- Numerically derive the corresponding handoff-progress start/end from the existing ring policy once, so 50% retained ring is the exact source-alpha-zero boundary.
+- Reuse that derived progress span as the late target fade-in duration.
+- Start target reveal at overall handoff progress 92%; use the same smoothstep and equal progress duration as source fade.
+- Keep target alpha at zero throughout hidden travel and after target arrival until the late reveal window.
+- Replace Build-629 root-coordinate freeze with a battery-number follower transform:
+  - compute the current battery-number geometry from its normal transition path;
+  - express charging-glyph center/basis in the source number's local basis;
+  - map that local geometry through the current number basis;
+  - preserve relative offset, scale and orientation while the source glyph is visible/fading.
+- Keep independent charging-target motion hard-gated until source alpha reaches zero.
+- Keep exact `mBatteryChargingView` target scaling/position and no-target fail-native behavior.
+
+No additional animator, wall-clock timer, guessed coordinate or native target writer is introduced.
+
+### Review / tests
+
+- Follower-geometry unit coverage verifies translation/scale propagation relative to the number.
+- Fade-window tests verify 60%/50% ring thresholds, late 92% reveal and equal source/target fade durations.
+- Dense source-opacity sampling still guarantees charging-target motion remains zero while any source alpha is present.
+- Build 624 ring progress/easing remains untouched.
+
+
+## 2026-10-03 — Build 631 device timing refinement; Build 632 slightly earlier target reveal
+
+**Type:** device visual timing / charging target reveal  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 631 -> 632
+
+### Device feedback
+
+Build 631's source-side behavior is retained. The only requested refinement is that the final native charging-glyph reveal may begin slightly earlier.
+
+### Build 632 correction
+
+- Move charging target reveal start from overall handoff progress 92% to 88%.
+- Preserve the source fade boundary at retained ring 60% -> 50%.
+- Preserve number-relative follower geometry while the source glyph remains visible/fading.
+- Preserve hidden target travel and exact native `mBatteryChargingView` target geometry.
+- Preserve equal fade-in/fade-out progress duration and the same smoothstep easing.
+- No ring-curve, percentage-layout, target geometry, native writer, timer or additional animation clock change.
+
+### Validation
+
+- Unit coverage locks the 88% reveal start and equal fade-window duration.
+- Exact Build-632 Runtime CI and signed Canary remain required before device validation.
+
+
+## 2026-10-03 — Build 633 selective pull-down tint transition
+
+**Type:** Control Center visual color handoff / settings  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Build:** 633
+
+### Requested behavior
+
+Maintainer clarified that the Control Center pull-down should not recolor every projected participant. Only participants currently receiving a semantic/preset/custom battery-linked color should transition back to the system reverse tint. Already-native/system-tinted participants should remain on the native tint path.
+
+The color change should also be concentrated in the middle of the handoff: unchanged at the beginning, fast smooth transition in the middle, unchanged at the end.
+
+A default-enabled switch is required. Disabling it means colorized participants remain in their original source color during pull-down rather than transitioning to reverse tint.
+
+### Implementation
+
+- Added global visual setting `controlCenterTintTransitionEnabled`, persisted under `control_center_tint_transition_enabled`, default `true`, synchronized through the existing visual-settings owner.
+- Added MIUIX `SwitchPreference` in the Global section:
+  - EN: **Pull-down tint transition**
+  - zh-CN: **下拉反色过渡**
+- Added `CombinedStatusBatteryColorPolicy.isTinted(...)` so transition participation is based on the active semantic color source being an actual `Custom` source after preset/custom resolution.
+- Battery ring participates whenever the active semantic battery source is tinted.
+- Center/mobile/top-number/charging-glyph participate only when their existing follow-battery-color setting is enabled in addition to the active battery source being tinted.
+- Non-tinted participants resolve directly to the live final native peer tint.
+- Colorized participants with the switch disabled keep their source color.
+- With the switch enabled, `transitionTintProgress()` is:
+  - 0 through handoff 35%;
+  - smoothstep 0 -> 1 over 35% -> 65%;
+  - 1 from 65% onward.
+- ARGB channels are interpolated independently.
+- Native target tint is read from the existing final `statusIcons` peer authority; reads refresh each pre-draw while retaining the last valid value.
+
+No new animator, timer, color guess, native tint writer, geometry writer, or second settings owner is introduced.
+
+### Charging timing retained
+
+Build 632's 88% final charging-glyph reveal start remains. The 60% -> 50% source fade, number-relative follower geometry, hidden target travel, equal fade durations, exact target geometry and fail-native behavior are unchanged.
+
+### Review / tests
+
+- Tests distinguish preset/custom tinted states from FOLLOW_SYSTEM.
+- Tests lock source/target/midpoint ARGB interpolation.
+- Tests lock the 35%/65% middle-only phase.
+- Tests lock switch OFF -> source color for tinted participants and non-tinted -> native target tint.
+- Visual-settings tests lock default ON and runtime-sync key coverage.
+
+
+## 2026-10-03 — Build 633 device rejection; Build 635 opaque clip transitions and tint fallback
+
+**Type:** device visual feedback / transition semantics / tint authority  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 633 -> 635
+
+### Device feedback
+
+Build 633 exposed two visual issues:
+- charging-glyph target reappearance still reads as a fade/flash even after moving reveal earlier;
+- selective pull-down reverse-tint transition is effectively absent: native status peers reach reverse tint while Guiyuan's colorized ring/readout remain at their semantic color.
+
+### Root cause and design correction
+
+Semantic visibility should not be represented by alpha when the rest of the transition keeps icons physically opaque. The existing unmatched-exit and latent-reveal policies already supply timing/progress; they can drive visible clip fraction instead of opacity without changing motion or space-reservation rules.
+
+For tint, final status-icons peer tint is not guaranteed to be available from the suppression-owner cache on every active transition path. The final native Battery participates in the same SystemUI tint authority and provides a live read-only fallback.
+
+### Build 635 implementation
+
+- Replace charging source/target opacity semantics with visible-fraction semantics.
+- Keep the charging source fully opaque and clip it over retained ring 60% -> 50%.
+- Keep hidden-only target travel.
+- Begin target clip reveal at 85% while preserving the old Build-633 reveal completion time.
+- Replace generic no-target cubic alpha exit with cubic clip-out.
+- Replace latent second-mobile / airplane / no-SIM alpha reveal with clip reveal while preserving existing spatial and target-distance gates.
+- Add reusable horizontal clip bounds with LTR/RTL-aware edge anchoring; charging chooses the edge facing the battery-ring side.
+- Resolve native reverse tint from live final status-icons peer first, live final Battery tint second, and last valid cached tint third.
+- Log native tint value and authority for detailed transition diagnostics.
+
+No new animator, timer, independent geometry path, scale animation, guessed tint, or native writer is introduced.
+
+### Review / tests
+
+Coverage locks clip fractions and edge anchoring, charging reveal timing, latent reveal policy, and final-Battery tint fallback. The pre-identity runtime source passed Runtime CI #2355; final exact-HEAD CI remains required after docs/build closure.
+
+
+## 2026-10-03 — Build 635 trace review; Build 637 tint-decision diagnostics
+
+**Type:** device evidence / diagnostic instrumentation  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 635 -> 637
+
+### Build-635 trace result
+
+The supplied detailed runtime log repeatedly reports `nativeTint=e6ffffff` with `nativeTintAuthority=final-battery-tint` across the pull-down. This confirms the final-Battery fallback introduced in Build 635 is active and eliminates the Build-633 failure mode where no reliable native target tint was available.
+
+No fatal/exception signature is present in the supplied log.
+
+### Remaining observability gap
+
+Build 635 did not log:
+- semantic colorized-state classification;
+- pull-down tint-transition switch value at draw time;
+- source versus resolved participant colors.
+
+Therefore the trace alone cannot distinguish a participation-classification issue from an actual rendering issue if the user still sees no visual color transition.
+
+### Build 637 diagnostics
+
+Add read-only `tintTransition` diagnostics containing:
+- `batteryTinted`;
+- switch enabled state;
+- motion progress;
+- target native tint;
+- source -> resolved battery, number, charging, center and mobile tint;
+- normalized tint-phase progress.
+
+No visual behavior or ownership semantics are changed.
+
+
+## 2026-10-03 — Build 644: QS_FAKE tint authority, exact supplemental icon size, half-ring charging Clip
+
+**Type:** device feedback / Control Center visual root cause  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 638 -> 644
+
+### Build-638 feedback
+
+- Airplane reveal remains visibly smaller than the fully-expanded native Airplane icon, causing a final size discontinuity.
+- Projected icons that are not battery-colorized still appear white instead of matching nearby native icons during pull-down.
+- Charging source glyph disappears too late.
+
+### Root causes
+
+- `FOLLOW_SYSTEM` classification was already correct: only resolved `Custom` semantic color sources are considered colorized.
+- Tint authority was wrong. Build 638 sampled `finalStatusIcons`, the fully-expanded QS destination, rather than `QS_FAKE / fakeStatusIcons`, the native transition carrier visible beside Guiyuan during the gesture. The final destination can legitimately already be white.
+- The temporary review attempt to use `SystemUiNativeNetworkSuppressionOwner.activeManager` for an arbitrary final group was rejected because that manager belongs to the Home status-bar host, not the independent QS/QS_FAKE icon group.
+- Supplemental Airplane / No-SIM already resolve a native single-icon optical target, but Build 638 projected them with `SHRINK_ONLY`; therefore a larger native target could never be reached.
+- Charging Clip at retained ring 26% -> 20% starts too late.
+
+### Build-644 correction
+
+- Transition tint samples already-applied tint from visible non-represented native peers in `QS_FAKE / fakeStatusIcons`.
+- No Home-manager tint reconstruction, no final-QS white target assumption, and no Battery tint fallback are used.
+- FOLLOW_SYSTEM participants directly use the live QS_FAKE native peer tint.
+- Only custom battery-colorized participants use the existing optional 35%-65% source -> native interpolation.
+- Supplemental Airplane / No-SIM use `TARGET` scale against their resolved native drawable optical geometry, matching the accepted Wi-Fi target-size principle.
+- Charging source Clip begins with ring retract and completes at retained ring 50%; source-visible charging remains number-relative, hidden travel and late native-target reveal are preserved.
+- Latent additional-mobile target Clip-envelope correction from Build 638 remains.
+
+No new animator, timer, guessed tint, per-icon size multiplier, or native writer is introduced.
+
+
+## 2026-10-03 — Build 646: accelerate charging target reveal and delay custom tint
+
+**Type:** device feedback / timing polish  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 644 -> 646
+
+### Build-644 feedback
+
+- Charging target glyph still takes too long from first reappearance to fully visible.
+- Custom-color pull-down tint begins too early and completes too quickly.
+
+### Root cause
+
+- Charging target reveal was a fixed global `0.85 -> 0.98` smooth window. This is not the same cadence as latent resources, whose local reveal completes after only the first 35% of their unlocked reveal progress.
+- Custom-color interpolation still used the earlier `0.35 -> 0.65` phase.
+
+### Build-646 correction
+
+- Charging target reveal still begins at global progress 0.85, but completes after 35% of the previous 0.85 -> 0.98 local reveal span, matching the accelerated latent-resource cadence.
+- Source charging Clip remains unchanged: ring retract start = Clip start; retained ring 50% = source fully hidden.
+- Hidden travel, target geometry, and fail-native behavior remain unchanged.
+- Custom-color interpolation moves to `0.45 -> 0.80`: later start and longer transition.
+- `FOLLOW_SYSTEM` participants remain outside this custom interpolation and continue to use live QS_FAKE applied tint directly.
+
+No new animator, timer, target geometry change, native writer, or additional transition clock is introduced.
+
+
+## 2026-10-03 — Build 647: custom tint follows battery-ring retract lifetime
+
+**Type:** device feedback / transition timing refinement  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 644 -> 647
+
+### Build-644 follow-up
+
+The maintainer requested that custom-color fade be visually tied to battery-ring retract rather than an independent fixed progress window.
+
+### Build-647 correction
+
+- Remove the independent custom tint window.
+- Custom-color fade starts when battery-ring retract starts and reaches native QS_FAKE tint exactly when ring retract completes.
+- The shared lifetime comes from `CombinedStatusBatteryRingTransitionPolicy.transitionProgress()`.
+- Color itself keeps a smoothstep over that shared lifetime, rather than copying the ring's front-loaded shrink curve, so the color transition remains visually gentler.
+- `FOLLOW_SYSTEM` remains outside this interpolation and continues to use live QS_FAKE applied tint directly.
+- Build-646 accelerated charging target reveal is retained: reveal still starts at 0.85 and completes in the first 35% of the former late reveal span.
+- Charging source Clip remains unchanged: ring retract start -> retained ring 50%.
+
+No new timer, animator, transition clock, tint writer, or geometry change.
+
+
+## 2026-10-03 — Build 648: explicit 0.85-0.90 charging target reveal
+
+**Type:** device feedback / transition timing finalization  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 647 -> 648
+
+### Decision
+
+The charging target glyph now uses an explicit late reveal window:
+- start visible reveal at global progress `0.85`;
+- complete visibility at `0.90`.
+
+This replaces the Build-647 provisional "35% of the previous late reveal span" derivation.
+
+### Rationale
+
+- The source charging glyph is already fully clipped earlier and completes its hidden travel before the target reveal.
+- A fixed 0.85 -> 0.90 reveal is fast enough to avoid the Build-644 slow appearance, but not so fast that the glyph pops in abruptly.
+- Keeping target reveal independent from source hide duration prevents future changes to the ring/charging Clip rule from accidentally changing the target appearance cadence.
+
+### Retained behavior
+
+- Source charging Clip still begins when ring retract starts and completes when retained ring reaches 50%.
+- Hidden travel remains invisible.
+- Target reveal has no independent translation or scale.
+- Custom-color tint fade remains bound to the battery-ring retract lifetime.
+- FOLLOW_SYSTEM still uses live QS_FAKE applied tint directly.
+
+
+## 2026-10-03 — Build 649: correct obsolete tint test after ring-sync change
+
+**Type:** CI review / test correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 648 -> 649
+
+Build 648 Runtime reached the unit-test phase and failed one stale assertion in `transitionTintHoldsEndsAndChangesOnlyInMiddlePhase`. The test still required source color at global progress 0.20, which contradicts the approved Build-647/648 rule that custom tint fade begins as soon as battery-ring retract begins.
+
+No runtime behavior was changed for this correction:
+- source tint is exact at progress 0;
+- fade starts immediately with ring retract;
+- midpoint remains tied to half of the ring-retract lifetime;
+- native tint is exact when ring retract completes;
+- charging target reveal remains fixed at 0.85 -> 0.90.
+
+
+## 2026-10-03 — Build 650: charging Clip follows half of ring-retract lifetime
+
+**Type:** device evidence / timing correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 649 -> 650
+
+Build 649 device video showed the charging source glyph fully disappearing before the battery-ring retract animation itself reached halfway. The previous rule used 50% **remaining visible arc**, but the ring's retained arc is front-loaded and therefore reaches 50% well before half of the retract lifetime.
+
+Build 650 changes the authority:
+- source Clip begins at ring-retract lifetime 0%;
+- source is exactly 50% visible at retract lifetime 25%;
+- source is fully clipped at retract lifetime 50%;
+- while any source remains, charging stays locked to the battery-number follower;
+- only after complete source Clip does hidden travel begin;
+- target reveal remains 0.85 -> 0.90;
+- source disappearance remains opaque horizontal Clip with `opacity=1`, not alpha fade or scale.
+
+No new animator, timer, geometry writer, or second transition clock is introduced.
+
+
+## 2026-10-03 — Build 652: calibrate charging Clip between two device-proven bad endpoints
+
+**Type:** device video / visual timing calibration  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 650 -> 652
+
+### Device evidence
+
+Build 649 and Build 650 bracket the desired charging-source disappearance point:
+- Build 649: source fully clipped when retained ring arc reached 50%; device video shows this is too early.
+- Build 650: source fully clipped at 50% of raw ring-retract lifetime; because the ring uses `FRONT_LOAD=0.92`, only ~18% of ring arc remains at that point, and device video shows the source disappears near the end.
+
+### Build-652 correction
+
+- Keep Clip start at ring-retract start.
+- Complete source Clip at 40% of ring-retract lifetime.
+- Under the current ring curve this corresponds to ~32% retained arc, visually between the two rejected endpoints.
+- Source Clip remains linear and opaque; source remains number-relative while visible.
+- Hidden target travel begins only after source is fully clipped.
+- Target reveal remains 0.85 -> 0.90.
+- Ring geometry/easing and tint timing are unchanged.
+
+No timer, animator, secondary transition clock, geometry writer, alpha fade, or scale animation is added.
+
+
+## 2026-10-03 — Build 653: restore HyperOS native island collision authority
+
+**Type:** device-feedback root-cause correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 652 -> 653
+
+### Device evidence
+
+Build 652 was otherwise broadly normal, but island-active pull-down exposed two related regressions:
+- charging-only island could collapse the expected dual-signal presentation to a single mobile presentation and allow left-side native status icons to overlap it;
+- native status-icon island avoidance / knife-hide behavior failed across island events.
+
+The Build-652 diagnostic captured `reservationMode=native-progress-fake-island-projected` with active deltas while the Control Center callback independently reported `batteryIsland=false`. The project therefore had two island authorities that could diverge.
+
+### Root cause
+
+The Control Center transition path expanded fake/native status-icon `paddingEnd` for Guiyuan's transition reservation. While a generic island was active, a dedicated hook intercepted `MiuiStatusIconContainer.getIslandTranslationX()` and subtracted the same padding delta from HyperOS' native island collision boundary.
+
+That bridge changed the value HyperOS itself uses to decide status-icon collision/avoidance. It could therefore alter native mobile-row capacity and island hiding decisions, violating single-writer/native-layout ownership.
+
+### Build-653 correction
+
+- Remove the `getIslandTranslationX()` return-value hook entirely.
+- Remove fake island-boundary projection/compensation state and lifecycle cleanup.
+- Block Guiyuan native transition-padding expansion whenever `genericIslandShowing == true`, for both Home and Keyguard.
+- If an island starts after native transition padding was already applied, clear Guiyuan's transition reservation on the next panel sample.
+- Keep ordinary no-island transition reservation unchanged.
+- Reduce the panel runtime hook count from 5 to 4.
+- Keep Build-652 overlay motion, tint, battery-ring/charging timing, target geometry, and target reveal unchanged.
+
+### Review
+
+Lifecycle review checked install failure rollback, Session stop, island-mid-gesture reservation release, and Hot Reload reset. No bridge state remains after removal. No timer, polling, delay, alpha/visibility patch, island-width writer, or additional geometry owner is added.
+
+### Device gate
+
+Validate charging-only island with dual SIM, another island event, and ordinary no-island pull-down. Native dual-signal layout and HyperOS island avoidance must remain authoritative; Build-652 charging/tint behavior must remain unchanged.
+
+
+## 2026-10-03 — Build 654: island-native presentation fallback and occupancy reconciliation
+
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 653 -> 654
+
+### Device evidence
+
+Build 653 proved that removing the fake island-width projection was insufficient. Generic island events were detected correctly and transition padding was already disabled (`native-island-authority` / no native transition reservation), yet:
+- charging-island pull-down could still collapse dual-SIM to a single visible mobile participant;
+- remaining native status icons could follow the partially-masked QS fake carrier vertically;
+- charging-island steady avoidance was still incorrect.
+
+### Root cause boundary
+
+The remaining Control Center defect is ownership, not island geometry:
+- `ControlCenterFakeStatusIcons` was still prearmed with represented slots masked/ignored while an island was active;
+- removing padding did not release that fake-row ownership, so HyperOS did not retain a complete native participant set for its own island behavior.
+
+The charging-island Home path remains tied to the previously accepted Build-321 contract:
+`MiuiBatteryMeterView.updateIslandChanged -> MiuiStatusBatteryContainer.setIsHideBattery -> combined_status slot occupancy`.
+Build 654 does not replace that contract; it re-reads the authoritative native hide state on island events to reconcile stale/missed occupancy state.
+
+### Build 654
+
+- Publish island status as a functional event independent of diagnostics.
+- Any active island latches Control Center Native fallback and releases Guiyuan fake presentation ownership.
+- If the island ends while the panel remains visible, do not re-enter Guiyuan during that gesture.
+- Clear the fallback only once the panel is closed and no island is showing, then prearm normally.
+- Reconcile `combined_status` Home occupancy from the live native battery-hide field using the existing slot-width owner.
+- Add bounded event diagnostics for island fallback and charging-island occupancy.
+- Preserve Build-652/653 no-island motion, tint, charging Clip timing, target geometry, and target reveal.
+
+### Review boundary
+
+No timer, delay, polling, new island classifier, peer translation write, or replacement island geometry was added. The Control Center fallback is fail-native and gesture-latched; the Home reconciliation is idempotent and uses the same native `mIsHideBattery` authority as the existing callback.
+
+
+## 2026-10-03 — Build 655: keep Guiyuan transition under HyperOS island-native layout
+
+**Type:** device-feedback correction of Build-654 ownership strategy  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 654 -> 655
+
+### Device evidence
+
+Build 654 intentionally latched full Native fallback for an active island gesture. The returned diagnostic proved that path executed exactly as designed: the island event arrived before pull-down, `islandPresentation` reported `native-fallback-latched`, and every subsequent Control Center geometry sample reported `transitionOwner=inactive`. Device feedback therefore rejected the strategy because pull-down became completely native instead of preserving Guiyuan's transition.
+
+### Root-cause refinement
+
+Build 653 showed that keeping the compact QS fake presentation during an island gesture allowed Guiyuan-owned ignored slots / reservation state to interfere with HyperOS' native island layout. Build 654 removed that interference by removing Guiyuan entirely. The required ownership split is narrower:
+
+- HyperOS must own QS fake measure/layout, dual-SIM structure, island collision and native status-icon avoidance.
+- Guiyuan may still own its overlay drawing and visual replacement masks.
+- Native represented views must stay measured and laid out so their geometry remains a valid transition target.
+
+### Build-655 correction
+
+- Reinterpret the island gesture latch as **native-layout authority**, not Native fallback.
+- Remove island latch from `projectionReady()`; Guiyuan overlay and TransitionOwner remain active.
+- Add Control Center native-layout mode in `SystemUiHomePresentationOwner`.
+- In that mode, do not apply persistent ignored slots.
+- In that mode, do not apply status-icons end padding or fake-carrier capacity lease.
+- Continue using clip visual masks for represented Wi-Fi/mobile/battery views so native geometry remains present but duplicate pixels do not.
+- Keep native-layout mode latched until an open gesture closes, avoiding a second layout-mode switch mid-gesture.
+- Retain Build-654 Home charging-island occupancy reconciliation based on the existing `mIsHideBattery` authority.
+
+### Review
+
+Mode replacement stops the previous Control Center presentation first, restoring its end reservation, fake-carrier lease, persistent ignored slots and clip states before the new mode starts. No new geometry writer, timer, delay, poller, alpha writer or island classifier is introduced.
+
+### Device gate
+
+Confirm Guiyuan transition returns under active islands, native non-represented status icons keep HyperOS island avoidance, charging-only island preserves dual-SIM layout without overlap, and no-island behavior remains Build-652-equivalent.
+
+
+## 2026-10-03 — Build 656: keep HyperOS Folme slot translation authoritative under island
+
+**Type:** focused device-feedback correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 655 -> 656
+
+### Device evidence
+
+Build 655 restored Guiyuan's island Control Center transition without reviving the removed island-width/padding writers, but the native status-icon row still settled too early.
+
+Returned video evidence shows a steady island Home row with network-speed / VPN / neighboring native icons. At the first meaningful pull movement, icons that do not fit the fully-expanded island layout disappear immediately while the surviving row has only begun its downward motion.
+
+Build-655 diagnostics independently show the QS fake native layout already fixed at `system_icon_area left=249,width=587` and `MiuiStatusIconContainer width=448` from roughly fraction 0.11 through 0.86. The native reservation is absent and `reservationMode=native-island-authority`, so the old Guiyuan transition-padding path is no longer the cause.
+
+### Remaining writer found
+
+The native `combined_status` participant still hooks `MiuiStatusBarFolmeViewState.applyToView(...)`. Before HyperOS applies `NewStatusIconState`, Guiyuan overwrites:
+- `translationX`;
+- `layoutTranslationX`;
+
+with a stable end-side slot translation resolved from Guiyuan's captured status-icon boundary.
+
+That correction is useful for ordinary Home participant alignment, but under island it competes with HyperOS' own Folme/island motion state. In particular, changing `layoutTranslationX` before native application can expose a terminal slot position to the platform while the pull is still at its first samples.
+
+### Build-656 correction
+
+- Reuse the existing event-driven `SystemUiIslandMotionSource.currentIslandShowing()` authority.
+- When it explicitly reports an active island, do not modify either Folme translation field; call through to HyperOS unchanged.
+- Keep the existing stable-slot translation correction for ordinary no-island and not-yet-observed state.
+- Add a one-shot diagnostic:
+  `nativeCombinedParticipant slotTranslation authority=hyperos-island bypass=true moduleStateWrites=0`.
+- Add focused unit coverage proving explicit island disables the correction and normal/unknown state preserves it.
+
+No fake-row geometry, padding, ignored-slot, alpha, visibility, expansion progress, target geometry, tint, or charging timing is changed.
+
+### Lifecycle review
+
+No new latch is introduced. Island entry/exit is owned by the existing island source. Leaving island automatically returns to the pre-existing non-island translation correction. Hot Reload / runtime reset clears only the one-shot bypass diagnostic flag.
+
+### Device gate
+
+Slow-pull any island and verify that native icons do not disappear on first touch. Their island avoidance should remain HyperOS-owned and evolve with native motion. Also retest charging-only island + dual SIM and ordinary no-island pull-down.
+
+## 2026-10-03 — Build 657 QS_FAKE island-state timing probe
+
+**Type:** read-only runtime diagnostic / island motion root-cause isolation  
+**Display version:** 0.0.5  
+**Build:** 657 / `20261003-657`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Device evidence from Build 656
+The island defect remains unchanged after bypassing Guiyuan's Combined-participant Folme translation correction. Returned diagnostics keep `reservationMode=native-island-authority` with no native transition reservation, while the first captured QS_FAKE expansion bucket already reports `network_speed` / `vpn` in visibleState 2 and alpha 0 even though the final QS row still keeps those slots visible.
+
+The top-level fake root continues native X/Y motion, so the remaining defect is not a missing root translation. The unresolved boundary is the QS_FAKE `MiuiStatusIconContainer` island/visible-state calculation that precedes that motion.
+
+### Build 657 probe
+Extend only the existing bounded transition diagnostic:
+- status-row fields: `islandWidth`, `islandWidthChanged`, `ignoredSlots`;
+- child fields: `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, `layoutTranslationX`;
+- marker: `islandProbe=v1`.
+
+Reflection is read-only and evaluated only when the existing detailed diagnostic snapshot is produced.
+
+### Boundaries
+No new hook, listener, timer, polling path, layout request, geometry write, native visible-state write, alpha/visibility write, translation write, or island-width mutation. Runtime presentation is intentionally unchanged from Build 656.
+
+### Validation
+Exact-HEAD Runtime CI, then one signed Canary. One active-island slow pull plus a detailed diagnostic is sufficient to choose between terminal island-width input and child-state-machine cutover.
+
+## 2026-10-03 — Build 658 native island-state accessor correction
+
+**Type:** read-only diagnostic precision correction  
+**Display version:** 0.0.5  
+**Build:** 658 / `20261003-658`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+Post-commit review of Build 657 found that direct reflection on the child View is weaker than an already-established project seam: `SystemUiNativeNetworkSuppressionOwner` resolves each child's real `NewStatusIconState` through `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)`.
+
+Build 658 exposes that existing read-only helper internally and reuses it for the QS_FAKE diagnostic. Group-level reflection remains limited to `islandWidth`, `islandWidthChanged`, `ignoredSlots`, and the native panel-expansion flags. The marker advances to `islandProbe=v2`.
+
+No functional ownership changes. Build 657 is superseded before Canary; only exact-HEAD Build 658 should be device-tested.
+
+
+
+## 2026-10-03 — Build 659: release stale QS_FAKE island constraint
+
+**Type:** device-evidence root-cause correction  
+**Display version:** 0.0.5  
+**Build:** 659 / `20261003-659`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Problem
+Under an active island, non-represented native QS_FAKE icons such as network speed / VPN disappear at the first meaningful Control Center pull sample, while the top-level fake root is still moving.
+
+### Evidence
+Build 658 reads the real `NewStatusIconState` through `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)`. At the first captured island bucket, fake `network_speed` is already `visibleState=2 / inIslandState=10 / layoutTranslationX=196`, while the final QS peer is `visibleState=0 / inIslandState=20 / layoutTranslationX=6`. The fake state stays terminal through later buckets. No-island samples retain `visibleState=0 / inIslandState=20`.
+
+Build 655 intentionally made island Control Center use visual-mask-only native layout: represented Wi-Fi/mobile/Battery Views are no longer placed in `ignoredSlots`, so they remain measured as transition witnesses even though Guiyuan clips their pixels. Exact-target SystemUI evidence establishes that `MiuiStatusIconContainer.onMeasure()` also owns island visible-state decisions. The fake row therefore evaluates island collision against the re-expanded native participant set, not the compact visible Guiyuan source.
+
+### Conclusion
+The remaining defect is not fake-root motion, transition padding, the removed Build-652 island-width bridge, or the Build-656 participant Folme correction. It is a stale semantic constraint at the QS_FAKE island-state input boundary: Home island participation is still exposed to a fake row whose represented native geometry has intentionally been re-expanded for transition purposes.
+
+### Change
+- Add one exact `MiuiStatusIconContainer.getIslandShowing(): boolean` Hook to the existing presentation owner.
+- Preserve the native return everywhere except the exact current QS_FAKE status-icon Session while `nativeLayoutAuthority` is latched.
+- In that one case, expose `false` to the fake row so HyperOS' own `onMeasure/onLayout` recomputes normal fake-row child states without Home island hiding.
+- Keep represented native Views measured/laid out and clipped exactly as Build 655 requires.
+- Add one bounded event when the constraint is actually released.
+- Add focused policy tests for fake island/native-layout, ordinary fake, Home, and native-false cases.
+
+No child `NewStatusIconState`, alpha, visibility, translation, island width, padding, ignored slots, progress, or timing value is written. Home/final/no-island semantics remain native.
+
+### Validation
+Exact-HEAD Runtime CI, then one signed Canary. Device acceptance requires active-island forward/reverse pull, charging-only island + dual SIM, no-island regression check, and a detailed diagnostic confirming the release event and corrected QS_FAKE child states.
+
+
+## 2026-10-03 — Build 660: restore QS_FAKE peer capacity under island-native layout
+
+**Type:** device-feedback correction / historical root-cause reconnection  
+**Display version:** 0.0.5  
+**Build:** 660 / `20261003-660`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Problem
+
+Build 659 changed only the QS_FAKE `getIslandShowing()` semantic under island-native-layout mode. Device feedback reports no improvement: ordinary island behavior is unchanged, and the longer charging island consumes the second mobile presentation entirely.
+
+### Evidence
+
+The rejected result is consistent with Build 658: the fake group reports no useful `islandWidth` input while peer `NewStatusIconState` is already terminal. Re-reading the accepted Build 599-612 history exposes a stronger regression path. Build 609 proved late `network_speed` disappearance was native QS_FAKE underflow; Build 611/612 solved it with a fixed, reversible fake-carrier capacity lease plus an end-anchored logical motion carrier.
+
+Build 655 later introduced island-native-layout authority and intentionally disabled both project end padding **and** the fake-carrier capacity lease. The current implementation still gates `syncEndReservation()` before `ensureFakeCarrierCapacityLease()`, so island sessions lose the accepted peer-capacity protection at the exact time represented Wi-Fi/mobile/Battery views are reintroduced into native measurement. That raises fake-row occupancy pressure and explains why the old near-terminal underflow can reappear much earlier under island.
+
+### Conclusion
+
+Build 659 targeted the wrong semantic boundary and is superseded. The durable split is:
+- HyperOS owns island collision, child state, peer translation and appearance;
+- Guiyuan may preserve QS_FAKE peer measurement capacity using the already-accepted fixed session lease;
+- project island end padding and represented-slot exclusion remain disabled.
+
+### Change
+
+- Remove the Build-659 `getIslandShowing()` Hook and its policy/tests.
+- Keep Build-655 island-native-layout behavior for `ignoredSlots` and `statusIcons.paddingEnd`.
+- Re-enable only the existing Build-611/612 fixed fake-carrier capacity lease for an island-native-layout QS_FAKE Session.
+- Reuse the existing end-anchor / parent-slack / writer-conflict / post-lease-layout guards and Build-612 logical-carrier motion separation.
+- Add a bounded `peerCapacity authority=island-native-layout` diagnostic; no peer state, alpha, visibility, translation, island width, progress or timing write is added.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device acceptance requires normal island slow-pull, charging island + dual SIM, no initial left jump, preserved native island avoidance, and ordinary no-island regression coverage.
+
+
+## 2026-10-03 — Build 661: restore progress-synchronous island occupancy; reject fixed island capacity
+
+**Type:** device-feedback correction / historical contract recovery  
+**Display version:** 0.0.5  
+**Build:** 661 / `20261003-661`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Device evidence
+
+Build 660 is rejected. Maintainer video reports:
+- island avoidance / knife-hide is gone;
+- pull-down still jumps native peers to their terminal horizontal arrangement at gesture entry, then the row mainly travels downward.
+
+The detailed diagnostic explains both symptoms. In early island samples the fake carrier is already widened to the fixed leased width, while peer `NewStatusIconState` stays normal rather than entering island-hide state. The lease therefore solved the Build-658 early disappearance only by removing the native capacity/collision pressure.
+
+### Historical match
+
+This reproduces the documented Build-506 failure class. Build 506 performed a one-shot final occupancy cutover and device evidence showed the native peer row jumped to final horizontal layout at gesture entry. Build 507 corrected it with a reservation derived continuously from raw HyperOS expansion progress.
+
+Build 660 used a different one-shot property (fixed carrier width), but violated the same rule: semantic occupancy must not become a second motion system.
+
+### Build-661 correction
+
+- Remove the Build-660 island-only fixed fake-carrier capacity lease.
+- Keep the accepted no-island Build-611/612 capacity lease unchanged.
+- Keep island-native-layout represented participants measured; do not restore persistent `ignoredSlots`.
+- Keep the Build-653-removed `getIslandTranslationX()` compensation absent.
+- Under an exact island-native-layout QS_FAKE Session, allow only the existing progress-synchronous semantic `statusIcons.paddingEnd` reservation.
+- Do not apply steady/base island padding before a transition reservation exists; clearing the transition restores the native baseline.
+- Allow the existing charging/Battery-Island reservation path only under exact island-native-layout authority, because Build 655 removed the compact reservation assumed by the older Build-494 exclusion.
+- Add explicit `islandNativeLayout` / `native-island-progress-padding` diagnostics.
+
+No peer `NewStatusIconState`, alpha, visibility, translation, island width, island boundary, animator, timer, delay or custom easing is written.
+
+### Review boundary
+
+The candidate intentionally re-tests a narrower variant of a historically blocked island-padding path. It does **not** restore the rejected Build-652 combination: there is no island-boundary projection/compensation hook and no represented-slot exclusion. HyperOS remains the island collision and child-state authority.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device acceptance requires progressive horizontal peer motion, restored island avoidance, charging island + dual SIM, no initial left jump, ordinary no-island regression, and one detailed diagnostic.
+
+
+## 2026-10-03 — Build 662: source-to-QS_FAKE island handoff probe
+
+**Type:** device-feedback rollback / bounded read-only diagnostic  
+**Display version:** 0.0.5  
+**Build:** 662 / `20261003-662`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Evidence
+
+Build 660 is device-rejected: the island-only fixed fake-carrier lease removes native island avoidance and does not remove the gesture-entry horizontal settling.
+
+Build 661 replaced that one-shot carrier expansion with the historical native-progress total-padding curve and passed Runtime CI. Review then found a stronger contradiction before Canary: Build 658 had already captured QS_FAKE peers terminal/hidden in the first island bucket while project island padding and fixed capacity lease were both absent. Positive end padding can only reduce the fake row's usable width; therefore Build 661 has no mechanism to recover the already-hidden peer and is superseded without device testing.
+
+### Build-662 change
+
+- Restore `SystemUiHomePresentationOwner`, its focused tests, and the island scene-policy runtime boundary to Build 658.
+- Restore `CombinedStatusControlCenterTransitionOwner` reservation behavior to Build 658.
+- Keep the existing v2 child-state accessor through `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)`.
+- Advance the bounded detailed transition diagnostic to `islandProbe=v3`.
+- Carry the already-existing steady `CombinedStatusTransitionSourceWitness.motionCarrier` into the transition Session as a **read-only source status-row witness**.
+- Report source / QS_FAKE / final rows in the same diagnostic snapshot.
+- Add each sampled child’s actual `getLocationOnScreen()` X/Y beside local bounds and `NewStatusIconState`.
+
+### Ownership
+
+No functional hook, state source, layout request, ignored-slot mutation, padding mutation, carrier-width mutation, alpha/visibility write, peer translation write, island-width write, animator, timer or retry is added. The source row is a weak read-only witness and is sampled only inside the existing detailed/bucketed diagnostic path.
+
+### Decision gate
+
+One active-island slow pull with detailed diagnostics is sufficient:
+- source normal -> fake terminal: source-to-QS_FAKE handoff/state calculation is the next boundary;
+- source already terminal: Home island occupancy/state is the next boundary;
+- source/fake state equal but screen X diverges: carrier/root transform is the next boundary.
+
+Build 662 requires exact-head Runtime CI and one signed Canary.
+
+
+## 2026-10-03 — Build 663: restore progressive island occupancy without collision-boundary override
+
+**Type:** device-evidence root-cause correction / isolated historical contract test  
+**Display version:** 0.0.5  
+**Build:** 663 / `20261003-663`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-662 device evidence
+
+The maintainer reports that native status peers still calculate island avoidance as if the Control Center were already at its pull-down endpoint.
+
+The v3 source/fake/final diagnostic makes the timing explicit. In the first captured active-island bucket (about fraction 0.12), the Home source row already reports terminal island-hide state for affected peers while the fake root is still early in its native translation. QS_FAKE exposes a matching terminal arrangement immediately. The source state supports native animation; the QS_FAKE state does not.
+
+This rejects fake-root translation as the primary cause. The early horizontal settle is an occupancy/state cutover that precedes the visible carrier trajectory.
+
+### Root cause
+
+Build 655 recovered native island collision by reintroducing represented Wi-Fi/mobile/Battery participants into QS_FAKE measure/layout and disabling Guiyuan reservation/capacity. That gives HyperOS a complete final participant set, but it also means the fake row measures **full final represented occupancy from the first frame**. Non-represented peers therefore receive pull-down-end horizontal placement immediately.
+
+The failed later experiments isolate the two forbidden shortcuts:
+- Build 660 full-width capacity removes the native collision pressure and therefore removes knife-hide;
+- Build 661 positive end padding on top of already-full represented occupancy cannot undo an occupancy set that is terminal before the first sample.
+
+### Build-663 correction
+
+Restore the compact-to-final semantic occupancy path while keeping the island collision boundary native:
+
+- QS_FAKE represented slots return to the established session-scoped native `ignoredSlots` contract.
+- The existing compact end reservation is present before visible transition cutover.
+- During the gesture, the same reservation expands toward final semantic occupancy from raw HyperOS expansion progress.
+- The island-only fixed fake-carrier capacity lease remains disabled.
+- The removed Build-652 `getIslandTranslationX()` projection/compensation remains absent.
+- The rejected Build-659 `getIslandShowing()` semantic override remains absent.
+- No peer `NewStatusIconState`, alpha, visibility, translation, `islandWidth`, animator timing, timer or custom easing is written.
+- Build-662 v3 source/fake/final read-only diagnostics remain.
+
+### Historical isolation
+
+This exact combination has not previously received a device test:
+- Build 652 had progress occupancy **plus** the rejected island-boundary compensation;
+- Build 653 removed the boundary compensation **and** disabled island progress reservation;
+- Build 655 replaced ignored-slot compact occupancy with full native represented measurement.
+
+Build 663 therefore tests the missing middle state: compact represented-slot exclusion + native-progress reservation + untouched HyperOS collision boundary.
+
+### Risk / fail-native boundary
+
+The principal risk is the Build-653 concern that removing represented fake participants from native measure/layout may again reduce native semantic completeness for dual-SIM/island decisions. Device validation must therefore jointly require progressive peer motion **and** preserved knife-hide/dual-SIM behavior. A visually smoother row is not sufficient if native island collision regresses.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Focus on slow active-island outward/reverse pull, charging island + dual SIM, native knife-hide, absence of full-row left jump, ordinary no-island regression, and one detailed diagnostic.
+
+
+## 2026-10-03 — Build 664: trace QS_FAKE island 2D geometry source
+
+**Type:** bounded read-only diagnostic / island collision dimensionality  
+**Display version:** 0.0.5  
+**Build:** 664 / `20261003-664`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-663 device evidence
+
+The visual defect is no longer best described as a bad X trajectory. The maintainer notes that peers continue disappearing even after the translated fake row is visibly clear of the island.
+
+The detailed log supports that interpretation. Near fraction 0.115 the island progress reservation is only 2 px, yet fake `network_speed` is already in native island-hide state while VPN remains visible. As the reservation grows, peers are removed at later capacity thresholds. The fake root simultaneously moves downward under the native Control Center carrier.
+
+### Exact-target interpretation
+
+The retained SystemUI reference establishes that:
+- `RealContainerIslandMonitor.updateContainerSize(...)` computes Home `statusContainerSpace` from the live island rectangle and the **real Home container** screen position;
+- `FakeContainerIslandMonitor` collects that scalar layout-space result and feeds `MiuiStatusIconContainer` island width/state;
+- native Control Center motion later translates the fake root in X/Y.
+
+Therefore QS_FAKE can continue consuming a one-dimensional Home status-layout constraint after its own visual rectangle has separated vertically from the island. Build 663's semantic progress reservation remains a valid representation of Guiyuan's expanding horizontal volume; it should not be conflated with the extra island constraint.
+
+### Build-664 probe
+
+Keep Build 663 runtime behavior unchanged and extend only existing bounded diagnostics:
+
+- add screen Y / height / translationY to the already-captured Home island-owner View snapshots;
+- retain a weak reference only to the already-known injector and resolve its exact `islandController` field in diagnostic mode;
+- during existing bucketed `homeMotion` snapshots, inspect at most 12 objects / 32 entries / depth 2;
+- report `Rect`, `RectF`, View geometry, relevant scalar island/space/translation values, and safely-readable zero-argument `getValue()` results from relevant flow-like objects;
+- field traversal is restricted by names/types containing island/rect/bound/space/translation/monitor/container/area.
+
+### Boundaries
+
+No functional hook, new callback, pre-draw follower, timer, poller, requestLayout, padding mutation, island-width mutation, child state write, peer translation, alpha/visibility write or custom animation is added.
+
+### Decision gate
+
+One active-island slow pull with detailed diagnostics is enough. If the native controller graph exposes the live island rectangle or equivalent View bounds, the next build can perform true 2D overlap gating. If it does not, the next diagnostic must target the already-proven `RealContainerIslandMonitor.updateContainerSize(...)` Rect input directly rather than approximating island height.
+
+
+## 2026-10-03 — Build 665: gate QS_FAKE island avoidance by real 2D overlap
+
+**Type:** device-evidence root-cause correction / native semantic gate  
+**Display version:** 0.0.5  
+**Build:** 665 / `20261003-665`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-664 evidence
+
+The native 2D source is now proven on-device. Detailed diagnostics expose:
+- `StatusBarIslandControllerImpl.islandStateHandler.islandRect=Rect(522,31,918,156)`;
+- at roughly fraction 0.50, QS_FAKE has translated down so native peer icons are around screen Y 204;
+- despite being fully below island bottom 156, fake `network_speed` and `vpn` remain `visibleState=2 / inIslandState=10 / alpha=0`.
+
+This confirms the visual complaint: the fake row continues consuming a one-dimensional Home-derived island layout constraint after real 2D separation.
+
+### Build-665 correction
+
+Keep every accepted Build-663 occupancy rule and narrow only the fake island semantic input:
+
+- Add the exact `MiuiStatusIconContainer.getIslandShowing(): boolean` Hook previously validated by Build 659, but do **not** force false for the whole gesture.
+- Scope it to the exact active QS_FAKE status-icon group in island-native-layout mode.
+- Preserve native false unchanged.
+- For native true, read the pinned target's live `islandRect` through the Build-664-proven field path.
+- Cache the fake peer content band's local top/bottom after the already-hooked native `onLayout`.
+- Return true only while that peer band's screen rectangle actually intersects the live island rectangle.
+- If any required geometry is unavailable, return native true unchanged.
+
+### Performance contract
+
+The functional hot path does not use Build-664's diagnostic object graph traversal.
+
+- `islandController`, `islandStateHandler` and `islandRect` reflection Fields are discovered once and cached.
+- One reusable `Rect` and one reusable two-int screen-location buffer live on the QS_FAKE Session.
+- Native peer vertical-band discovery occurs after existing `onLayout`, not inside the getter.
+- Getter work is limited to cached field reads, `getLocationOnScreen`, integer additions and rectangle comparisons.
+- Diagnostics emit only when overlap state changes or once on fail-native geometry fallback.
+
+No new timer, poller, animator, callback, requestLayout, per-peer transition writer, alpha/visibility writer, island-width writer, translation writer or custom easing is introduced.
+
+### Validation
+
+Exact-head Runtime CI, then one signed Canary. Acceptance requires native collision while overlapping, release immediately after real 2D separation, re-engagement on reverse overlap, charging-island + dual-SIM sanity, ordinary no-island regression, and one detailed diagnostic.
+
+
+## 2026-10-03 — Build 667: retire ineffective getter gate; probe QS_FAKE island monitor contract
+
+**Type:** diagnostic / root-cause correction  
+**Build:** 667 / `20261003-667`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+Build 665 showed no visual change. Detailed device evidence contained no `island2DGate` event, while fake peers still entered `inIslandState=10` after the row had vertically cleared the island. The `MiuiStatusIconContainer.getIslandShowing()` hook is therefore not the active QS_FAKE island-layout input on this target and is removed.
+
+Build 667 restores the accepted Build-664/663 runtime path and adds one read-only, detailed-diagnostics-only contract probe. On the first Control Center fake Session it walks a bounded view/delegate object graph and records only fields/methods whose names or types are related to island / monitor / space / delegate / controller. This is session-time evidence only: no per-frame reflection, no animator, no timer, no child-state writes, no island-width writes, and no geometry writes.
+
+The target seam to verify is the exact-reference chain `FakeContainerIslandMonitor -> statusContainerSpace -> fake MiuiStatusIconContainer island-width/layout`. One detailed device log is required before any functional interception is added.
+
+
+## 2026-10-03 — Build 668: persist QS_FAKE island contract snapshot
+
+**Type:** diagnostic reliability / no runtime behavior change  
+**Build:** 668 / `20261003-668`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+Build 667 correctly restored the accepted Build-663/664 runtime and added a bounded read-only probe for the real QS_FAKE island constraint path. Device feedback is visually unchanged, as expected. The returned detailed diagnostic contains the active-island transition but no `islandContractProbe` line because the probe is emitted only once at fake-session startup while dense `endReservation` logging later fills the 600-line export window.
+
+Build 668 keeps the exact Build-667 runtime and makes the evidence durable:
+- the existing one-shot probe result is cached as a compact string;
+- existing bucketed transition diagnostics append that cached value as `islandContract=...`;
+- no extra object-graph scan is added to the pull-down hot path;
+- no geometry/state writer, requestLayout, animation, timer, polling or additional Hook is introduced.
+
+One active-island pull with detailed diagnostics is sufficient. The resulting class/member signatures will determine the first monitor/statusContainerSpace-side functional correction.
+
+
+## 2026-10-03 — Build 669: gate QS_FAKE monitor width by real 2D overlap
+
+**Type:** root-cause correction / fake island semantic boundary  
+**Display version:** 0.0.5  
+**Build:** 669 / `20261003-669`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Problem
+
+Build 665 proved that intercepting `MiuiStatusIconContainer.getIslandShowing()` does not affect the production QS_FAKE island-layout path. Build 668 was therefore used only to persist the live fake island contract.
+
+### Evidence
+
+The Build-668 device diagnostic captures the current QS_FAKE `MiuiStatusIconContainer._islandMonitor` as `IslandMonitor$FakeContainerIslandMonitor`. That monitor owns native `islandShowing=true`, `islandWidth=147`, `getIslandShowing()`, `getIslandWidth()`, and a direct `StatusBarIslandControllerImpl` reference. The same controller exposes `statusContainerSpace`.
+
+Combined with Build 664, the dimensional mismatch is now fully isolated: the fake monitor continues to expose Home's scalar island width after native Control Center translation has moved the actual fake peer row below the live island rectangle.
+
+### Conclusion
+
+The narrow functional seam is `FakeContainerIslandMonitor.getIslandWidth()`, not the status-icon-container getter and not peer state. The correction should preserve native collision pressure only while the current QS_FAKE peer band physically intersects the live island rectangle.
+
+### Change
+
+- Install an optional exact-class `FakeContainerIslandMonitor.getIslandWidth(): int` Hook.
+- Bind the current QS_FAKE Session to its exact `_islandMonitor` object and intercept only that object.
+- Reuse the Build-664 verified live `islandRect` path, now outside the Detailed-diagnostics gate because it is functional authority.
+- Cache the current native peer vertical band after the already-hooked native `onLayout`.
+- Return the native monitor width while the peer band and island rectangle overlap; return 0 after 2D separation.
+- On missing monitor identity or geometry, return the native width unchanged.
+- Keep Build-663 progress reservation unchanged as the only Guiyuan horizontal occupancy writer.
+
+No monitor field write, island-rectangle write, child state/alpha/visibility/translation write, timer, polling loop, frame follower, requestLayout injection or custom gesture timing is added.
+
+### Validation
+
+Run exact-head Runtime CI. If green, one signed Work Branch Canary is required because this changes active-island runtime semantics. Device acceptance requires collision protection while overlapping, immediate release after vertical separation, reverse re-engagement, charging-island + dual-SIM sanity, ordinary no-island regression, and a detailed `islandWidth2DGate` trace.
+
+
+## 2026-10-03 — Build 670: latch island-avoided peers and protect separated-phase capacity
+
+**Type:** device-feedback root-cause composition  
+**Display version:** 0.0.5  
+**Build:** 670 / `20261003-670`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Evidence
+
+Build 669 fixes the stale one-dimensional island-width constraint. The remaining near-terminal disappearance is a second mechanism already proven by Build 609.
+
+The returned reverse trace separates the two causes:
+- roughly fraction 0.87 / 0.75 / 0.62: fake `network_speed` is hidden with `inIslandState=20`;
+- roughly 0.50 / 0.37: it is visible again with the same non-island state;
+- roughly 0.25 / 0.12: it enters native island-hide state `inIslandState=10`.
+
+The video also shows sequential late loss: network speed disappears before VPN near the endpoint. This matches fake-row usable-width underflow, not island collision.
+
+### Design
+
+A full island-time capacity lease remains rejected because Build 660 removed native knife-hide. Build 670 enables the accepted Build-611/612 fixed lease only after Build 669 proves the fake row has actually separated in 2D.
+
+At the overlap -> separated boundary, Guiyuan reads existing native peer state once and snapshots only non-represented peers already island-hidden. Those peers receive reversible presentation-only empty clips so they cannot visibly reappear when island width is released. The fixed carrier-capacity lease is then activated, preventing reservation pressure from hiding additional peers such as VPN later in the same gesture.
+
+On reverse real-overlap, clips remain held while the lease restores the native carrier width. Clips are released only after a baseline-width native layout completes, preventing a one-frame reappearance before HyperOS island avoidance has regained layout authority.
+
+### Ownership
+
+No `NewStatusIconState` field, alpha, View visibility, translation, island rectangle or island-width field is written. The only new peer presentation write is identity-owned reversible `clipBounds`, reusing the already-accepted masking pattern. No timer, poller, custom easing or second motion system is added.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device acceptance requires one-hide-per-gesture behavior, no late VPN/headset underflow, preserved knife-hide during real overlap, correct reverse release ordering, no capacity-activation left jump, and ordinary no-island regression coverage.
+
+
+## 2026-10-03 — Build 671: accumulate native island hides; fix mid-gesture lease capacity origin
+
+**Type:** device-feedback root-cause correction  
+**Display version:** 0.0.5  
+**Build:** 671 / `20261003-671`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-670 evidence
+
+Build 670's latch boundary is one native state update too late. Earlier fake-row snapshots show island-avoided peers in `inIslandState=10`, but at real 2D separation Build 670 records `islandPeerLatch snapshot=none`. The peer therefore reappears after island width is released.
+
+Charging island exposes a second defect. The separated-phase fixed carrier lease activates with existing progress reservation already applied, but Build 670 compares the **total** reservation against the lease's extra capacity. Near the capacity boundary it raises `fake-carrier-capacity-insufficient`, restores native presentation state, marks `nativePresentationReady=false`, and the original status bar becomes visible again.
+
+### Build-671 correction
+
+**Gesture latch**
+- Observe only existing native layouts while true 2D overlap remains active.
+- Accumulate non-represented slot names whose current or previous native island state is the pinned target's hidden state.
+- Freeze that accumulated set at 2D separation.
+- Rematch by slot on subsequent fake layouts and keep reversible empty clips applied for the separated phase.
+- This removes the fragile one-shot View identity snapshot and preserves the latch across child re-layout/rebinding.
+
+**Capacity**
+- Keep no-island fixed-lease accounting unchanged: reservation origin remains zero.
+- When island-native-layout first activates the lease after separation, snapshot the already-applied reservation as the activation origin.
+- Validate only reservation growth after activation against the lease delta.
+- Do not alter `nativeHide`, requested-slot progression, padding curve, carrier geometry or motion projection.
+
+### Ownership
+
+No native peer state/alpha/visibility/translation write, island geometry write, timer, polling loop or new animator. The only peer presentation operation remains the reversible clip pattern, now rematched by latched slot. Carrier width remains the existing bounded session lease with writer-conflict guards.
+
+### Validation
+
+Exact-head Runtime CI, then one signed Canary. Device gate: ordinary island one-hide-per-gesture, charging island no fail-native/native-row takeover, stable non-avoided peers near endpoint, reverse handoff without flash, no lease-activation jump, no-island regression, and Detailed latch/capacity diagnostics.
+
+
+## 2026-10-03 — Build 672: replace scalar island peer hiding with optical collision
+
+**Type:** device-evidence semantic correction  
+**Display version:** 0.0.5  
+**Build:** 672 / `20261003-672`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### New device evidence
+
+The maintainer's follow-up video shows VPN being removed even though the visible VPN glyph still has clear space from the island. This rejects `inIslandState=10` as a sufficiently precise proxy for real collision.
+
+The existing diagnostics explain why: HyperOS consumes a scalar island-space contract at the whole fake-row level. A peer View can enter native island-hide state from the row-level capacity calculation even when the visible glyph inside that View has not physically touched the island. Build 671's improved latch timing would therefore make the wrong decision persistent.
+
+### Build-672 correction
+
+- Preserve the exact fake-island monitor Hook, but use it only to confirm an active, geometrically readable island.
+- Suppress the monitor's scalar island width for the current QS_FAKE Session.
+- Enable the already accepted bounded fixed fake-carrier capacity lease from Session start, preventing the scalar island/overflow path from removing unrelated peers.
+- After native layout, resolve each non-represented peer's optical content rectangle:
+  - native ImageView drawable frame via drawable bounds + imageMatrix + padding;
+  - actual TextView layout envelope;
+  - bounded union of nested visible image/text descendants.
+- Latch a slot only when this optical rectangle intersects the live island rectangle.
+- Unknown optical geometry stays visible and emits a bounded diagnostic rather than using an over-broad View-box fallback.
+- Reapply the existing reversible slot-owned clip on subsequent layouts so child re-layout/rebinding cannot revive a truly collided peer.
+
+### Relationship to rejected Build 660
+
+This does not restore Build 660's "capacity instead of avoidance" behavior. Build 660 removed collision pressure but supplied no replacement collision authority. Build 672 pairs the fixed capacity lease with an explicit per-peer optical collision authority, while retaining Build-663 represented-slot exclusion and Build-612 logical-carrier motion separation.
+
+### Ownership
+
+No `NewStatusIconState` write, alpha/visibility/translation write, island-rect write, timer, polling loop, custom easing or second motion system. The only peer presentation write remains reversible `clipBounds`; the carrier-width lease is the existing bounded Session writer.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Acceptance requires optical VPN clearance, real network-speed contact hiding, sticky one-hide-per-gesture behavior, charging-island no-fallback, no left jump, and no-island regression coverage.

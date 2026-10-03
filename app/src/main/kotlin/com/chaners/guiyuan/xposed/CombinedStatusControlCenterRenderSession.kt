@@ -23,6 +23,7 @@ internal object CombinedStatusControlCenterRenderSession {
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
     private var sceneEligible = false
+    private var islandShowing = false
 
     @Synchronized
     fun prearmAfterNextNativeLayout(
@@ -95,6 +96,7 @@ internal object CombinedStatusControlCenterRenderSession {
             ) == true
         ) {
             existing.setSceneEligible(sceneEligible)
+            existing.setIslandShowing(islandShowing)
             existing.refresh()
             return existing.prepareNativePresentation(reused = true)
         }
@@ -115,6 +117,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
                 initialSceneEligible = sceneEligible,
+                initialIslandShowing = islandShowing,
             )
         current = session
         session.start()
@@ -124,6 +127,15 @@ internal object CombinedStatusControlCenterRenderSession {
     @Synchronized
     fun setRequestedVisible(visible: Boolean): Boolean =
         current?.setRequestedVisible(visible) ?: false
+
+    @Synchronized
+    fun setIslandShowing(showing: Boolean) {
+        islandShowing = showing
+        val session = current ?: return
+        if (session.setIslandShowing(showing)) {
+            session.prepareNativePresentation(reused = true)
+        }
+    }
 
     @Synchronized
     fun setSceneEligible(eligible: Boolean) {
@@ -468,6 +480,13 @@ internal object CombinedStatusControlCenterRenderSession {
             hostAttached &&
             nativePresentationReady
 
+    internal fun resolveIslandNativeLayoutLatched(
+        currentLatched: Boolean,
+        islandShowing: Boolean,
+        requestedVisible: Boolean,
+    ): Boolean =
+        islandShowing || (currentLatched && requestedVisible)
+
     private class Session(
         host: ViewGroup,
         statusBarArea: ViewGroup,
@@ -478,6 +497,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         private val onProjectionReadinessChanged: (Boolean) -> Unit,
         initialSceneEligible: Boolean,
+        initialIslandShowing: Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val statusBarArea = WeakReference(statusBarArea)
@@ -496,6 +516,8 @@ internal object CombinedStatusControlCenterRenderSession {
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
         private var sceneEligible = initialSceneEligible
+        private var islandShowing = initialIslandShowing
+        private var islandNativeLayoutLatched = initialIslandShowing
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
@@ -602,8 +624,37 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setRequestedVisible(visible: Boolean): Boolean {
             requestedVisible = visible
+            val previousNativeLayout = islandNativeLayoutLatched
+            islandNativeLayoutLatched =
+                resolveIslandNativeLayoutLatched(
+                    currentLatched = islandNativeLayoutLatched,
+                    islandShowing = islandShowing,
+                    requestedVisible = requestedVisible,
+                )
+            if (
+                previousNativeLayout != islandNativeLayoutLatched &&
+                featureEnabled &&
+                sceneEligible
+            ) {
+                prepareNativePresentation(reused = true)
+            }
             syncPresentation("visibility")
             return projectionReady()
+        }
+
+        fun setIslandShowing(showing: Boolean): Boolean {
+            islandShowing = showing
+            val previousNativeLayout = islandNativeLayoutLatched
+            islandNativeLayoutLatched =
+                resolveIslandNativeLayoutLatched(
+                    currentLatched = islandNativeLayoutLatched,
+                    islandShowing = islandShowing,
+                    requestedVisible = requestedVisible,
+                )
+            syncPresentation("island")
+            return previousNativeLayout != islandNativeLayoutLatched &&
+                featureEnabled &&
+                sceneEligible
         }
 
         fun prepareNativePresentation(reused: Boolean): AttachResult {
@@ -650,6 +701,7 @@ internal object CombinedStatusControlCenterRenderSession {
                                 source = "native-layout",
                             )
                         },
+                        nativeLayoutAuthority = islandNativeLayoutLatched,
                     )
             ) {
                 is SystemUiHomePresentationOwner.ControlCenterStateResult.Active -> {
@@ -915,6 +967,7 @@ internal object CombinedStatusControlCenterRenderSession {
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
                     " nativePresentationReady=" + nativePresentationReady +
+                    " islandNativeLayout=" + islandNativeLayoutLatched +
                     " rootAlphaInherited=true nativeGeometryWrites=0"
             }
             onProjectionReadinessChanged(ready)
