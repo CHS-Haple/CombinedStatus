@@ -23,87 +23,47 @@ class SystemUiHomePresentationOwnerTest {
 
 
     @Test
-    fun islandControlCenterLeasesCapacityOnlyAfterReal2DSeparation() {
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyFakeCarrierCapacityLease(
-                    surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = true,
-                    island2DSeparated = false,
-                ),
-        )
+    fun controlCenterFakeAlwaysLeasesCapacityWhenPreciseIslandAvoidanceOwnsPeers() {
         assertTrue(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
                 .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = true,
-                    island2DSeparated = true,
-                ),
-        )
-        assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyFakeCarrierCapacityLease(
-                    surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = false,
                 ),
         )
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
                 .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "home",
-                    nativeLayoutAuthority = true,
-                    island2DSeparated = true,
                 ),
         )
     }
 
     @Test
-    fun islandPeerLatchTargetsOnlyNativeIslandHiddenNonRepresentedPeers() {
-        val represented = setOf("wifi", "mobile", "airplane")
-
+    fun opticalIslandCollisionDoesNotHideSeparatedPeer() {
         assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
-                .shouldLatchPeer(
-                    slot = "network_speed",
-                    representedSlots = represented,
-                    visible = true,
-                    width = 78,
-                    height = 75,
-                    inIslandState = 10,
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 900f,
+                    top = 70f,
+                    right = 940f,
+                    bottom = 130f,
+                    islandLeft = 522f,
+                    islandTop = 31f,
+                    islandRight = 918f,
+                    islandBottom = 156f,
                 ),
         )
         assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
-                .shouldLatchPeer(
-                    slot = "vpn",
-                    representedSlots = represented,
-                    visible = true,
-                    width = 94,
-                    height = 75,
-                    inIslandState = 20,
-                ),
-        )
-        assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
-                .shouldLatchPeer(
-                    slot = "network_speed",
-                    representedSlots = represented,
-                    visible = true,
-                    width = 78,
-                    height = 75,
-                    inIslandState = 20,
-                    beforeInIslandState = 10,
-                ),
-        )
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
-                .shouldLatchPeer(
-                    slot = "wifi",
-                    representedSlots = represented,
-                    visible = true,
-                    width = 75,
-                    height = 75,
-                    inIslandState = 10,
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 950f,
+                    top = 70f,
+                    right = 1010f,
+                    bottom = 130f,
+                    islandLeft = 522f,
+                    islandTop = 31f,
+                    islandRight = 918f,
+                    islandBottom = 156f,
                 ),
         )
     }
