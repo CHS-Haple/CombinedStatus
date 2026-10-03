@@ -1285,6 +1285,15 @@ class CombinedStatusModule : XposedModule() {
         controlCenterExpansionFraction = fraction
 
         if (fraction > 0f) {
+            if (
+                controlCenterSourceScene != CombinedStatusSourceScene.KEYGUARD &&
+                incomingKeyguardPresentationReadyForControlCenter()
+            ) {
+                updateControlCenterSourceSceneEligibility(
+                    sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                    authority = "incoming-keyguard-fraction",
+                )
+            }
             acquireKeyguardControlCenterLeaseIfEligible(
                 source = "native-fraction",
             )
