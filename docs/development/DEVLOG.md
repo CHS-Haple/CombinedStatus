@@ -3276,11 +3276,11 @@ The Build-667 incoming-boundary readiness fix remains. Build 669 retains the add
 
 Exact-head Runtime CI and one signed Canary are required before device testing.
 
-## 2026-10-03 — Build 670: block Keyguard visual rearm during native AOD fallback
+## 2026-10-03 — Build 672: block Keyguard visual rearm during native AOD fallback
 
 **Type:** Home -> AOD lifecycle handoff correction  
 **Branch / PR:** `feat/aod-display-control` / #196  
-**Build:** 670 / `20261003-670`
+**Build:** 672 / `20261003-672`
 
 ### Problem
 
