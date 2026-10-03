@@ -175,8 +175,7 @@ internal object CombinedStatusScenePolicy {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (
             homeAodTransitionOrigin &&
-            nativeToLockScreenTarget == false &&
-            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN
+            nativeToLockScreenTarget == false
         ) {
             return if (aodEnabled) {
                 KeyguardAodProjection.AOD
@@ -186,8 +185,7 @@ internal object CombinedStatusScenePolicy {
         }
         if (
             homeAodTargetPrearm &&
-            aodEnabled &&
-            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN
+            aodEnabled
         ) {
             // The latch is armed only from an authoritative native AOD target
             // while Home still owns represented slots. Once armed, it may span
@@ -241,6 +239,21 @@ internal object CombinedStatusScenePolicy {
             KeyguardAodProjection.NATIVE
         }
     }
+
+    fun homeFullAodOriginEligible(
+        featureEnabled: Boolean,
+        familyProjectionEnabled: Boolean,
+        steadySourceScene: CombinedStatusSourceScene,
+        homePresentationOwned: Boolean,
+        toAod: Boolean?,
+        isAodAnimate: Boolean?,
+    ): Boolean =
+        featureEnabled &&
+            familyProjectionEnabled &&
+            steadySourceScene == CombinedStatusSourceScene.HOME &&
+            homePresentationOwned &&
+            toAod == false &&
+            isAodAnimate == false
 
     fun shouldArmHomeAodTargetPrearm(
         featureEnabled: Boolean,

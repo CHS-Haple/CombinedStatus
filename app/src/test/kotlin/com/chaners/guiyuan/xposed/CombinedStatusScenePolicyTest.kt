@@ -996,7 +996,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = false,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
                 homePresentationOwned = false,
                 nativeToLockScreenTarget = false,
                 homeAodTransitionOrigin = true,
@@ -1012,10 +1012,83 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
                 homePresentationOwned = false,
                 nativeToLockScreenTarget = false,
                 homeAodTransitionOrigin = true,
+            ),
+        )
+    }
+
+    @Test
+    fun homeFullAodOriginRequiresNativeNonAodHomeState() {
+        assertTrue(
+            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+                featureEnabled = true,
+                familyProjectionEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = true,
+                toAod = false,
+                isAodAnimate = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+                featureEnabled = true,
+                familyProjectionEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = true,
+                toAod = true,
+                isAodAnimate = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+                featureEnabled = true,
+                familyProjectionEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = true,
+                toAod = false,
+                isAodAnimate = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+                featureEnabled = true,
+                familyProjectionEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                homePresentationOwned = true,
+                toAod = false,
+                isAodAnimate = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+                featureEnabled = true,
+                familyProjectionEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = false,
+                toAod = false,
+                isAodAnimate = false,
+            ),
+        )
+    }
+
+    @Test
+    fun latchedHomePrearmOverridesStaleFamilyHistory() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                nativeToLockScreenTarget = false,
+                homeAodTargetPrearm = true,
             ),
         )
     }

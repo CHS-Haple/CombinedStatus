@@ -2923,3 +2923,38 @@ A second lifetime defect remains in reverse single-child handoff: the pending fu
 - Persist the pending native target and release that lease only when a later non-animating AOD state matches the same endpoint.
 
 No timer, delay, polling, copied animation timeline, native alpha/visibility/translation writer, geometry compensation, or second family owner is introduced.
+
+## 2026-10-03 — Build 662: preserve native boundary through synchronous handoff
+
+**Type:** device evidence / lifecycle reentrancy and origin-authority correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 660 -> 662
+
+### Problem
+
+Build 660 closes the Keyguard-OFF/AOD-ON handoff, but two focused defects remain:
+- with AOD disabled, AOD -> Keyguard is visibly late although Keyguard -> AOD is responsive;
+- with both family projections enabled, Home -> AOD still loses Guiyuan briefly and then reacquires it.
+
+### Evidence
+
+The Build-660 AOD -> Keyguard trace reaches native `animateIconContainer(true)`, immediately attaches a layout-ready Keyguard renderer, and then emits `keyguardRenderReadiness source=stop` in the same synchronous call stack. Roughly 0.38 s later the stable Keyguard state attaches it again. The visual delay therefore comes from re-entrant policy evaluation after the correct native boundary, not from a late boundary or slow layout.
+
+For Home -> AOD, device video shows an actual composed-indicator disappearance/reappearance interval. At `animateFullAod:before`, Home still owns represented slots but `homeOriginLatched=false`; requiring historical `lastStableFamily=UNKNOWN` lets stale family history veto current Home evidence. The reverse AOD -> Keyguard trace also proves that Home ancestry/ownership can linger during stable AOD, so Home ownership alone is not sufficient authority.
+
+### Conclusion
+
+The exact native status-icon boundary must remain authoritative throughout its synchronous renderer/readiness/cutover re-entry. Home origin must be qualified by the current native AOD state rather than historical family state alone.
+
+### Change
+
+- Add a bounded in-call visual-boundary dispatch flag around `animateIconContainer` handling. Synchronous Keyguard readiness and cutover checks reuse that same boundary context; it is cleared in `finally` before returning to normal policy.
+- At full-AOD entry, latch Home origin only when Home is the current steady source, Home owns represented slots, and the native Keyguard/AOD state is explicitly non-AOD and non-animating.
+- An explicit native-qualified Home latch may override stale family history; stable or animating AOD cannot create that latch.
+- Preserve the Build-660 target-matched pending lifetime and the accepted Keyguard-OFF/AOD-ON path.
+
+No timer, delay, polling, copied animation timeline, native alpha/visibility/translation writer, geometry compensation, or second family owner is added.
+
+### Validation
+
+Focused policy tests cover the native-state-qualified Home origin and stale-family override after that explicit witness. Exact-HEAD Runtime and signed Canary device validation are required.

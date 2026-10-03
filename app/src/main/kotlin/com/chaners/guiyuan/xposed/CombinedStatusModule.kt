@@ -30,6 +30,7 @@ class CombinedStatusModule : XposedModule() {
     private var keyguardAodFullTargetPending = false
     private var keyguardAodPendingTargetToLockScreen: Boolean? = null
     private var keyguardAodFullTransitionActive = false
+    private var keyguardAodVisualBoundaryDispatchActive = false
     private var homeAodTransitionOriginPending = false
     private var homeAodTargetPrearmPending = false
     private var controlCenterExpansionFraction = 0f
@@ -273,6 +274,7 @@ class CombinedStatusModule : XposedModule() {
             keyguardAodFullTargetPending = false
             keyguardAodPendingTargetToLockScreen = null
             keyguardAodFullTransitionActive = false
+            keyguardAodVisualBoundaryDispatchActive = false
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
             controlCenterExpansionFraction = 0f
@@ -1893,16 +1895,28 @@ class CombinedStatusModule : XposedModule() {
             SystemUiHomePresentationOwner
                 .currentHomeRepresentedSlotOwnership()
                 .isNotEmpty()
+        val resolutionAtStart =
+            SystemUiKeyguardHostResolver.current()
+                as? SystemUiKeyguardHostResolver.ResolveResult.Ready
+        val nativeAodStateAtStart =
+            resolutionAtStart
+                ?.host
+                ?.battery
+                ?.let(SystemUiKeyguardAodStateSource::currentState)
 
         keyguardAodFullTransitionActive = true
+        keyguardAodVisualBoundaryDispatchActive = false
         keyguardAodPendingTargetToLockScreen = null
         homeAodTransitionOriginPending =
-            settings.enabled &&
-                steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
-                lastStableKeyguardAodScene ==
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN &&
-                homeOwnedAtStart &&
-                (settings.keyguardEnabled || settings.aodEnabled)
+            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+                featureEnabled = settings.enabled,
+                familyProjectionEnabled =
+                    settings.keyguardEnabled || settings.aodEnabled,
+                steadySourceScene = steadyStatusSourceScene,
+                homePresentationOwned = homeOwnedAtStart,
+                toAod = nativeAodStateAtStart?.toAod,
+                isAodAnimate = nativeAodStateAtStart?.isAodAnimate,
+            )
         keyguardAodFullTargetPending =
             SystemUiPresentationRuntimeOwner.keyguardStatusIconReady &&
                 lastStableKeyguardAodScene !=
@@ -1923,6 +1937,10 @@ class CombinedStatusModule : XposedModule() {
                 },
             "homeOriginLatched" to homeAodTransitionOriginPending,
             "homePresentationOwnedAtStart" to homeOwnedAtStart,
+            "steadySourceSceneAtStart" to steadyStatusSourceScene.name,
+            "lastStableFamilyAtStart" to lastStableKeyguardAodScene.name,
+            "nativeToAodAtStart" to nativeAodStateAtStart?.toAod,
+            "nativeAodAnimatingAtStart" to nativeAodStateAtStart?.isAodAnimate,
             "eventDriven" to true,
             "readOnly" to true,
             "nativeGeometryWrites" to 0,
@@ -2055,11 +2073,16 @@ class CombinedStatusModule : XposedModule() {
         )
         if (!eligible) return
 
-        onKeyguardHostResolution(
-            resolution = resolution,
-            source = "status-icon-animation",
-            fullAodVisualBoundary = true,
-        )
+        keyguardAodVisualBoundaryDispatchActive = true
+        try {
+            onKeyguardHostResolution(
+                resolution = resolution,
+                source = "status-icon-animation",
+                fullAodVisualBoundary = true,
+            )
+        } finally {
+            keyguardAodVisualBoundaryDispatchActive = false
+        }
         keyguardAodFullTargetPending = false
         keyguardAodPendingTargetToLockScreen = null
     }
@@ -2645,8 +2668,10 @@ class CombinedStatusModule : XposedModule() {
             return
         }
         if (
-            resolveCurrentKeyguardAodProjection(resolved.host) !=
-            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
+            resolveCurrentKeyguardAodProjection(
+                resolved = resolved.host,
+                fullAodVisualBoundary = keyguardAodVisualBoundaryDispatchActive,
+            ) != CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
         ) {
             deactivateKeyguardRuntime("projection-ineligible")
             return
@@ -2731,8 +2756,10 @@ class CombinedStatusModule : XposedModule() {
             !settings.enabled ||
             !settings.keyguardEnabled ||
             resolved !is SystemUiKeyguardHostResolver.ResolveResult.Ready ||
-            resolveCurrentKeyguardAodProjection(resolved.host) !=
-                CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
+            resolveCurrentKeyguardAodProjection(
+                resolved = resolved.host,
+                fullAodVisualBoundary = keyguardAodVisualBoundaryDispatchActive,
+            ) != CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
         ) {
             deactivateKeyguardRuntime("cutover-projection-ineligible")
             return
@@ -3974,6 +4001,7 @@ class CombinedStatusModule : XposedModule() {
         keyguardAodFullTargetPending = false
         keyguardAodPendingTargetToLockScreen = null
         keyguardAodFullTransitionActive = false
+        keyguardAodVisualBoundaryDispatchActive = false
         homeAodTransitionOriginPending = false
         homeAodTargetPrearmPending = false
         controlCenterSceneEligible = false
