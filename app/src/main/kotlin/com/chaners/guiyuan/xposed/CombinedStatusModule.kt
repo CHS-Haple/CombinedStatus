@@ -1300,7 +1300,7 @@ class CombinedStatusModule : XposedModule() {
             keyguardControlCenterLeaseActive ||
             !CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
                 sourceScene = controlCenterSourceScene,
-                keyguardRuntimeReady = keyguardPresentationReady,
+                keyguardPresentationReady = keyguardPresentationReady,
                 nativeFraction = controlCenterExpansionFraction,
             )
         ) {
@@ -1378,6 +1378,14 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun incomingKeyguardPresentationReadyForControlCenter(): Boolean {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        if (
+            !settings.enabled ||
+            !settings.keyguardEnabled ||
+            settings.aodEnabled
+        ) {
+            return false
+        }
         val resolved =
             SystemUiKeyguardHostResolver.current()
                 as? SystemUiKeyguardHostResolver.ResolveResult.Ready
