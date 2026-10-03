@@ -3069,3 +3069,31 @@ No timer, delay, peer translation, alpha/visibility writer, or geometry compensa
 ### Validation
 
 Exact-head Runtime CI, signed Canary, then the three focused device checks recorded in CURRENT.
+
+## 2026-10-03 — Build 666: native status-icon lifecycle gate
+
+**Type:** Keyguard/AOD presentation lifecycle  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Build:** 666 / `20261003-666`
+
+### Build-665 evidence
+
+The AOD -> Keyguard peer-icon inward merge still reproduces. Diagnostics consistently report `hostShownAtArm=true`, so Build 665 rejects its hidden-host prelayout path. The same incoming transition reports the exact native Keyguard status-icon container at `statusIconsAlpha=0.0`.
+
+Therefore the enclosing Keyguard host visibility is not the lifecycle authority for the animated status-icon presentation.
+
+### Build-666 correction
+
+- Preserve the Build-665 two-phase presentation owner and stable-AOD -> enabled-Keyguard / disabled-AOD eligibility.
+- Replace `View.isShown` with the read-only `MiuiStatusIconContainer` presentation alpha.
+- Allow compact occupancy precommit only when that exact native status-icon layer is attached and fully hidden (`alpha == 0f`).
+- Unknown or partially visible native status icons fail back to the existing deferred path.
+- Do not change Home -> AOD transient-owner handling in this focused checkpoint.
+
+### Boundaries
+
+No timer, delay, copied native duration/interpolator, peer translation, native alpha/visibility writer, or geometry compensation.
+
+### Validation gate
+
+Exact-head Runtime CI, then a signed Canary. Device focus is AOD -> Keyguard peer layout and Guiyuan continuity; Keyguard -> AOD is regression-only.
