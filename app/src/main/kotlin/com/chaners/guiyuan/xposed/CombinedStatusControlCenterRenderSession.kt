@@ -132,12 +132,7 @@ internal object CombinedStatusControlCenterRenderSession {
     fun setIslandShowing(showing: Boolean) {
         islandShowing = showing
         val session = current ?: return
-        val shouldResume = session.setIslandShowing(showing)
-        if (showing) {
-            SystemUiHomePresentationOwner.deactivateControlCenter(
-                "island-native-fallback",
-            )
-        } else if (shouldResume) {
+        if (session.setIslandShowing(showing)) {
             session.prepareNativePresentation(reused = true)
         }
     }
@@ -476,7 +471,6 @@ internal object CombinedStatusControlCenterRenderSession {
         layoutReady: Boolean,
         hostAttached: Boolean,
         nativePresentationReady: Boolean,
-        islandNativeFallbackLatched: Boolean = false,
     ): Boolean =
         featureEnabled &&
             sceneEligible &&
@@ -484,10 +478,9 @@ internal object CombinedStatusControlCenterRenderSession {
             tintReady &&
             layoutReady &&
             hostAttached &&
-            nativePresentationReady &&
-            !islandNativeFallbackLatched
+            nativePresentationReady
 
-    internal fun resolveIslandNativeFallbackLatched(
+    internal fun resolveIslandNativeLayoutLatched(
         currentLatched: Boolean,
         islandShowing: Boolean,
         requestedVisible: Boolean,
@@ -524,7 +517,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
         private var sceneEligible = initialSceneEligible
         private var islandShowing = initialIslandShowing
-        private var islandNativeFallbackLatched = initialIslandShowing
+        private var islandNativeLayoutLatched = initialIslandShowing
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
@@ -631,16 +624,15 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setRequestedVisible(visible: Boolean): Boolean {
             requestedVisible = visible
-            val wasFallbackLatched = islandNativeFallbackLatched
-            islandNativeFallbackLatched =
-                resolveIslandNativeFallbackLatched(
-                    currentLatched = islandNativeFallbackLatched,
+            val previousNativeLayout = islandNativeLayoutLatched
+            islandNativeLayoutLatched =
+                resolveIslandNativeLayoutLatched(
+                    currentLatched = islandNativeLayoutLatched,
                     islandShowing = islandShowing,
                     requestedVisible = requestedVisible,
                 )
             if (
-                wasFallbackLatched &&
-                !islandNativeFallbackLatched &&
+                previousNativeLayout != islandNativeLayoutLatched &&
                 featureEnabled &&
                 sceneEligible
             ) {
@@ -652,32 +644,24 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setIslandShowing(showing: Boolean): Boolean {
             islandShowing = showing
-            val wasFallbackLatched = islandNativeFallbackLatched
-            islandNativeFallbackLatched =
-                resolveIslandNativeFallbackLatched(
-                    currentLatched = islandNativeFallbackLatched,
+            val previousNativeLayout = islandNativeLayoutLatched
+            islandNativeLayoutLatched =
+                resolveIslandNativeLayoutLatched(
+                    currentLatched = islandNativeLayoutLatched,
                     islandShowing = islandShowing,
                     requestedVisible = requestedVisible,
                 )
-            if (islandNativeFallbackLatched) {
-                nativePresentationReady = false
-            }
             syncPresentation("island")
-            return wasFallbackLatched &&
-                !islandNativeFallbackLatched &&
+            return previousNativeLayout != islandNativeLayoutLatched &&
                 featureEnabled &&
                 sceneEligible
         }
 
         fun prepareNativePresentation(reused: Boolean): AttachResult {
-            if (!featureEnabled || !sceneEligible || islandNativeFallbackLatched) {
+            if (!featureEnabled || !sceneEligible) {
                 nativePresentationReady = false
                 syncPresentation(
-                    when {
-                        !featureEnabled -> "feature-ineligible"
-                        !sceneEligible -> "scene-ineligible"
-                        else -> "island-native-fallback"
-                    },
+                    if (!featureEnabled) "feature-ineligible" else "scene-ineligible",
                 )
                 return AttachResult.Ready
             }
@@ -717,6 +701,7 @@ internal object CombinedStatusControlCenterRenderSession {
                                 source = "native-layout",
                             )
                         },
+                        nativeLayoutAuthority = islandNativeLayoutLatched,
                     )
             ) {
                 is SystemUiHomePresentationOwner.ControlCenterStateResult.Active -> {
@@ -952,7 +937,6 @@ internal object CombinedStatusControlCenterRenderSession {
                 layoutReady = layoutReady,
                 hostAttached = host.get()?.isAttachedToWindow == true,
                 nativePresentationReady = nativePresentationReady,
-                islandNativeFallbackLatched = islandNativeFallbackLatched,
             )
 
         private fun syncPresentation(source: String) {
@@ -983,7 +967,7 @@ internal object CombinedStatusControlCenterRenderSession {
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
                     " nativePresentationReady=" + nativePresentationReady +
-                    " islandFallback=" + islandNativeFallbackLatched +
+                    " islandNativeLayout=" + islandNativeLayoutLatched +
                     " rootAlphaInherited=true nativeGeometryWrites=0"
             }
             onProjectionReadinessChanged(ready)
