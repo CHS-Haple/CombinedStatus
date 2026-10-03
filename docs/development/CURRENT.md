@@ -15,24 +15,22 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 669 follows Build-668 device rejection. Build 667 remains accepted for the previously failing Keyguard/AOD paths:
+Build 670 follows Build-669 device rejection. Build 667 remains accepted for the previously failing Keyguard/AOD paths:
 - AOD -> Keyguard no longer collapses adjacent peers inward;
 - AOD -> Keyguard fast/partial Control Center pull no longer falls back to native in the reproduced path;
 - Keyguard -> AOD keeps Guiyuan through the native Keyguard status-icon fade and yields only at the hidden endpoint.
 
-Build-668 device result:
-- with Keyguard Guiyuan enabled and AOD Guiyuan disabled, Home/Desktop -> AOD still commonly shows a brief Guiyuan interruption, then Guiyuan again, then finally native;
-- detailed diagnostics show the direct screen-off path enters a transient Full-AOD `target=keyguard`, then native `toAod=true / isAodAnimate=true` follows before a stable Keyguard endpoint;
-- the tested Build 668 never latched `homeNativeAodFallbackCandidate`, so the transient Keyguard renderer remained eligible and could reappear before native takeover.
+Build-669 device result:
+- with Keyguard Guiyuan enabled and AOD Guiyuan disabled, Home/Desktop -> AOD still commonly shows “Guiyuan disappears -> Guiyuan returns -> native”;
+- unlike Build 668, Build 669 now proves the Home provenance path itself is correct: `homeCarrierVisibleAtStart=true`, `homeNativeAodFallbackCandidate=true`, then native `toAod=true / isAodAnimate=true` consumes it and logs `homeNativeAodFallbackActive=true` while releasing the transient Keyguard presentation;
+- the remaining flash occurs afterward when HyperOS emits a Keyguard-directed status-icon visual boundary. The incoming Keyguard visual-handoff helper can arm and attach its renderer even while the native-AOD fallback is already active.
 
-Build-669 lifecycle correction:
-- arm a Home-native-AOD candidate at Full-AOD entry only while the Home compact owner still owns represented slots **and the exact native Home `system_icons` carrier is still visibly presented**; Keyguard projection must be enabled and AOD projection disabled. This intentionally avoids stale `steadyStatusSourceScene` and does not reuse Battery `mStatusBarState` as Home visibility authority;
-- the intermediate `target=keyguard` is explicitly treated as a transient routing stage and does not consume the candidate;
-- native `toAod=true / isAodAnimate=true` consumes the candidate, promotes a native-AOD fallback, clears any incoming-Keyguard handoff state, releases the transient Keyguard presentation, and keeps native authoritative until stable AOD;
-- a direct native target=AOD may consume the same candidate immediately;
-- if stable Keyguard forms first, the candidate/active fallback is cleared so ordinary Keyguard -> AOD keeps Build-667 behavior; returning Home clears only an already-active native fallback, while an inert Home-origin candidate may survive transient routing until the next native AOD animation or stable-family endpoint;
-- resolver failure, settings changes, Hot Reload and full teardown remain fail-native / fail-closed.
-
+Build-670 lifecycle correction:
+- keep the Build-669 Home provenance and consumption path unchanged;
+- make active Home-native-AOD fallback an explicit veto for incoming Keyguard visual-handoff eligibility;
+- apply the same veto to Keyguard boundary layout precommit so a hidden native status-icon layer cannot bypass the fallback through a layout-only path;
+- preserve normal AOD -> Keyguard handoff when no Home-native-AOD fallback is active;
+- preserve existing stable-family cleanup, Home abort, settings/host failure, Hot Reload and teardown behavior.
 AOD -> Keyguard Control Center risk review:
 - Build 667 fixed the observed fast-pull failure with incoming-boundary presentation readiness;
 - Build 669 also closes the remaining callback-order race: if expansion fraction arrives before visible/source reconciliation, an already-valid incoming Keyguard presentation promotes CC source to KEYGUARD before lease acquisition;
@@ -43,10 +41,10 @@ No timer, delay, copied duration/interpolator, native alpha/visibility/translati
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003669` / Build `20261003-669`.
+- Candidate identity: `0.0.5` / versionCode `261003670` / Build `20261003-670`.
 - PR #196 is 0 behind `dev` at freeze.
-- Lifecycle review completed before freeze for Home native-carrier visibility -> transient Keyguard -> native AOD, abort-to-Home, stable-Keyguard fallback, stable-AOD completion, and AOD -> incoming Keyguard -> Control Center source ordering. Build-668 detailed diagnostics specifically rejected `steadyStatusSourceScene` as the Home-origin authority because raw unlocked updates can arrive from a structurally non-Home battery while the visible Home carrier still owns the presentation.
-- Unit coverage includes candidate arming, native-AOD animation consumption, direct target=AOD consumption, active-fallback projection override, incoming Keyguard source conflict, and ordinary-unlock rejection.
+- Build-669 device evidence confirms Home native-carrier provenance and fallback consumption are now correct; the remaining defect is a visual-handoff re-entry path that bypassed the active native fallback. Build 670 changes only that eligibility boundary and does not add a writer or a second lifecycle authority.
+- Unit coverage includes candidate arming, native-AOD animation consumption, direct target=AOD consumption, active-fallback projection override, active-fallback visual-handoff/precommit rejection, incoming Keyguard source conflict, and ordinary-unlock rejection.
 - Runtime code is frozen pending exact-head Runtime CI and one signed Canary.
 
 ## Device gate
@@ -68,7 +66,7 @@ No timer, delay, copied duration/interpolator, native alpha/visibility/translati
 
 ## Immediate next step
 
-Run exact-head Runtime CI for Build 669. If clean, issue one signed Canary and freeze for the focused device gate above.
+Run exact-head Runtime CI for Build 670. If clean, issue one signed Canary and freeze for the focused device gate above.
 
 ## Reference priority
 
