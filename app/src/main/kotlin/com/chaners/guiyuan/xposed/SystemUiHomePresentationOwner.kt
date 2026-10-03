@@ -67,6 +67,10 @@ internal object SystemUiHomePresentationOwner {
         current?.ownedRepresentedSlots() ?: emptySet()
 
     @Synchronized
+    internal fun currentHomeCarrierPresentationVisible(): Boolean =
+        current?.isNativeCarrierPresentationVisible() == true
+
+    @Synchronized
     internal fun currentKeyguardRepresentedSlotOwnership(): Set<String> =
         if (keyguardFamilySurface == KeyguardFamilySurface.KEYGUARD) {
             keyguardFamilyCurrent?.ownedRepresentedSlots() ?: emptySet()
@@ -1164,6 +1168,15 @@ internal object SystemUiHomePresentationOwner {
                         clipStates.isNotEmpty() ||
                         appliedPadding != null
                 )
+
+        fun isNativeCarrierPresentationVisible(): Boolean {
+            val carrier = batteryContainer.get() ?: return false
+            return active &&
+                carrier.isAttachedToWindow &&
+                carrier.visibility == View.VISIBLE &&
+                carrier.alpha > 0f &&
+                carrier.isShown
+        }
 
         fun ownedRepresentedSlots(): Set<String> {
             if (!active || !compactLayoutReady) return emptySet()
