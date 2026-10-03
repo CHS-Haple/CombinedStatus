@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 670 follows Build-669 device rejection. Build 667 remains accepted for the previously failing Keyguard/AOD paths:
+Build 672 follows Build-669 device rejection. Build 667 remains accepted for the previously failing Keyguard/AOD paths:
 - AOD -> Keyguard no longer collapses adjacent peers inward;
 - AOD -> Keyguard fast/partial Control Center pull no longer falls back to native in the reproduced path;
 - Keyguard -> AOD keeps Guiyuan through the native Keyguard status-icon fade and yields only at the hidden endpoint.
@@ -41,9 +41,9 @@ No timer, delay, copied duration/interpolator, native alpha/visibility/translati
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003670` / Build `20261003-670`.
+- Candidate identity: `0.0.5` / versionCode `261003672` / Build `20261003-672`.
 - PR #196 is 0 behind `dev` at freeze.
-- Build-669 device evidence confirms Home native-carrier provenance and fallback consumption are now correct; the remaining defect is a visual-handoff re-entry path that bypassed the active native fallback. Build 670 changes only that eligibility boundary and does not add a writer or a second lifecycle authority.
+- Build-669 device evidence confirms Home native-carrier provenance and fallback consumption are now correct; the remaining defect is a visual-handoff re-entry path that bypassed the active native fallback. Build 672 changes only that eligibility boundary and does not add a writer or a second lifecycle authority.
 - Unit coverage includes candidate arming, native-AOD animation consumption, direct target=AOD consumption, active-fallback projection override, active-fallback visual-handoff/precommit rejection, incoming Keyguard source conflict, and ordinary-unlock rejection.
 - Runtime code is frozen pending exact-head Runtime CI and one signed Canary.
 
@@ -66,7 +66,7 @@ No timer, delay, copied duration/interpolator, native alpha/visibility/translati
 
 ## Immediate next step
 
-Run exact-head Runtime CI for Build 670. If clean, issue one signed Canary and freeze for the focused device gate above.
+Run exact-head Runtime CI for Build 672. If clean, issue one signed Canary and freeze for the focused device gate above.
 
 ## Reference priority
 
