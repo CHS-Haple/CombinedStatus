@@ -100,6 +100,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var unlockedGeometryLogged = false
     private var visualBoundsLogged = false
     private var slotTranslationCorrectionLogged = false
+    private var slotTranslationIslandBypassLogged = false
     private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
@@ -369,6 +370,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     SystemUiIslandMotionSource.currentIslandShowing(),
                                 )
                             ) {
+                                if (!slotTranslationIslandBypassLogged) {
+                                    slotTranslationIslandBypassLogged = true
+                                    eventSink?.invoke(
+                                        "nativeCombinedParticipant slotTranslation " +
+                                            "authority=hyperos-island bypass=true " +
+                                            "moduleStateWrites=0",
+                                    )
+                                }
                                 return@Hooker chain.proceed()
                             }
                             val desired =
@@ -655,6 +664,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         unlockedGeometryLogged = false
         visualBoundsLogged = false
         slotTranslationCorrectionLogged = false
+        slotTranslationIslandBypassLogged = false
         featureEnabled = false
         eventSink = null
         return true
@@ -2326,6 +2336,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         unlockedGeometryLogged = false
         visualBoundsLogged = false
         slotTranslationCorrectionLogged = false
+        slotTranslationIslandBypassLogged = false
         renderController = null
         injected = false
         registryRestored = false
