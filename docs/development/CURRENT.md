@@ -1,48 +1,124 @@
 # Current Development State
 
-This file is the concise recovery point for active Guiyuan development. Historical Build chronology, rejected hypotheses, detailed CI records, and device-by-device reasoning belong in `DEVLOG.md`.
+## Active recovery line
 
-## Accepted baseline
+- Branch: `fix/qs-fake-native-source-sync`.
+- Base: Build 652 checkpoint `f8df74f`.
+- Build 675 candidate keeps HyperOS native QS_FAKE island authority while restoring Guiyuan transition reflow under island.
+- PR #197 / Builds 653-672 remain historical experimental evidence and are not the runtime base for this line.
 
-- Product / display version: Guiyuan 0.0.5.
-- `main` remains on the promoted 0.0.5 / Build 618 stable checkpoint.
-- `dev` has advanced to accepted Build 619: `0.0.5` / versionCode `261002419` / Build `20261002-619`.
-- Build 619 is the latest accepted runtime-affecting development baseline.
-- Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- GPL-3.0-only remains the project license.
+## Ownership model under test
 
-## Integrated Build 619 scope
+- HyperOS owns Home island avoidance, QS_FAKE source synchronization, island lifecycle, fake width and peer visibility decisions.
+- Guiyuan only adapts represented Wi-Fi/mobile/Battery slots and its combined-slot reservation.
+- No custom island boundary, 2D/optical collision, gesture latch or peer island state writer is used.
+- Charging island (`mIsHideBattery=true`) remains a separate follow-up because native Battery removal changes the combined-slot reservation contract.
 
-PR #195 added two independent network-state visual controls:
-- Airplane mode size: 40%-125%, default 100%.
-- No-SIM size: 40%-125%, default 100%.
+## Build 674 diagnostic gate
 
-Both controls are profile-scoped like Wi-Fi/mobile-type sizing, so Network centered and Battery centered remember separate values. Wi-Fi and mobile-type sizing remain independent.
+Temporary `nativeSourceSyncDiag` events are emitted only when observed state changes. They compare Home and QS_FAKE island state, Battery hide state, host/group widths, reservation/capacity values, and each non-represented peer's native visibility/island state. The diagnostic path is read-only and will be removed after localization.
 
-Renderer ownership remains narrow:
-- HyperOS/native resources remain the drawable source.
-- Each new setting changes only the matching resource draw-size constraint and the same resolved geometry consumed by optical avoidance / transition-source rendering.
-- No state source, slot ownership, native peer layout, gesture timeline, timing, alpha, visibility, or translation writer was added.
+## Immediate test
 
-## Validation evidence
+Test ordinary island only:
+1. island already present before pull;
+2. slow pull down and reverse;
+3. if convenient, change island length/state while partially pulled;
+4. observe whether Home and QS_FAKE peer changes stay synchronized;
+5. export Detailed Diagnostic and a short recording.
 
-- PR #195 merged to `dev` as `d59b7452cfe7abcad9a48f8ddbf00812adc00da5`.
-- Work Branch Canary #650 validated Build 619 on the exact requested work-branch source; trusted checkout/build/signature/non-debuggable checks succeeded.
-- Maintainer device validation on Xiaomi 15 Pro accepted the Airplane / No-SIM sizing behavior and independent content-layout memory with no visible regression requiring another runtime change.
-- Returned detailed diagnostics report `overall=healthy` on Build 619; the durable device conclusion and the diagnostic-summary limitation are recorded in `DEVLOG.md`.
-- Final PR Runtime CI #2230 succeeded after synchronizing latest `dev` ancestry and recording device evidence.
-- Trusted `dev` integration CI #2231 succeeded on merge commit `d59b7452cfe7abcad9a48f8ddbf00812adc00da5`, including tests/build, pinned HyperOS target verification, Modern Xposed metadata, Haple APK signature, non-debuggable Canary verification, and Canary artifact upload.
+Charging-island behavior is not an acceptance gate for Build 674.
 
-## Current state
 
-Build 619 remains the accepted runtime baseline. The companion app now adds a Settings > Other > Project address entry linking to the repository, and repository/project license identity is GPL-3.0-only. These changes do not alter SystemUI runtime ownership or behavior. `main` should remain on Build 618 until a later stable promotion is intentionally requested.
+## Build 674 compile correction
 
-The optional AOD display design remains roadmap-only: global Guiyuan is the parent gate, Keyguard and AOD are independent child preferences, and AOD requires its own bounded host/session/lifecycle before any runtime implementation.
+Build 673 failed before runtime because the temporary diagnostic called the existing transition-state reader while that helper was still private on the Build-652 codebase. Build 674 changes only that helper's Kotlin visibility from private to internal so the read-only diagnostic can reuse the exact existing reflection path. No runtime state writer or island behavior changes.
 
-## Reference priority
 
-1. `CONTRIBUTING.md`;
-2. this file;
-3. current source / exact-target SystemUI evidence;
-4. task-specific architecture/reference docs;
-5. relevant `DEVLOG.md` history.
+## Build 675 device-evidence correction
+
+Build 674 device evidence showed two reservation gates were too broad after native island authority was restored:
+- ordinary-island QS_FAKE retained HyperOS root motion but Guiyuan transition padding was disabled, so native peers visually fell mostly vertically instead of reflowing left with the expanding combined status;
+- charging-island Home disabled semantic reservation when the native Battery island was active, leaving the dual-SIM fake layout inconsistent with its native final target.
+
+Build 675 changes only those two gates. Verified Home/Keyguard sources keep Guiyuan semantic transition reservation and padding reflow while HyperOS keeps native island collision authority. The rejected Build-652 fake island-boundary projection remains absent. The existing fixed QS_FAKE capacity lease and Build-674 read-only diagnostics stay unchanged for this evidence pass.
+
+Immediate device gate:
+1. ordinary island: native peers should regain leftward reflow while the combined status unfolds;
+2. ordinary island: watch for any new premature native hide/knife behavior;
+3. charging island + dual SIM: both mobile targets should unfold consistently toward the final row;
+4. no-island pull remains a regression check.
+
+
+## Build 676 steady-result mirror
+
+Build 675 device evidence establishes two independent facts:
+- charging-island transition reaches `failNative(fake-carrier-capacity-insufficient)` when total native-hide reservation consumes the fixed lease; the compact 105px combined slot was being counted twice;
+- under every active island, Home and QS_FAKE can hold different native peer island states, so letting the altered fake row independently decide island membership does not reproduce HyperOS steady-state behavior.
+
+Build 676 implements the corrected ownership model:
+- Home native `NewStatusIconState` is the sole island peer-membership authority;
+- after each Home native layout, non-represented slots in the exact native hidden island state are captured as a live set;
+- the current QS_FAKE mirrors only that set through reversible slot-rematched empty clips;
+- while that live Home mirror is active, exact QS_FAKE `getIslandShowing()` is exposed as false so the fake row cannot make a second island-hide decision from Guiyuan-altered geometry;
+- no child native state, alpha, visibility, translation, island width/rect, timer, polling loop, or custom collision algorithm is written;
+- charging-island capacity validation now counts only reservation growth beyond the compact combined slot.
+
+Temporary `nativeSourceSyncDiag` remains enabled. New bounded `steadyPeerMirror` events report only mirror state changes.
+
+Device gate:
+1. ordinary island: fake peer count must match Home steady and follow later island growth/shrink;
+2. charging island: no `fake-carrier-capacity-insufficient`, no mid-gesture native takeover, reverse must remain Guiyuan-owned;
+3. charging island + dual SIM: both mobile targets remain available for the transition;
+4. no-island behavior remains unchanged.
+
+
+Lifecycle review: Home deactivation and Hot Reload release both clear the live steady-peer mirror before any later Control Center session can reuse it.
+
+
+Home fail-native cleanup also clears the mirror and releases any current fake peer clips before propagating fallback.
+
+
+## Build 677 charging-island capacity saturation
+
+Build 676 device evidence validates the steady-peer mirror for ordinary islands. The remaining charging-island fallback is deterministic: at requested native reservation 354px, the fake carrier consumes exactly its 249px lease beyond the 105px compact slot; the next reservation increment would exceed physical carrier expansion and triggers `failNative(fake-carrier-capacity-insufficient)`.
+
+Build 677 keeps the ordinary-island mirror unchanged. For exact QS_FAKE while native Battery is hidden:
+- transition requested width remains the full semantic value used by the Guiyuan overlay;
+- native status-icon end padding is saturated at `compactSlotWidth + fakeCarrierCapacityDelta`;
+- this preserves at least the Home steady peer content width instead of shrinking the native row further;
+- the existing capacity fail remains as a guard for all unsaturated/unsupported cases;
+- no fake width, island geometry/state, peer membership, timing, alpha, visibility, or translation algorithm is added.
+
+Diagnostic `endReservation` now records both requested and applied padding plus `capacityClamped`.
+
+Device gate:
+1. charging island must remain Guiyuan-owned past the previous ~0.88 cutover and through reverse;
+2. no `fake-carrier-capacity-insufficient` should appear;
+3. charging island + dual SIM must keep both targets and avoid overlap;
+4. ordinary island remains a regression check only.
+
+
+## Build 678 charging-island peer-row alignment
+
+Build 677 removes the charging-island fail-native fallback but device video/log evidence shows excessive visual separation between native peers and Guiyuan's unfolding represented icons. The gap is present before capacity saturation, so Build 677's 354px clamp is not the root cause.
+
+The measured ownership mismatch is:
+- charging-island QS_FAKE keeps its native row visually authoritative much later than an ordinary island;
+- semantic Guiyuan occupancy grows 105px -> 384px, while the native fake peer row only needs to converge to HyperOS final status-row capacity;
+- on the verified target, fake statusIcons width is 832px and the final native statusIcons usable width is 521px, so native peer reservation endpoint is 311px, not 384px/354px.
+
+Build 678 therefore separates two widths only for the explicit native Battery-island contract:
+- Guiyuan logical/overlay reservation remains unchanged and continues 105px -> semantic final width;
+- native QS_FAKE peer reservation interpolates from compact width to the width implied by HyperOS final status-row usable capacity;
+- the endpoint is measured at runtime from fake/final native containers, not hard-coded;
+- ordinary-island reservation and the accepted steady-peer mirror are unchanged;
+- Build 677 physical-capacity saturation remains as a final safety guard in HomePresentationOwner.
+
+No per-peer collision, island rectangle, optical overlap, custom timeline, alpha/visibility/translation write, or fixed spacing constant is added.
+
+Device gate:
+1. charging island: native-peer-to-Guiyuan visual gap should shrink to the normal final-row spacing;
+2. full pull/reverse remains Guiyuan-owned with no fail-native;
+3. dual-SIM charging island remains intact;
+4. ordinary island is regression-only.
