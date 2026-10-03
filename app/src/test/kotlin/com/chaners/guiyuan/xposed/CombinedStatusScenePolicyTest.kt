@@ -1304,14 +1304,14 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun disabledAodHomeFallbackArmsOnlyFromAuthoritativeHomeOwnership() {
+    fun disabledAodHomeFallbackArmsOnlyFromVisibleNativeHomeCarrier() {
         assertTrue(
             CombinedStatusScenePolicy.shouldArmHomeNativeAodFallbackCandidate(
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = false,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
                 homePresentationOwned = true,
+                homeCarrierPresentationVisible = true,
             ),
         )
         assertFalse(
@@ -1319,8 +1319,17 @@ class CombinedStatusScenePolicyTest {
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = false,
-                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = true,
+                homeCarrierPresentationVisible = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldArmHomeNativeAodFallbackCandidate(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                homePresentationOwned = false,
+                homeCarrierPresentationVisible = true,
             ),
         )
         assertFalse(
@@ -1328,8 +1337,8 @@ class CombinedStatusScenePolicyTest {
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = true,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
                 homePresentationOwned = true,
+                homeCarrierPresentationVisible = true,
             ),
         )
     }
