@@ -15,47 +15,46 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 665 addresses two Build-664 device findings without changing the accepted Keyguard -> AOD direction.
+Build 666 is a focused lifecycle validation of the remaining Build-665 AOD -> Keyguard peer-motion defect.
 
-Build-664 device evidence:
-- AOD -> Keyguard now keeps Guiyuan present from the beginning, proving the earlier target-commit visual prearm is useful.
-- The remaining motion defect is peer layout: at 11:30:58.147 the visual-only lease masks represented native views with zero native layout writes, while persistent ignored slots / end reservation are not committed until stable Keyguard at 11:30:58.846. Non-represented native peers therefore begin from the full-row layout and only collapse beside Guiyuan at the stable edge, producing the visible "merge in from the middle" motion.
-- The native Keyguard host is still hidden when the authoritative Keyguard target is committed, leaving a native lifecycle window in which final compact Keyguard occupancy can be prepared before the host is revealed.
-- Home -> AOD with AOD disabled has a separate transient-owner bug: the full-AOD entry reports Home presentation ownership, but a transient KEYGUARD scene attaches Guiyuan before the native target is known. Once `mToLockScreen=false` confirms native AOD, that temporary Keyguard owner survives until a later AOD callback, so the screen flashes, shows Guiyuan again, and only then returns to native Battery.
+Build-665 device evidence:
+- the defect still reproduces;
+- each incoming-Keyguard attempt reports `hostShownAtArm=true`, so Build 665 does not precommit compact occupancy;
+- the same transition then reports native `statusIconsAlpha=0.0`, proving the enclosing Keyguard host can already be shown while the animated native status-icon layer is still fully hidden;
+- therefore `View.isShown` is not the native presentation lifecycle authority for this transition.
 
-Build-665 correction:
-- for stable-AOD -> enabled-Keyguard / disabled-AOD only, if the incoming Keyguard host is still not shown when `mToLockScreen=true` commits, precommit the existing native ignored-slot/end-reservation contract while the host is hidden;
-- keep the Guiyuan renderer hidden until the native `animateIconContainer(true)` boundary; at that boundary reveal only after compact layout is ready;
-- if the host is already shown, retain the Build-664 deferred-layout behavior rather than mutating a visible row;
-- for Home-origin full-AOD transitions with AOD disabled, latch Home ownership at `animateFullAod:before`; when `mToLockScreen=false` commits with no stable Keyguard/AOD family, release only the transient Keyguard owner immediately;
-- Keyguard -> AOD is not changed.
+Build-666 correction:
+- keep the same stable-AOD -> enabled-Keyguard / disabled-AOD eligibility;
+- replace the hidden-host guard with the exact Keyguard status-icon presentation state returned by `statusIconsPresentationAlpha()`;
+- allow precommit only when that exact native layer is attached and fully hidden (`alpha == 0f`);
+- unavailable or partially visible native status icons fail back to the existing deferred path.
 
-No timer, copied animation duration, custom interpolator, peer translation, alpha/visibility writer, or geometry compensation is introduced.
+No timer, copied animation duration, custom interpolator, peer translation, native alpha/visibility writer, or geometry compensation is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003665` / Build `20261003-665`.
-- PR #196 is 0 behind `dev` before authoring.
-- Unit coverage constrains hidden-host prelayout to the same stable-AOD -> single enabled Keyguard path and constrains transient Keyguard release to Home-owned / family-UNKNOWN / native-AOD target.
-- Exact-head Runtime CI and one signed Canary are required.
+- Candidate identity: `0.0.5` / versionCode `261003666` / Build `20261003-666`.
+- PR #196 was 0 behind `dev` before authoring.
+- Unit coverage now requires exact native status-icons hidden state for Keyguard boundary precommit.
+- Exact-head Runtime CI is running; one signed Canary follows only if Runtime is clean.
+- Home -> AOD transient-owner handling is intentionally unchanged in this minimal lifecycle checkpoint.
 
 ## Device gate
 
 1. Keyguard ON / AOD OFF — AOD -> Keyguard:
-   - Guiyuan remains continuous.
-   - adjacent native icons must no longer collapse inward from the middle at the end; their relative row layout should already be compact when the native Keyguard reveal begins.
-   - no visible layout jump is allowed at stable Keyguard.
+   - diagnostics should show `statusIconsAlphaAtArm=0.0` and `nativeLayoutOwnership=precommit-before-reveal`;
+   - adjacent native icons must no longer collapse inward from the middle;
+   - Guiyuan continuity must not regress.
 
-2. Keyguard ON / AOD OFF — Home/Desktop -> AOD:
-   - the native/system flash itself may remain;
-   - after the flash, a transient Keyguard Guiyuan must not linger before native AOD Battery appears.
+2. Keyguard -> AOD:
+   - regression only; preserve accepted behavior.
 
-3. Keyguard -> AOD:
-   - regression only; preserve Build-664 behavior reported as normal.
+3. Home/Desktop -> AOD:
+   - observe only in this build; do not judge the separate transient-owner issue as fixed yet.
 
 ## Immediate next step
 
-Run post-commit ownership review and exact-head Runtime. If clean, issue one signed Canary and freeze runtime for this focused gate.
+Complete exact-head Runtime review. If green, issue one signed Canary and freeze runtime for the focused AOD -> Keyguard lifecycle gate.
 
 ## Reference priority
 
