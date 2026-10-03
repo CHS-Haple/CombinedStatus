@@ -286,6 +286,37 @@ internal object CombinedStatusScenePolicy {
             lastStableFamilyScene == StableKeyguardAodScene.AOD &&
             nativeToLockScreenTarget == true
 
+    fun shouldPrecommitKeyguardBoundaryLayout(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        lastStableFamilyScene: StableKeyguardAodScene,
+        nativeToLockScreenTarget: Boolean?,
+        keyguardHostShown: Boolean,
+    ): Boolean =
+        shouldUseKeyguardBoundaryVisualHandoff(
+            featureEnabled = featureEnabled,
+            keyguardEnabled = keyguardEnabled,
+            aodEnabled = aodEnabled,
+            lastStableFamilyScene = lastStableFamilyScene,
+            nativeToLockScreenTarget = nativeToLockScreenTarget,
+        ) && !keyguardHostShown
+
+    fun shouldReleaseTransientHomeKeyguardForDisabledAod(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        lastStableFamilyScene: StableKeyguardAodScene,
+        homePresentationOwnedAtFullAodStart: Boolean,
+        nativeToLockScreenTarget: Boolean?,
+    ): Boolean =
+        featureEnabled &&
+            keyguardEnabled &&
+            !aodEnabled &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
+            homePresentationOwnedAtFullAodStart &&
+            nativeToLockScreenTarget == false
+
     fun fullAodPendingTargetReachedStableState(
         pendingTargetToLockScreen: Boolean?,
         toAod: Boolean,

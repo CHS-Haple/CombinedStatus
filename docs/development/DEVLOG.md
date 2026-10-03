@@ -3023,3 +3023,49 @@ No timer, custom animation, native alpha/visibility/translation writer, or geome
 ### Validation
 
 Exact-head Runtime CI and one signed Canary are required. Primary device gate: no raw native row at AOD -> Keyguard start, no early native layout jump, and no regression in the accepted Keyguard-OFF/AOD-ON path.
+
+## 2026-10-03 — Build 665: prepare compact Keyguard layout before reveal
+
+**Type:** device-evidence lifecycle/ownership correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 664 -> 665
+
+### Problem
+
+Build 664 fixes the raw native-row exposure at AOD -> Keyguard start, but two independent defects remain:
+- adjacent native Keyguard peers visibly collapse from a middle position toward Guiyuan late in the transition;
+- Home -> AOD with AOD disabled briefly attaches a transient Keyguard Guiyuan and releases it only after the native AOD transition has already progressed.
+
+### Evidence
+
+AOD -> Keyguard:
+- target Keyguard commits at 11:30:58.145;
+- visual-only Guiyuan handoff is active by 11:30:58.147 with `ignoredSlotsWrites=0 paddingWrites=0`;
+- the native Keyguard host is still not shown in this phase;
+- only at stable Keyguard, 11:30:58.846, are persistent ignored slots and end reservation committed.
+
+The resulting peer motion is therefore a layout-ownership cutover: represented native views are visually masked early but still occupy the native row until the stable edge.
+
+Home -> AOD:
+- the full-AOD entry records Home presentation ownership even after scene ancestry has transiently become Keyguard;
+- `mToLockScreen=false` later identifies native AOD, but the transient Keyguard projection remains until a later AOD callback.
+
+### Conclusion
+
+For incoming Keyguard, native compact occupancy must be established **before the hidden Keyguard host is revealed**, not after the native animation begins. This is distinct from rejected Build 662, which changed native layout inside the visible animation window.
+
+For Home -> disabled-AOD, the full-AOD start Home-ownership witness is the missing origin authority; once the native target is AOD and there is no established Keyguard/AOD family, the transient Keyguard owner has no valid lifetime.
+
+### Change
+
+- Latch Home presentation ownership at full-AOD entry and use it only to release a transient Keyguard owner when native target=AOD, AOD replacement is disabled, and family origin is UNKNOWN.
+- For stable AOD -> enabled Keyguard, precommit ignored slots/end reservation only if the Keyguard host is still hidden at authoritative target commit.
+- Keep the renderer behind native handoff until `animateIconContainer(true)`; reveal it after compact layout is ready.
+- If the hidden-host precondition is not met, fall back to Build-664 visual-only/deferred-layout behavior.
+- Keep Keyguard -> AOD unchanged.
+
+No timer, delay, peer translation, alpha/visibility writer, or geometry compensation is added.
+
+### Validation
+
+Exact-head Runtime CI, signed Canary, then the three focused device checks recorded in CURRENT.

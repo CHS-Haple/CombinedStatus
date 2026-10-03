@@ -1111,6 +1111,69 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun keyguardBoundaryLayoutPrecommitRequiresHiddenIncomingKeyguard() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldPrecommitKeyguardBoundaryLayout(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                keyguardHostShown = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldPrecommitKeyguardBoundaryLayout(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                keyguardHostShown = true,
+            ),
+        )
+    }
+
+    @Test
+    fun disabledAodTargetReleasesOnlyTransientHomeKeyguard() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldReleaseTransientHomeKeyguardForDisabledAod(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwnedAtFullAodStart = true,
+                nativeToLockScreenTarget = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldReleaseTransientHomeKeyguardForDisabledAod(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                homePresentationOwnedAtFullAodStart = true,
+                nativeToLockScreenTarget = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldReleaseTransientHomeKeyguardForDisabledAod(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwnedAtFullAodStart = false,
+                nativeToLockScreenTarget = false,
+            ),
+        )
+    }
+
+    @Test
     fun pendingFullAodTargetClosesOnlyAtItsMatchingStableEndpoint() {
         assertFalse(
             CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(
