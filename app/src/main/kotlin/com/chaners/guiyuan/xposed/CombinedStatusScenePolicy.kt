@@ -167,6 +167,8 @@ internal object CombinedStatusScenePolicy {
         keyguardStatusIconsAlpha: Float? = null,
         nativeToLockScreenTarget: Boolean? = null,
         fullAodTargetSourceReady: Boolean = false,
+        fullAodTargetPending: Boolean = false,
+        fullAodVisualBoundary: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (isAodAnimate) {
@@ -179,6 +181,8 @@ internal object CombinedStatusScenePolicy {
                 keyguardStatusIconsAlpha = keyguardStatusIconsAlpha,
                 nativeToLockScreenTarget = nativeToLockScreenTarget,
                 fullAodTargetSourceReady = fullAodTargetSourceReady,
+                fullAodTargetPending = fullAodTargetPending,
+                fullAodVisualBoundary = fullAodVisualBoundary,
             )
         }
         if (
@@ -224,6 +228,8 @@ internal object CombinedStatusScenePolicy {
         keyguardStatusIconsAlpha: Float? = null,
         nativeToLockScreenTarget: Boolean? = null,
         fullAodTargetSourceReady: Boolean = false,
+        fullAodTargetPending: Boolean = false,
+        fullAodVisualBoundary: Boolean = false,
     ): KeyguardAodProjection {
         if (steadySourceScene == CombinedStatusSourceScene.HOME) {
             return if (
@@ -254,13 +260,11 @@ internal object CombinedStatusScenePolicy {
             return KeyguardAodProjection.AOD
         }
 
-        // On the pinned HyperOS target, animateFullAod commits
-        // MiuiKeyguardStatusBarView.mToLockScreen before driving the native
-        // Battery/status-icon animation. Once that exact-target event source is
-        // available, a single enabled family child follows the persistent
-        // native target directly. This prevents the earlier isAodAnimate edge
-        // from cutting over too soon and avoids waiting for animation-end
-        // callbacks on the reverse direction.
+        // Build 655 proved that mToLockScreen is direction evidence but
+        // its animateFullAod commit is earlier than the visible status-icon
+        // handoff. While that target is pending, retain the enabled outgoing
+        // child (or Native when the outgoing child is disabled). Only the
+        // native animateIconContainer lifecycle event may consume the target.
         if (
             fullAodTargetSourceReady &&
             nativeToLockScreenTarget != null &&
@@ -268,17 +272,38 @@ internal object CombinedStatusScenePolicy {
             lastStableFamilyScene != StableKeyguardAodScene.UNKNOWN &&
             keyguardEnabled != aodEnabled
         ) {
-            return if (nativeToLockScreenTarget) {
-                if (keyguardEnabled) {
-                    KeyguardAodProjection.KEYGUARD
+            if (fullAodVisualBoundary) {
+                return if (nativeToLockScreenTarget) {
+                    if (keyguardEnabled) {
+                        KeyguardAodProjection.KEYGUARD
+                    } else {
+                        KeyguardAodProjection.NATIVE
+                    }
                 } else {
-                    KeyguardAodProjection.NATIVE
+                    if (aodEnabled) {
+                        KeyguardAodProjection.AOD
+                    } else {
+                        KeyguardAodProjection.NATIVE
+                    }
                 }
-            } else {
-                if (aodEnabled) {
-                    KeyguardAodProjection.AOD
-                } else {
-                    KeyguardAodProjection.NATIVE
+            }
+            if (fullAodTargetPending) {
+                return when (lastStableFamilyScene) {
+                    StableKeyguardAodScene.KEYGUARD ->
+                        if (keyguardEnabled) {
+                            KeyguardAodProjection.KEYGUARD
+                        } else {
+                            KeyguardAodProjection.NATIVE
+                        }
+
+                    StableKeyguardAodScene.AOD ->
+                        if (aodEnabled) {
+                            KeyguardAodProjection.AOD
+                        } else {
+                            KeyguardAodProjection.NATIVE
+                        }
+
+                    StableKeyguardAodScene.UNKNOWN -> KeyguardAodProjection.NATIVE
                 }
             }
         }

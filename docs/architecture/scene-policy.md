@@ -252,3 +252,21 @@ Priority remains:
 
 Dual-enabled Keyguard/AOD continues to use the existing one-owner retarget path. Missing full-AOD target evidence falls back to Build-654 behavior rather than inventing timing.
 
+
+
+### Build 656 candidate — direction and visual cutover are separate native facts
+
+Build-655 device evidence rejects the full-AOD target commit as the visual handoff boundary: both single-child directions become visibly early when `mToLockScreen` is consumed immediately.
+
+Build 656 keeps `animateFullAod` / `mToLockScreen` only as native **direction** evidence. A separate exact-target callback, `MiuiKeyguardStatusBarView.animateIconContainer(boolean)`, supplies the native status-icon **visual lifecycle** event; its Boolean parameter is not assigned product semantics.
+
+For a known single-child Keyguard/AOD transition:
+1. full-AOD target commit marks the target pending;
+2. while pending, retain only the enabled outgoing child (otherwise Native);
+3. on the native status-icon animation event, consume the already-committed target and switch once;
+4. non-animating AOD state clears the pending latch.
+
+This prevents both the early target-commit cut and the late animation-end cut without adding a local duration, delay, progress clock, polling loop, or native View writer. If the visual-event hook is unavailable, routing falls back to the prior status-icons-alpha compatibility path.
+
+
+**Ordering refinement:** the pending scope begins before native `animateFullAod` executes because `animateIconContainer` may be called from inside that native method. The full-AOD return callback never performs ownership transfer. This keeps the event relationship native-driven even when the callbacks are nested. The icon-container method is treated as a candidate lifecycle boundary, not as a presumed 50% animation point; only device evidence can promote that assumption.

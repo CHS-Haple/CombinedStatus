@@ -2836,3 +2836,33 @@ No raw `animateFullAod` boolean argument is assigned product semantics. No nativ
 
 This should move AOD -> Keyguard earlier from animation completion to the native full-AOD target switch, while moving Keyguard -> AOD later from the generic `isAodAnimate` start flag to that same native target switch. Real-device Build-655 evidence is required before promotion.
 
+
+
+## 2026-10-03 — Build 656: separate full-AOD direction from status-icon visual cutover
+
+**Type:** device evidence / native lifecycle boundary correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 655 -> 656
+
+### Build-655 device result
+
+The exact full-AOD target removed the previous late handoff, but both focused single-child handoffs now occur about half a beat early: AOD -> Keyguard and Keyguard -> AOD.
+
+The Build-655 diagnostic shows Guiyuan switching immediately after `aod.target` / `animateFullAod`, before HyperOS has progressed the native status-icon presentation to its visual handoff. This proves `mToLockScreen` is useful direction evidence but is not itself the visual cutover event.
+
+### Build-656 correction
+
+- Keep `animateFullAod` and `mToLockScreen` read-only and use them only to latch the pending target direction.
+- Add an exact-target read-only event hook on `MiuiKeyguardStatusBarView.animateIconContainer(boolean)`; its raw Boolean argument is diagnostics only.
+- While the target is pending, a single-child family retains the enabled outgoing child, or Native when that outgoing child is disabled. Later `setIsAodAnimate` callbacks therefore cannot recreate Build-655's early cut.
+- The pending target may be consumed only by the native status-icon animation event. At that event, policy reads the already-committed `mToLockScreen` target and switches to the enabled incoming child or Native.
+- A non-animating native AOD state clears the pending latch. If the status-icon animation hook is unavailable, routing falls back to the Build-654 status-icons-alpha compatibility path.
+
+No timer, delay, polling loop, copied native duration/interpolator, native View alpha/visibility/translation writer, geometry hard patch, or second family owner is introduced.
+
+
+### Final review refinement
+
+The status-icon callback may occur inside `animateFullAod(...)` itself. Build 656 therefore opens its bounded pending scope **before** calling native `animateFullAod`, lets HyperOS run normally, and allows `animateIconContainer(...)` to consume the scope if it occurs during that call. The post-`animateFullAod` callback is diagnostics/direction confirmation only and never performs the cutover. This avoids missing a nested native lifecycle event and avoids re-entrant assumptions about callback order.
+
+The exact target verifies the method contract but not that method entry is a visual midpoint. Device validation remains mandatory: Build 656 is testing whether this native icon-container lifecycle boundary matches the observed visual handoff, not imposing a synthetic midpoint.

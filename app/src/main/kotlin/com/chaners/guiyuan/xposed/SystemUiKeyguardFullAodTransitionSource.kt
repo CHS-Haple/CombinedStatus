@@ -16,7 +16,8 @@ internal object SystemUiKeyguardFullAodTransitionSource {
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
-        onTransition: () -> Unit,
+        onTransitionStarted: () -> Unit,
+        onTransitionCommitted: () -> Unit,
         onEvent: ((String) -> Unit)?,
     ): List<HookHandle> {
         val controllerClass = Class.forName(CONTROLLER_CLASS, false, classLoader)
@@ -44,12 +45,17 @@ internal object SystemUiKeyguardFullAodTransitionSource {
                     Hooker { chain ->
                         val rawArg0 = chain.getArg(0) as? Boolean
                         val rawArg1 = chain.getArg(1) as? Boolean
+
+                        // Open the native transition scope before HyperOS runs.
+                        // animateIconContainer may be invoked inside proceed(),
+                        // so waiting until animateFullAod returns would miss the
+                        // actual status-icon visual lifecycle event.
+                        onTransitionStarted()
                         val result = chain.proceed()
 
-                        // HyperOS has already committed the Keyguard-family target
-                        // when animateFullAod returns. Consume that native boundary
-                        // read-only; do not infer semantics from the raw booleans.
-                        onTransition()
+                        // Direction is read from mToLockScreen only after native
+                        // code returns. Raw arguments remain diagnostics only.
+                        onTransitionCommitted()
                         onEvent?.invoke(
                             "keyguardFullAod source=animateFullAod" +
                                 " arg0=" + (rawArg0 ?: "unavailable") +

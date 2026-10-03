@@ -27,6 +27,8 @@ class CombinedStatusModule : XposedModule() {
     private var steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
     private var lastStableKeyguardAodScene =
         CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
+    private var keyguardAodFullTargetPending = false
+    private var keyguardAodFullTransitionActive = false
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
     private var aodRendererAttached = false
@@ -265,6 +267,8 @@ class CombinedStatusModule : XposedModule() {
             steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
             lastStableKeyguardAodScene =
                 CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
+            keyguardAodFullTargetPending = false
+            keyguardAodFullTransitionActive = false
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
             aodRendererAttached = false
@@ -1627,7 +1631,9 @@ class CombinedStatusModule : XposedModule() {
                 onTintState = ::onTintStateUpdate,
                 onSceneState = ::onSceneStateUpdate,
                 onKeyguardAodState = ::onKeyguardAodStateUpdate,
-                onKeyguardFullAodTransition = ::onKeyguardFullAodTransition,
+                onKeyguardFullAodTransitionStarted = ::onKeyguardFullAodTransitionStarted,
+                onKeyguardFullAodTransitionCommitted = ::onKeyguardFullAodTransitionCommitted,
+                onKeyguardStatusIconTransition = ::onKeyguardStatusIconTransition,
                 onMobileTypeChanged = { drawable ->
                     refreshMobilePresentation(
                         trace = beginRenderTrace("mobileType"),
@@ -1670,6 +1676,8 @@ class CombinedStatusModule : XposedModule() {
                 "keyguardAodReady" to result.keyguardAodReady,
                 "keyguardFullAodHooks" to result.keyguardFullAodHooks,
                 "keyguardFullAodReady" to result.keyguardFullAodReady,
+                "keyguardStatusIconHooks" to result.keyguardStatusIconHooks,
+                "keyguardStatusIconReady" to result.keyguardStatusIconReady,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -1873,7 +1881,35 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun onKeyguardFullAodTransition() {
+    private fun onKeyguardFullAodTransitionStarted() {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        keyguardAodFullTransitionActive = true
+        keyguardAodFullTargetPending =
+            SystemUiPresentationRuntimeOwner.keyguardStatusIconReady &&
+                lastStableKeyguardAodScene !=
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN &&
+                settings.keyguardEnabled != settings.aodEnabled
+
+        logDiagnostic(
+            level = Log.INFO,
+            event = "aod.targetWindow",
+            component = "keyguardAod",
+            state = if (keyguardAodFullTargetPending) "pending" else "observation-only",
+            "source" to "animateFullAod:before",
+            "visualBoundaryAuthority" to
+                if (SystemUiPresentationRuntimeOwner.keyguardStatusIconReady) {
+                    "native-animateIconContainer"
+                } else {
+                    "status-icons-alpha-fallback"
+                },
+            "eventDriven" to true,
+            "readOnly" to true,
+            "nativeGeometryWrites" to 0,
+        )
+    }
+
+    private fun onKeyguardFullAodTransitionCommitted() {
+        keyguardAodFullTransitionActive = false
         val resolution = SystemUiKeyguardHostResolver.current()
         val target =
             (resolution as? SystemUiKeyguardHostResolver.ResolveResult.Ready)
@@ -1881,6 +1917,18 @@ class CombinedStatusModule : XposedModule() {
                 ?.let { resolved ->
                     SystemUiKeyguardHostResolver.nativeToLockScreenTarget(resolved)
                 }
+        val aodState =
+            (resolution as? SystemUiKeyguardHostResolver.ResolveResult.Ready)
+                ?.host
+                ?.battery
+                ?.let(SystemUiKeyguardAodStateSource::currentState)
+
+        if (aodState?.isAodAnimate != true && keyguardAodFullTargetPending) {
+            // If native returned without an icon-container visual event and
+            // without an active AOD animation, there is no visual boundary left
+            // to consume. Release the latch and fall back to ordinary policy.
+            keyguardAodFullTargetPending = false
+        }
 
         logDiagnostic(
             level = if (target != null) Log.INFO else Log.WARN,
@@ -1892,24 +1940,72 @@ class CombinedStatusModule : XposedModule() {
                     false -> "aod"
                     null -> "unavailable"
                 },
-            "source" to "animateFullAod",
+            "source" to "animateFullAod:after",
             "authority" to "native-mToLockScreen",
+            "visualBoundaryPending" to keyguardAodFullTargetPending,
+            "eventDriven" to true,
+            "readOnly" to true,
+            "nativeGeometryWrites" to 0,
+        )
+    }
+
+    private fun onKeyguardStatusIconTransition() {
+        if (!keyguardAodFullTargetPending) return
+
+        val resolution =
+            SystemUiKeyguardHostResolver.current()
+                as? SystemUiKeyguardHostResolver.ResolveResult.Ready
+                ?: run {
+                    keyguardAodFullTargetPending = false
+                    return
+                }
+        val aodState =
+            SystemUiKeyguardAodStateSource.currentState(resolution.host.battery)
+        val target =
+            SystemUiKeyguardHostResolver.nativeToLockScreenTarget(resolution.host)
+        val eligible = target != null
+
+        logDiagnostic(
+            level = if (eligible) Log.INFO else Log.WARN,
+            event = "aod.visualBoundary",
+            component = "keyguardAod",
+            state = if (eligible) "ready" else "ignored",
+            "source" to "animateIconContainer",
+            "target" to
+                when (target) {
+                    true -> "keyguard"
+                    false -> "aod"
+                    null -> "unavailable"
+                },
+            "isAodAnimate" to aodState?.isAodAnimate,
+            "statusIconsAlpha" to
+                SystemUiKeyguardHostResolver.statusIconsPresentationAlpha(
+                    resolution.host,
+                ),
+            "authority" to "native-status-icon-animation",
             "eventDriven" to true,
             "readOnly" to true,
             "nativeGeometryWrites" to 0,
         )
 
-        resolution?.let { current ->
-            onKeyguardHostResolution(
-                resolution = current,
-                source = "full-aod-target",
-            )
+        if (!eligible) {
+            return
         }
+
+        onKeyguardHostResolution(
+            resolution = resolution,
+            source = "status-icon-animation",
+            fullAodVisualBoundary = true,
+        )
+        keyguardAodFullTargetPending = false
     }
 
     private fun onKeyguardAodStateUpdate(
         update: SystemUiKeyguardAodStateSource.AodUpdate,
     ) {
+        if (!update.isAodAnimate && !keyguardAodFullTransitionActive) {
+            keyguardAodFullTargetPending = false
+        }
         refreshStableKeyguardAodSceneFromAodState(update)
         if (update.blocksProjection) {
             releaseKeyguardControlCenterLease(
@@ -2118,6 +2214,7 @@ class CombinedStatusModule : XposedModule() {
 
     private fun resolveCurrentKeyguardAodProjection(
         resolved: SystemUiKeyguardHostResolver.ResolvedHost,
+        fullAodVisualBoundary: Boolean = false,
     ): CombinedStatusScenePolicy.KeyguardAodProjection? {
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
         val aodState =
@@ -2143,12 +2240,15 @@ class CombinedStatusModule : XposedModule() {
                     .nativeToLockScreenTarget(resolved),
             fullAodTargetSourceReady =
                 SystemUiPresentationRuntimeOwner.keyguardFullAodReady,
+            fullAodTargetPending = keyguardAodFullTargetPending,
+            fullAodVisualBoundary = fullAodVisualBoundary,
         )
     }
 
     private fun onKeyguardHostResolution(
         resolution: SystemUiKeyguardHostResolver.ResolveResult,
         source: String,
+        fullAodVisualBoundary: Boolean = false,
     ) {
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
         when (resolution) {
@@ -2175,7 +2275,10 @@ class CombinedStatusModule : XposedModule() {
                 }
 
                 val projection =
-                    resolveCurrentKeyguardAodProjection(resolution.host)
+                    resolveCurrentKeyguardAodProjection(
+                        resolved = resolution.host,
+                        fullAodVisualBoundary = fullAodVisualBoundary,
+                    )
                         ?: run {
                             deactivateAodRuntime("aod-state-unavailable")
                             deactivateKeyguardRuntime("aod-state-unavailable")
@@ -2731,6 +2834,8 @@ class CombinedStatusModule : XposedModule() {
         steadyStatusSourceScene = CombinedStatusSourceScene.UNKNOWN
         lastStableKeyguardAodScene =
             CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
+        keyguardAodFullTargetPending = false
+        keyguardAodFullTransitionActive = false
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
         aodRendererAttached = false

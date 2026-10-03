@@ -13,7 +13,8 @@ internal object SystemUiPresentationRuntimeOwner {
                     it.sceneHooks +
                     it.mobileTypeHooks +
                     it.keyguardAodHooks +
-                    it.keyguardFullAodHooks
+                    it.keyguardFullAodHooks +
+                    it.keyguardStatusIconHooks
             } ?: 0
 
     val keyguardAodReady: Boolean
@@ -22,12 +23,16 @@ internal object SystemUiPresentationRuntimeOwner {
     val keyguardFullAodReady: Boolean
         @Synchronized get() = current?.keyguardFullAodReady == true
 
+    val keyguardStatusIconReady: Boolean
+        @Synchronized get() = current?.keyguardStatusIconReady == true
+
     internal data class AttachResult(
         val tintHooks: Int,
         val sceneHooks: Int,
         val mobileTypeHooks: Int,
         val keyguardAodHooks: Int,
         val keyguardFullAodHooks: Int,
+        val keyguardStatusIconHooks: Int,
     ) {
         val tintReady: Boolean
             get() = tintHooks == SystemUiTintStateSource.HOOK_COUNT
@@ -41,6 +46,10 @@ internal object SystemUiPresentationRuntimeOwner {
             get() =
                 keyguardFullAodHooks ==
                     SystemUiKeyguardFullAodTransitionSource.HOOK_COUNT
+        val keyguardStatusIconReady: Boolean
+            get() =
+                keyguardStatusIconHooks ==
+                    SystemUiKeyguardStatusIconTransitionSource.HOOK_COUNT
     }
 
     @Synchronized
@@ -50,7 +59,9 @@ internal object SystemUiPresentationRuntimeOwner {
         onTintState: (SystemUiTintStateSource.TintUpdate) -> Unit,
         onSceneState: (SystemUiSceneStateSource.SceneUpdate) -> Unit,
         onKeyguardAodState: (SystemUiKeyguardAodStateSource.AodUpdate) -> Unit,
-        onKeyguardFullAodTransition: () -> Unit,
+        onKeyguardFullAodTransitionStarted: () -> Unit,
+        onKeyguardFullAodTransitionCommitted: () -> Unit,
+        onKeyguardStatusIconTransition: () -> Unit,
         onMobileTypeChanged: (Drawable) -> Unit,
         onTintEvent: ((String) -> Unit)?,
         onSceneEvent: ((String) -> Unit)?,
@@ -84,12 +95,29 @@ internal object SystemUiPresentationRuntimeOwner {
                 SystemUiKeyguardFullAodTransitionSource.install(
                     module = module,
                     classLoader = classLoader,
-                    onTransition = onKeyguardFullAodTransition,
+                    onTransitionStarted = onKeyguardFullAodTransitionStarted,
+                    onTransitionCommitted = onKeyguardFullAodTransitionCommitted,
                     onEvent = onKeyguardAodEvent,
                 ).size
             }.getOrElse { error ->
                 onKeyguardAodEvent?.invoke(
                     "keyguardFullAod install=unavailable reason=" +
+                        (error.message ?: error.javaClass.simpleName) +
+                        " fallback=status-icons-alpha",
+                )
+                0
+            }
+        val keyguardStatusIconHooks =
+            runCatching {
+                SystemUiKeyguardStatusIconTransitionSource.install(
+                    module = module,
+                    classLoader = classLoader,
+                    onTransition = onKeyguardStatusIconTransition,
+                    onEvent = onKeyguardAodEvent,
+                ).size
+            }.getOrElse { error ->
+                onKeyguardAodEvent?.invoke(
+                    "keyguardStatusIconTransition install=unavailable reason=" +
                         (error.message ?: error.javaClass.simpleName) +
                         " fallback=status-icons-alpha",
                 )
@@ -115,6 +143,7 @@ internal object SystemUiPresentationRuntimeOwner {
             mobileTypeHooks = mobileTypeHooks,
             keyguardAodHooks = keyguardAodHooks,
             keyguardFullAodHooks = keyguardFullAodHooks,
+            keyguardStatusIconHooks = keyguardStatusIconHooks,
         ).also { current = it }
     }
 
