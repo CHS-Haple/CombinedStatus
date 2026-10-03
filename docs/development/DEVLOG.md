@@ -3189,3 +3189,61 @@ Build 668 uses the existing incoming-boundary-ready fact only:
 ### Boundaries
 
 No timer/delay, copied duration/interpolator, native alpha/visibility/translation writer, peer-motion writer, geometry compensation, or second presentation owner.
+
+## 2026-10-03 — Build 669: consume Home-origin fallback at native AOD animation start
+
+**Type:** Home / transient Keyguard / native AOD lifecycle ownership  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Build:** 669 / `20261003-669`
+
+### Build-668 device rejection
+
+With Keyguard Guiyuan enabled and AOD Guiyuan disabled, Home/Desktop -> AOD still frequently shows:
+1. Guiyuan disappears briefly;
+2. Guiyuan appears again;
+3. only afterward does native AOD take over.
+
+Detailed Build-668 diagnostics show the direct screen-off path:
+- authoritative Home immediately before transition;
+- Full-AOD first reports `target=keyguard`;
+- before stable Keyguard forms, native state changes to `toAod=true / isAodAnimate=true`;
+- tested Build 668 does not latch `homeNativeAodFallbackCandidate`, so the transient Keyguard presentation remains eligible through this native AOD transition start.
+
+### Root cause
+
+The native Full-AOD Keyguard target is a routing stage, not proof of a genuine stable Keyguard lifecycle. Home-origin must survive that transient target and be consumed when native AOD animation actually begins.
+
+### Build-669 correction
+
+- Arm a one-shot Home-native-AOD candidate only at Full-AOD entry from authoritative HOME while Home still owns represented slots, Keyguard is enabled and AOD projection is disabled.
+- Do not clear that candidate on the intermediate native Keyguard target.
+- Consume the candidate on native `toAod=true / isAodAnimate=true`, release transient Keyguard presentation, reset incoming-Keyguard boundary state, and mark native-AOD fallback active.
+- While fallback is active, Keyguard projection resolves NATIVE so later callbacks cannot reattach Guiyuan.
+- Clear candidate/active fallback on stable AOD, stable Keyguard, authoritative HOME after an aborted transition, reverse/failed resolution, settings changes, Hot Reload and teardown.
+- Direct native target=AOD can consume the same candidate without waiting for the AOD-state callback.
+
+### AOD -> Keyguard Control Center race audit
+
+Build 667 fixed the reproduced native-QS fallback, but callback-order review found a remaining theoretical race:
+- expansion fraction can arrive before visible/source reconciliation while cached CC source is still HOME.
+
+Build 669 keeps the same single incoming-Keyguard presentation owner and:
+- promotes CC source to KEYGUARD on fraction > 0 only when the existing incoming-boundary-ready fact is already true;
+- resolves HOME/KEYGUARD disagreement to KEYGUARD only under that same readiness and only when at least one source witness explicitly reports KEYGUARD.
+
+Normal unlock remains unaffected because incoming-boundary readiness is absent.
+
+### Lifecycle review
+
+Reviewed before freeze:
+- Home candidate creation has one authority: Full-AOD entry + authoritative HOME + Home presentation ownership;
+- intermediate Keyguard target does not consume the candidate;
+- native AOD animation start is the primary consumption boundary;
+- stable Keyguard invalidates Home-origin fallback;
+- stable AOD completes the native fallback lifetime;
+- authoritative HOME clears an aborted active fallback;
+- no second presentation owner, no timer, no custom motion/alpha/visibility/translation writer.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. Device gate is recorded in CURRENT.
