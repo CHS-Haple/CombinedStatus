@@ -169,8 +169,19 @@ internal object CombinedStatusScenePolicy {
         fullAodTargetSourceReady: Boolean = false,
         fullAodTargetPending: Boolean = false,
         fullAodVisualBoundary: Boolean = false,
+        homeAodTargetPrearm: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
+        if (
+            homeAodTargetPrearm &&
+            aodEnabled &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN
+        ) {
+            // The latch is armed only from an authoritative native AOD target
+            // while Home still owns represented slots. Once armed, it may span
+            // transient KEYGUARD ancestry until native AOD state catches up.
+            return KeyguardAodProjection.AOD
+        }
         if (isAodAnimate) {
             return resolveAnimatingKeyguardAodProjection(
                 keyguardEnabled = keyguardEnabled,
@@ -218,6 +229,21 @@ internal object CombinedStatusScenePolicy {
             KeyguardAodProjection.NATIVE
         }
     }
+
+    fun shouldArmHomeAodTargetPrearm(
+        featureEnabled: Boolean,
+        aodEnabled: Boolean,
+        steadySourceScene: CombinedStatusSourceScene,
+        lastStableFamilyScene: StableKeyguardAodScene,
+        homePresentationOwned: Boolean,
+        nativeToLockScreenTarget: Boolean?,
+    ): Boolean =
+        featureEnabled &&
+            aodEnabled &&
+            steadySourceScene == CombinedStatusSourceScene.HOME &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
+            homePresentationOwned &&
+            nativeToLockScreenTarget == false
 
     internal fun resolveAnimatingKeyguardAodProjection(
         keyguardEnabled: Boolean,

@@ -2866,3 +2866,32 @@ No timer, delay, polling loop, copied native duration/interpolator, native View 
 The status-icon callback may occur inside `animateFullAod(...)` itself. Build 656 therefore opens its bounded pending scope **before** calling native `animateFullAod`, lets HyperOS run normally, and allows `animateIconContainer(...)` to consume the scope if it occurs during that call. The post-`animateFullAod` callback is diagnostics/direction confirmation only and never performs the cutover. This avoids missing a nested native lifecycle event and avoids re-entrant assumptions about callback order.
 
 The exact target verifies the method contract but not that method entry is a visual midpoint. Device validation remains mandatory: Build 656 is testing whether this native icon-container lifecycle boundary matches the observed visual handoff, not imposing a synthetic midpoint.
+
+
+## 2026-10-03 — Build 657: retain reverse pending and prearm Home -> AOD owner
+
+**Type:** device evidence / lifecycle handoff correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 656 -> 657
+
+### Build-656 device result
+
+Focused validation separates three paths:
+- Keyguard -> AOD now has acceptable timing.
+- AOD -> Keyguard is late.
+- Home -> AOD is late and can visibly lose the composed indicator before it returns.
+
+The 656 diagnostic provides direct evidence for the reverse delay. A full-AOD window opens, but the post-`animateFullAod` snapshot still reports the old non-animating AOD state, so 656 clears `keyguardAodFullTargetPending`. The native `animateIconContainer(true)` event arrives later and is then ignored; the family handoff waits until final stable Keyguard evidence.
+
+Home -> AOD has a different ownership problem. Native full-AOD/status-icon events can begin while SystemUI still reports `UNLOCKED_STATUS_BAR`, and the status-icon callback can precede `isAodAnimate=true`. Waiting for that generic animation flag means the outgoing Home host can yield before the AOD owner has been prepared.
+
+### Build-657 correction
+
+- Remove the post-`animateFullAod` pending clear. The single-child pending lease now survives until the native status-icon event consumes it or a later non-animating AOD state closes the transition.
+- Preserve the Build-656 Keyguard -> AOD status-icon boundary unchanged.
+- Add a bounded Home -> AOD target-prearm lease. It can arm only from an authoritative native AOD target while the observed origin is Home, family history is UNKNOWN, AOD is enabled, and Home still owns represented slots.
+- After arm, the lease may bridge transient Keyguard ancestry until native AOD state catches up. This is a continuity lease, not a new scene router.
+- The existing AOD presentation session uses its verified pre-mask / compact-layout cutover path while the outgoing Home renderer continues to inherit its own native host lifecycle.
+- Explicit AOD runtime teardown, stable non-animating state, feature ineligibility, or a reverse/non-Home target ends the prearm lease.
+
+No timer, delay, polling, project-owned animation progress, native alpha/visibility/translation writer, or geometry compensation is added.

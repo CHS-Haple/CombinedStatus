@@ -270,3 +270,16 @@ This prevents both the early target-commit cut and the late animation-end cut wi
 
 
 **Ordering refinement:** the pending scope begins before native `animateFullAod` executes because `animateIconContainer` may be called from inside that native method. The full-AOD return callback never performs ownership transfer. This keeps the event relationship native-driven even when the callbacks are nested. The icon-container method is treated as a candidate lifecycle boundary, not as a presumed 50% animation point; only device evidence can promote that assumption.
+
+
+### Build 657 candidate — target prearm is a bounded handoff lease
+
+Build-656 device evidence shows that one generic event cannot own all three transitions.
+
+For AOD -> Keyguard, the native status-icon event is still the desired cutover, but Build 656 accidentally clears its pending direction lease before that event arrives. Build 657 retains the lease through the post-full-AOD stale state and lets the native status-icon event consume it.
+
+For Home -> AOD, native target evidence can precede the generic AOD-animation flag. Build 657 therefore treats an authoritative AOD target as **preparation authority only** when all of the following were true at arm time: AOD feature enabled, steady Home origin, UNKNOWN Keyguard/AOD family history, and Home still owning represented slots. That establishes a bounded `homeAodTargetPrearm` lease.
+
+The lease does not select arbitrary scenes and does not write native visibility/alpha. It only allows the existing AOD presentation/renderer to prepare early and use the existing pre-mask + compact-layout cutover. Once armed it may survive transient Keyguard ancestry so outgoing Home ownership can yield naturally without creating a no-owner interval. Stable AOD/non-AOD state, reverse target, runtime teardown, or feature ineligibility closes the lease.
+
+Keyguard -> AOD keeps the Build-656 `animateIconContainer` cutover unchanged.

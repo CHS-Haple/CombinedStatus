@@ -248,6 +248,64 @@ class CombinedStatusScenePolicyTest {
 
 
     @Test
+    fun nativeAodTargetCanPrearmHomeBeforeAnimationFlagCatchesUp() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldArmHomeAodTargetPrearm(
+                featureEnabled = true,
+                aodEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = true,
+                nativeToLockScreenTarget = false,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = false,
+                nativeToLockScreenTarget = false,
+                fullAodTargetSourceReady = true,
+                homeAodTargetPrearm = true,
+            ),
+        )
+    }
+
+    @Test
+    fun homeAodTargetPrearmRejectsReverseOrKnownFamilyOrigin() {
+        assertFalse(
+            CombinedStatusScenePolicy.shouldArmHomeAodTargetPrearm(
+                featureEnabled = true,
+                aodEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = true,
+                nativeToLockScreenTarget = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldArmHomeAodTargetPrearm(
+                featureEnabled = true,
+                aodEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                homePresentationOwned = true,
+                nativeToLockScreenTarget = false,
+            ),
+        )
+    }
+
+    @Test
     fun singleEnabledFamilyUsesNativeKeyguardStatusIconsBoundary() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,

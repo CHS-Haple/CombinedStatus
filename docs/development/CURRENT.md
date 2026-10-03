@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 656 is the current Keyguard/AOD timing candidate after Build-655 device validation.
+Build 657 is the current Keyguard/AOD lifecycle candidate after Build-656 device validation.
 
 Build-654 result:
 - the large Build-653 regressions are closed: steady Keyguard is restored and the previous unlock/immediate-Control-Center failure is no longer the reported blocker;
@@ -32,41 +32,45 @@ Build-655 device result:
 - the native full-AOD target removed the previous late handoff, but both tested single-child directions now cut about half a beat early;
 - therefore `mToLockScreen` is correct direction evidence but too early to serve as the visual cutover itself.
 
-Build-656 candidate:
-- keep Build 654's QS_FAKE visible-cycle capacity-lease correction unchanged;
-- keep structural steady-scene authority and dual-enabled Keyguard/AOD family ownership unchanged;
-- keep `animateFullAod` / `mToLockScreen` as read-only direction evidence only;
-- add one read-only hook on exact-target `MiuiKeyguardStatusBarView.animateIconContainer(boolean)`; its Boolean remains diagnostic-only;
-- entering the native full-AOD call opens a bounded pending transition scope before HyperOS runs, so an `animateIconContainer` callback occurring inside that call cannot be missed;
-- while that scope is pending, retain the enabled outgoing child (or Native when that outgoing child is disabled); only the observed native status-icon animation event may consume the committed `mToLockScreen` target;
-- if the status-icon animation source is unavailable, fall back to the Build-654 status-icons-alpha path rather than inventing timing.
+Build-656 device result:
+- Keyguard -> AOD timing is now accepted in the tested single-child path;
+- AOD -> Keyguard became late because the pending target lease is cleared immediately after `animateFullAod` returns while native `animateIconContainer(true)` arrives later; the later visual event is therefore ignored and acquisition/release falls back to the final stable-family edge;
+- Home -> AOD is also late, and with both family children enabled the composed indicator can visibly disappear and then return;
+- device logs show the Home origin can still report `UNLOCKED_STATUS_BAR` when the full-AOD target sequence begins, while the status-icon callback may occur before `isAodAnimate=true`. Build 656 therefore waits too long to prepare the AOD owner.
+
+Build-657 candidate:
+- preserve the accepted Keyguard -> AOD `animateIconContainer` cutover;
+- do not clear the single-child full-AOD pending lease merely because the post-`animateFullAod` snapshot still reports `isAodAnimate=false`; retain it until the native status-icon event consumes it or a later non-animating AOD state closes the transition;
+- add one bounded Home -> AOD target-prearm lease. It may arm only when native target is AOD, the observed origin is steady Home / UNKNOWN family, AOD projection is enabled, and Home still owns represented slots at arm time;
+- once armed, the AOD owner may remain prepared across transient Keyguard ancestry until native AOD state catches up, so the outgoing Home visual does not disappear before the incoming AOD host is ready;
+- use the existing AOD pre-mask / compact-layout cutover contract; no new visual writer is introduced.
 
 No timer, delay, polling, copied native duration/interpolator, native alpha/visibility/translation writer, or geometry patch is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003656` / Build `20261003-656`.
+- Candidate identity: `0.0.5` / versionCode `261003657` / Build `20261003-657`.
 - PR #196 is 0 behind `dev` before Build-655 authoring.
-- Build 656 source/tests/docs passed final diff review against the Build-655 head; the branch is ready for exact-HEAD Runtime validation.
-- Focused tests cover the exact `animateFullAod(Boolean, Boolean)` and `animateIconContainer(Boolean)` contracts, pending-outgoing retention, native visual-boundary cutover, UNKNOWN-origin Home -> AOD prearm, and dual-enabled family routing.
+- Build 657 source/tests/docs are staged off-branch for final diff review against the Build-656 head.
+- Focused tests preserve the accepted native status-icon cutover and add native-target Home -> AOD prearm eligibility / bounded-latch coverage.
 - Exact-HEAD Runtime CI is required before Canary.
 - Real-device validation is mandatory because the new source is an exact-target native lifecycle event.
 
 ## Device gate
 
 1. Keyguard OFF / AOD ON
-   - AOD -> Keyguard should yield to native Keyguard at the native status-icon animation boundary, removing the current half-beat late handoff;
-   - Keyguard -> AOD should acquire AOD Guiyuan at the corresponding native status-icon animation boundary;
-   - stable Keyguard remains native and stable AOD remains Guiyuan.
+   - AOD -> Keyguard must consume the later native `animateIconContainer(true)` boundary instead of falling through to stable-family completion;
+   - Keyguard -> AOD must remain at the Build-656 accepted timing;
+   - Home -> AOD should prepare AOD before the outgoing Home visual disappears; stable Keyguard remains native and stable AOD remains Guiyuan.
 
 2. Keyguard ON / AOD OFF
-   - AOD -> Keyguard should acquire Guiyuan at the native status-icon animation boundary rather than animation end;
-   - Keyguard -> AOD should retain Guiyuan until the native status-icon animation boundary instead of dropping at the earlier full-AOD target edge;
+   - AOD -> Keyguard must acquire Guiyuan at the later native status-icon event rather than the final stable edge;
+   - Keyguard -> AOD must remain unchanged from the Build-656 accepted timing;
    - stable Keyguard remains Guiyuan and stable AOD remains native.
 
 3. Both ON
    - Keyguard <-> AOD remains one continuous family owner/RenderView;
-   - Home -> AOD may retain the already-accepted brief native screen flash, but Build 655 must not add a second represented-icon flash.
+   - Home -> AOD must not show a new represented-icon disappearance/reappearance interval; the previously accepted native screen flash is evaluated separately.
 
 4. Regression
    - AOD/Keyguard -> Home immediate Control Center pull;
@@ -77,7 +81,7 @@ No timer, delay, polling, copied native duration/interpolator, native alpha/visi
 
 ## Immediate next step
 
-Fast-forward the reviewed Build 656 onto #196, run exact-HEAD Runtime, then one signed Canary for the directional timing gate.
+Review Build 657 against Build 656, then fast-forward #196, run exact-HEAD Runtime, and issue one signed Canary for the focused lifecycle gate.
 
 ## Reference priority
 

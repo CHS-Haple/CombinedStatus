@@ -29,6 +29,7 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
     private var keyguardAodFullTargetPending = false
     private var keyguardAodFullTransitionActive = false
+    private var homeAodTargetPrearmPending = false
     private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
     private var aodRendererAttached = false
@@ -269,6 +270,7 @@ class CombinedStatusModule : XposedModule() {
                 CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
             keyguardAodFullTargetPending = false
             keyguardAodFullTransitionActive = false
+            homeAodTargetPrearmPending = false
             controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
             aodRendererAttached = false
@@ -1917,19 +1919,6 @@ class CombinedStatusModule : XposedModule() {
                 ?.let { resolved ->
                     SystemUiKeyguardHostResolver.nativeToLockScreenTarget(resolved)
                 }
-        val aodState =
-            (resolution as? SystemUiKeyguardHostResolver.ResolveResult.Ready)
-                ?.host
-                ?.battery
-                ?.let(SystemUiKeyguardAodStateSource::currentState)
-
-        if (aodState?.isAodAnimate != true && keyguardAodFullTargetPending) {
-            // If native returned without an icon-container visual event and
-            // without an active AOD animation, there is no visual boundary left
-            // to consume. Release the latch and fall back to ordinary policy.
-            keyguardAodFullTargetPending = false
-        }
-
         logDiagnostic(
             level = if (target != null) Log.INFO else Log.WARN,
             event = "aod.target",
@@ -1947,22 +1936,41 @@ class CombinedStatusModule : XposedModule() {
             "readOnly" to true,
             "nativeGeometryWrites" to 0,
         )
+
+        (resolution as? SystemUiKeyguardHostResolver.ResolveResult.Ready)?.let { ready ->
+            armHomeAodTargetPrearmIfEligible(
+                resolution = ready,
+                nativeToLockScreenTarget = target,
+                source = "animateFullAod:after",
+            )
+        }
     }
 
     private fun onKeyguardStatusIconTransition() {
-        if (!keyguardAodFullTargetPending) return
-
         val resolution =
             SystemUiKeyguardHostResolver.current()
                 as? SystemUiKeyguardHostResolver.ResolveResult.Ready
                 ?: run {
-                    keyguardAodFullTargetPending = false
+                    if (keyguardAodFullTargetPending) {
+                        keyguardAodFullTargetPending = false
+                    }
                     return
                 }
         val aodState =
             SystemUiKeyguardAodStateSource.currentState(resolution.host.battery)
         val target =
             SystemUiKeyguardHostResolver.nativeToLockScreenTarget(resolution.host)
+
+        armHomeAodTargetPrearmIfEligible(
+            resolution = resolution,
+            nativeToLockScreenTarget = target,
+            source = "animateIconContainer",
+        )
+
+        if (!keyguardAodFullTargetPending) {
+            return
+        }
+
         val eligible = target != null
 
         logDiagnostic(
@@ -2000,11 +2008,68 @@ class CombinedStatusModule : XposedModule() {
         keyguardAodFullTargetPending = false
     }
 
+    private fun armHomeAodTargetPrearmIfEligible(
+        resolution: SystemUiKeyguardHostResolver.ResolveResult.Ready,
+        nativeToLockScreenTarget: Boolean?,
+        source: String,
+    ): Boolean {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val homeOwned =
+            SystemUiHomePresentationOwner
+                .currentHomeRepresentedSlotOwnership()
+                .isNotEmpty()
+        if (homeAodTargetPrearmPending) {
+            if (
+                nativeToLockScreenTarget == true ||
+                !settings.enabled ||
+                !settings.aodEnabled
+            ) {
+                homeAodTargetPrearmPending = false
+                return false
+            }
+            // Once armed from a verified Home origin, keep the handoff lease
+            // across transient Keyguard ancestry until native AOD state closes
+            // it. Re-checking the mutable scene here would recreate the gap.
+            return true
+        }
+
+        val eligible =
+            CombinedStatusScenePolicy.shouldArmHomeAodTargetPrearm(
+                featureEnabled = settings.enabled,
+                aodEnabled = settings.aodEnabled,
+                steadySourceScene = steadyStatusSourceScene,
+                lastStableFamilyScene = lastStableKeyguardAodScene,
+                homePresentationOwned = homeOwned,
+                nativeToLockScreenTarget = nativeToLockScreenTarget,
+            )
+        if (!eligible) {
+            return false
+        }
+        homeAodTargetPrearmPending = true
+        logDiagnostic(
+            level = Log.INFO,
+            event = "aod.homePrearm",
+            component = "keyguardAod",
+            state = "armed",
+            "source" to source,
+            "target" to "aod",
+            "origin" to "home",
+            "homePresentationOwnedAtArm" to homeOwned,
+            "nativeGeometryWrites" to 0,
+        )
+        onKeyguardHostResolution(
+            resolution = resolution,
+            source = "home-aod-target-prearm:" + source,
+        )
+        return true
+    }
+
     private fun onKeyguardAodStateUpdate(
         update: SystemUiKeyguardAodStateSource.AodUpdate,
     ) {
         if (!update.isAodAnimate && !keyguardAodFullTransitionActive) {
             keyguardAodFullTargetPending = false
+            homeAodTargetPrearmPending = false
         }
         refreshStableKeyguardAodSceneFromAodState(update)
         if (update.blocksProjection) {
@@ -2242,6 +2307,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiPresentationRuntimeOwner.keyguardFullAodReady,
             fullAodTargetPending = keyguardAodFullTargetPending,
             fullAodVisualBoundary = fullAodVisualBoundary,
+            homeAodTargetPrearm = homeAodTargetPrearmPending,
         )
     }
 
@@ -2666,11 +2732,14 @@ class CombinedStatusModule : XposedModule() {
             return
         }
         val homeTransitionPrearm =
-            aodState.isAodAnimate &&
-                steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
-                SystemUiHomePresentationOwner
-                    .currentHomeRepresentedSlotOwnership()
-                    .isNotEmpty()
+            homeAodTargetPrearmPending ||
+                (
+                    aodState.isAodAnimate &&
+                        steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
+                        SystemUiHomePresentationOwner
+                            .currentHomeRepresentedSlotOwnership()
+                            .isNotEmpty()
+                )
 
         when (
             val result =
@@ -2786,6 +2855,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun deactivateAodRuntime(source: String) {
+        homeAodTargetPrearmPending = false
         aodRendererAttached = false
         CombinedStatusKeyguardRenderSession.setAodNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateAod(source)
@@ -2836,6 +2906,7 @@ class CombinedStatusModule : XposedModule() {
             CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN
         keyguardAodFullTargetPending = false
         keyguardAodFullTransitionActive = false
+        homeAodTargetPrearmPending = false
         controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
         aodRendererAttached = false
