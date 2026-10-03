@@ -6,43 +6,72 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 - Product / display version: Guiyuan 0.0.5.
 - `main` remains on the promoted 0.0.5 / Build 618 stable checkpoint.
-- `dev` has advanced to accepted Build 619: `0.0.5` / versionCode `261002419` / Build `20261002-619`.
+- `dev` is accepted through Build 619: `0.0.5` / versionCode `261002419` / Build `20261002-619`.
 - Build 619 is the latest accepted runtime-affecting development baseline.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
 - GPL-3.0-only remains the project license.
 
-## Integrated Build 619 scope
+## Active objective
 
-PR #195 added two independent network-state visual controls:
-- Airplane mode size: 40%-125%, default 100%.
-- No-SIM size: 40%-125%, default 100%.
+Branch: `feat/aod-display-control` / PR #196.
 
-Both controls are profile-scoped like Wi-Fi/mobile-type sizing, so Network centered and Battery centered remember separate values. Wi-Fi and mobile-type sizing remain independent.
+Build 672 follows Build-669 device rejection. Build 667 remains accepted for the previously failing Keyguard/AOD paths:
+- AOD -> Keyguard no longer collapses adjacent peers inward;
+- AOD -> Keyguard fast/partial Control Center pull no longer falls back to native in the reproduced path;
+- Keyguard -> AOD keeps Guiyuan through the native Keyguard status-icon fade and yields only at the hidden endpoint.
 
-Renderer ownership remains narrow:
-- HyperOS/native resources remain the drawable source.
-- Each new setting changes only the matching resource draw-size constraint and the same resolved geometry consumed by optical avoidance / transition-source rendering.
-- No state source, slot ownership, native peer layout, gesture timeline, timing, alpha, visibility, or translation writer was added.
+Build-669 device result:
+- with Keyguard Guiyuan enabled and AOD Guiyuan disabled, Home/Desktop -> AOD still commonly shows “Guiyuan disappears -> Guiyuan returns -> native”;
+- unlike Build 668, Build 669 now proves the Home provenance path itself is correct: `homeCarrierVisibleAtStart=true`, `homeNativeAodFallbackCandidate=true`, then native `toAod=true / isAodAnimate=true` consumes it and logs `homeNativeAodFallbackActive=true` while releasing the transient Keyguard presentation;
+- the remaining flash occurs afterward when HyperOS emits a Keyguard-directed status-icon visual boundary. The incoming Keyguard visual-handoff helper can arm and attach its renderer even while the native-AOD fallback is already active.
 
-## Validation evidence
+Build-670 lifecycle correction:
+- keep the Build-669 Home provenance and consumption path unchanged;
+- make active Home-native-AOD fallback an explicit veto for incoming Keyguard visual-handoff eligibility;
+- apply the same veto to Keyguard boundary layout precommit so a hidden native status-icon layer cannot bypass the fallback through a layout-only path;
+- preserve normal AOD -> Keyguard handoff when no Home-native-AOD fallback is active;
+- preserve existing stable-family cleanup, Home abort, settings/host failure, Hot Reload and teardown behavior.
+AOD -> Keyguard Control Center risk review:
+- Build 667 fixed the observed fast-pull failure with incoming-boundary presentation readiness;
+- Build 669 also closes the remaining callback-order race: if expansion fraction arrives before visible/source reconciliation, an already-valid incoming Keyguard presentation promotes CC source to KEYGUARD before lease acquisition;
+- visible/source disagreement also prefers KEYGUARD only while the same incoming-ready fact is true and at least one native source witness explicitly reports KEYGUARD;
+- ordinary unlock cannot use this guard because incoming-boundary readiness is absent.
 
-- PR #195 merged to `dev` as `d59b7452cfe7abcad9a48f8ddbf00812adc00da5`.
-- Work Branch Canary #650 validated Build 619 on the exact requested work-branch source; trusted checkout/build/signature/non-debuggable checks succeeded.
-- Maintainer device validation on Xiaomi 15 Pro accepted the Airplane / No-SIM sizing behavior and independent content-layout memory with no visible regression requiring another runtime change.
-- Returned detailed diagnostics report `overall=healthy` on Build 619; the durable device conclusion and the diagnostic-summary limitation are recorded in `DEVLOG.md`.
-- Final PR Runtime CI #2230 succeeded after synchronizing latest `dev` ancestry and recording device evidence.
-- Trusted `dev` integration CI #2231 succeeded on merge commit `d59b7452cfe7abcad9a48f8ddbf00812adc00da5`, including tests/build, pinned HyperOS target verification, Modern Xposed metadata, Haple APK signature, non-debuggable Canary verification, and Canary artifact upload.
+No timer, delay, copied duration/interpolator, native alpha/visibility/translation writer, peer-motion writer, geometry compensation, or second presentation owner is introduced.
 
-## Current state
+## Validation state
 
-Build 619 remains the accepted runtime baseline. The companion app now adds a Settings > Other > Project address entry linking to the repository, and repository/project license identity is GPL-3.0-only. These changes do not alter SystemUI runtime ownership or behavior. `main` should remain on Build 618 until a later stable promotion is intentionally requested.
+- Candidate identity: `0.0.5` / versionCode `261003672` / Build `20261003-672`.
+- PR #196 is 0 behind `dev` at freeze.
+- Build-669 device evidence confirms Home native-carrier provenance and fallback consumption are now correct; the remaining defect is a visual-handoff re-entry path that bypassed the active native fallback. Build 672 changes only that eligibility boundary and does not add a writer or a second lifecycle authority.
+- Unit coverage includes candidate arming, native-AOD animation consumption, direct target=AOD consumption, active-fallback projection override, active-fallback visual-handoff/precommit rejection, incoming Keyguard source conflict, and ordinary-unlock rejection.
+- Runtime code is frozen pending exact-head Runtime CI and one signed Canary.
 
-The optional AOD display design remains roadmap-only: global Guiyuan is the parent gate, Keyguard and AOD are independent child preferences, and AOD requires its own bounded host/session/lifecycle before any runtime implementation.
+## Device gate
+
+1. Keyguard ON / AOD OFF — Home/Desktop -> AOD:
+   - native/system flash may remain;
+   - transient Keyguard Guiyuan may not reappear after native AOD animation begins;
+   - expected sequence is one continuous handoff to native, with no “Guiyuan disappears -> Guiyuan returns -> native” cycle.
+
+2. Keyguard ON / AOD OFF — ordinary Keyguard -> AOD:
+   - preserve Build-667 behavior: Guiyuan stays until native Keyguard status-icons reach their hidden endpoint.
+
+3. AOD -> Keyguard, immediate/fast/partial pull:
+   - no transient native status row / native QS fake even if fraction arrives before visible/source callback;
+   - holding or aborting the partial pull remains combined.
+
+4. AOD -> Keyguard normal path:
+   - preserve no-peer-merge fix.
+
+## Immediate next step
+
+Run exact-head Runtime CI for Build 672. If clean, issue one signed Canary and freeze for the focused device gate above.
 
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
 2. this file;
-3. current source / exact-target SystemUI evidence;
-4. task-specific architecture/reference docs;
+3. current source / exact device diagnostics;
+4. `SystemUI-Reference` exact-target findings and task-specific architecture/reference docs;
 5. relevant `DEVLOG.md` history.
