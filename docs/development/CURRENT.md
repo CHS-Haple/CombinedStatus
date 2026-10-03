@@ -26,11 +26,11 @@ Build-668 device result:
 - the tested Build 668 never latched `homeNativeAodFallbackCandidate`, so the transient Keyguard renderer remained eligible and could reappear before native takeover.
 
 Build-669 lifecycle correction:
-- arm a Home-native-AOD candidate at Full-AOD entry only while the authoritative steady source is HOME, Home still owns represented slots, Keyguard projection is enabled, and AOD projection is disabled;
+- arm a Home-native-AOD candidate at Full-AOD entry only while the Home compact owner still owns represented slots **and the exact native Home `system_icons` carrier is still visibly presented**; Keyguard projection must be enabled and AOD projection disabled. This intentionally avoids stale `steadyStatusSourceScene` and does not reuse Battery `mStatusBarState` as Home visibility authority;
 - the intermediate `target=keyguard` is explicitly treated as a transient routing stage and does not consume the candidate;
 - native `toAod=true / isAodAnimate=true` consumes the candidate, promotes a native-AOD fallback, clears any incoming-Keyguard handoff state, releases the transient Keyguard presentation, and keeps native authoritative until stable AOD;
 - a direct native target=AOD may consume the same candidate immediately;
-- if stable Keyguard forms first, or authoritative HOME returns after an aborted transition, the candidate/active fallback is cleared so ordinary Keyguard -> AOD keeps Build-667 behavior;
+- if stable Keyguard forms first, the candidate/active fallback is cleared so ordinary Keyguard -> AOD keeps Build-667 behavior; returning Home clears only an already-active native fallback, while an inert Home-origin candidate may survive transient routing until the next native AOD animation or stable-family endpoint;
 - resolver failure, settings changes, Hot Reload and full teardown remain fail-native / fail-closed.
 
 AOD -> Keyguard Control Center risk review:
@@ -45,7 +45,7 @@ No timer, delay, copied duration/interpolator, native alpha/visibility/translati
 
 - Candidate identity: `0.0.5` / versionCode `261003669` / Build `20261003-669`.
 - PR #196 is 0 behind `dev` at freeze.
-- Lifecycle review completed before freeze for Home -> transient Keyguard -> native AOD, abort-to-Home, stable-Keyguard fallback, stable-AOD completion, and AOD -> incoming Keyguard -> Control Center source ordering.
+- Lifecycle review completed before freeze for Home native-carrier visibility -> transient Keyguard -> native AOD, abort-to-Home, stable-Keyguard fallback, stable-AOD completion, and AOD -> incoming Keyguard -> Control Center source ordering. Build-668 detailed diagnostics specifically rejected `steadyStatusSourceScene` as the Home-origin authority because raw unlocked updates can arrive from a structurally non-Home battery while the visible Home carrier still owns the presentation.
 - Unit coverage includes candidate arming, native-AOD animation consumption, direct target=AOD consumption, active-fallback projection override, incoming Keyguard source conflict, and ordinary-unlock rejection.
 - Runtime code is frozen pending exact-head Runtime CI and one signed Canary.
 
