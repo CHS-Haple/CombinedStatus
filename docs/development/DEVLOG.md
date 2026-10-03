@@ -3299,3 +3299,42 @@ No native peer state/alpha/visibility/translation write, island geometry write, 
 ### Validation
 
 Exact-head Runtime CI, then one signed Canary. Device gate: ordinary island one-hide-per-gesture, charging island no fail-native/native-row takeover, stable non-avoided peers near endpoint, reverse handoff without flash, no lease-activation jump, no-island regression, and Detailed latch/capacity diagnostics.
+
+
+## 2026-10-03 — Build 672: replace scalar island peer hiding with optical collision
+
+**Type:** device-evidence semantic correction  
+**Display version:** 0.0.5  
+**Build:** 672 / `20261003-672`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### New device evidence
+
+The maintainer's follow-up video shows VPN being removed even though the visible VPN glyph still has clear space from the island. This rejects `inIslandState=10` as a sufficiently precise proxy for real collision.
+
+The existing diagnostics explain why: HyperOS consumes a scalar island-space contract at the whole fake-row level. A peer View can enter native island-hide state from the row-level capacity calculation even when the visible glyph inside that View has not physically touched the island. Build 671's improved latch timing would therefore make the wrong decision persistent.
+
+### Build-672 correction
+
+- Preserve the exact fake-island monitor Hook, but use it only to confirm an active, geometrically readable island.
+- Suppress the monitor's scalar island width for the current QS_FAKE Session.
+- Enable the already accepted bounded fixed fake-carrier capacity lease from Session start, preventing the scalar island/overflow path from removing unrelated peers.
+- After native layout, resolve each non-represented peer's optical content rectangle:
+  - native ImageView drawable frame via drawable bounds + imageMatrix + padding;
+  - actual TextView layout envelope;
+  - bounded union of nested visible image/text descendants.
+- Latch a slot only when this optical rectangle intersects the live island rectangle.
+- Unknown optical geometry stays visible and emits a bounded diagnostic rather than using an over-broad View-box fallback.
+- Reapply the existing reversible slot-owned clip on subsequent layouts so child re-layout/rebinding cannot revive a truly collided peer.
+
+### Relationship to rejected Build 660
+
+This does not restore Build 660's "capacity instead of avoidance" behavior. Build 660 removed collision pressure but supplied no replacement collision authority. Build 672 pairs the fixed capacity lease with an explicit per-peer optical collision authority, while retaining Build-663 represented-slot exclusion and Build-612 logical-carrier motion separation.
+
+### Ownership
+
+No `NewStatusIconState` write, alpha/visibility/translation write, island-rect write, timer, polling loop, custom easing or second motion system. The only peer presentation write remains reversible `clipBounds`; the carrier-width lease is the existing bounded Session writer.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Acceptance requires optical VPN clearance, real network-speed contact hiding, sticky one-hide-per-gesture behavior, charging-island no-fallback, no left jump, and no-island regression coverage.

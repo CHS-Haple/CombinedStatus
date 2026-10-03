@@ -193,3 +193,17 @@ Design consequences:
 Steady Keyguard projection is not equivalent to AOD ownership. Device-rejected Build 453 attempted this gate but incorrectly resolved `toggleAodMode` as zero-argument, so its AOD authority installed zero Hooks and Keyguard failed native. Build 455 corrects the pinned contract: a unique `setIsAodAnimate(boolean): void` and `toggleAodMode(boolean): void` plus Boolean `mToAod` / `mIsAodAnimate` are required before Keyguard projection is allowed. `mToAod || mIsAodAnimate` blocks Keyguard projection and restores the native represented presentation. `mAnimToAod` is diagnostic-only.
 
 If that contract cannot be resolved uniquely, Keyguard remains native while Home/QS_FAKE continues on the accepted Build-446 path. Guiyuan does not write AOD alpha, visibility, translation, animation or geometry.
+
+
+### Build 672 QS_FAKE island ownership refinement
+
+For partial Control Center pulls with an active island, Guiyuan no longer treats HyperOS' scalar fake-row island width as a per-peer collision truth. On the pinned target that scalar can over-hide a peer whose View box participates in row capacity even while the visible glyph remains clear of the island.
+
+Build 672 therefore keeps SystemUI as the carrier-motion/layout authority but narrows peer-visibility ownership for the QS_FAKE bridge:
+- fixed fake-carrier capacity supplies stable native measurement space;
+- the live HyperOS island rectangle remains the island geometry authority;
+- each non-represented peer contributes only its optical drawable/text content bounds;
+- only real optical intersection creates a sticky, reversible presentation clip for that fake Session;
+- missing optical evidence keeps the peer visible rather than guessing a collision.
+
+This is not native-state rewriting: `visibleState`, `inIslandState`, alpha, visibility and translation remain untouched. Fully expanded Control Center remains native-only.

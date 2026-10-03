@@ -10,53 +10,57 @@ This file is the concise recovery point for active Guiyuan development. Historic
 - Active branch / PR: `feat/battery-fill-retract-follow` / #197; latest checked state is 0 behind `dev`.
 - Verified target: Xiaomi 15 Pro / HyperOS SystemUI 17.03.260226.r / Android 17 / SDK 37 / Modern Xposed API 102.
 
-## Build 670 device conclusion
+## Build 670 / 671 device conclusion
 
-Build 670 is rejected for two independent reasons.
+Build 670 exposed two independent defects:
+- the gesture latch sampled native island state too late and could miss a peer already avoided earlier in the pull;
+- charging-island capacity validation compared total reservation against only newly leased capacity, causing `fake-carrier-capacity-insufficient` and visible fallback to the native status bar.
 
-1. **Island peer latch sampled too late.** During real overlap, fake `network_speed` / `vpn` can already be in native island-hidden state. By the exact 2D separation callback, HyperOS may have moved those states back to normal, so Build 670 records `islandPeerLatch snapshot=none` and the previously avoided peer becomes visible again.
+Build 671 corrects those two mechanics and passes exact-head Runtime CI. It is superseded before Canary because new device video proves a stronger semantic defect: HyperOS' scalar island state can hide VPN even when the visible VPN glyph has not physically touched the island. A state-based latch would preserve that false positive.
 
-2. **Mid-gesture capacity lease used the wrong capacity origin.** Charging-island sessions enter the fixed fake-carrier lease only after 2D separation, with a substantial reservation already present. Build 670 compared total reservation against the lease's newly added capacity. Near the capacity boundary it raised `fake-carrier-capacity-insufficient`, cleaned up the Guiyuan presentation, and native SystemUI visibly took over.
+## Build 672 candidate
 
-## Build 671 candidate
+Build 672 replaces QS_FAKE scalar island peer suppression with precise per-peer optical collision while retaining HyperOS motion/layout ownership everywhere else.
 
-Build 671 preserves the accepted Build-669 2D monitor-width gate and Build-611/612 fixed capacity mechanism, but corrects their handoff semantics.
+### Precise island avoidance
 
-### Peer latch
+- The exact current `FakeContainerIslandMonitor` remains the island-presence seam.
+- With a verified live island rectangle, its scalar width is exposed as 0 only for the current QS_FAKE Session.
+- The fake row receives the already accepted bounded fixed capacity lease from Session start, so native overflow cannot hide unrelated peers.
+- After each native fake-row layout, Guiyuan resolves each non-represented peer's visible optical content:
+  - ImageView / StatusBarIconView: drawable bounds mapped through the native image matrix and padding;
+  - TextView-like peers such as network speed: actual text-layout bounds;
+  - nested visual peers: union of visible image/text descendants up to bounded depth.
+- A peer is latched only when that optical rectangle actually intersects the live island rectangle.
+- Missing optical geometry fails open for that peer (`keep-visible`) instead of over-hiding.
+- Once truly collided, the peer stays presentation-clipped for the remainder of that fake Session, preserving the requested one-hide-per-gesture behavior.
 
-- While real 2D overlap is active, after native `onLayout`, read only laid-out non-represented peers.
-- Accumulate slot names that are currently or immediately previously in native island-hidden state.
-- On overlap -> separated, freeze the accumulated slot set as the gesture latch.
-- During the separated phase, rematch those slot names against current fake-row Views and maintain reversible empty `clipBounds`; this survives native child re-layout/rebinding without writing native visibility/state.
-- Reverse real-overlap restores capacity first, waits for baseline native layout, then releases latch clips.
+### Capacity
 
-### Capacity lease
-
-- No-island behavior keeps the accepted Build-611/612 origin of zero reservation.
-- Island-native-layout sessions that activate the lease mid-gesture snapshot the reservation already present at activation.
-- Capacity validation uses only `max(currentReservation - activationReservation, 0)`.
-- The reservation curve itself is unchanged; charging-island `nativeHide` semantics remain untouched.
-- Therefore pre-existing island/charging reservation does not consume newly leased capacity a second time.
+- All QS_FAKE Sessions use the accepted fixed carrier-capacity lease.
+- No-island activation origin remains 0.
+- Island-native-layout activation snapshots the reservation already present at Session start; only later reservation growth consumes the lease delta.
+- Charging-island `nativeHide`, reservation curve, motion projection and carrier anchor remain unchanged.
 
 ## Ownership
 
-No peer `visibleState`, `inIslandState`, alpha, View visibility or translation write is added. No island rectangle/width field is written. No timer, poller, custom threshold, new animator or alternate gesture timeline is added. The only peer presentation write remains slot-owned reversible `clipBounds`; width capacity remains the existing bounded fixed session lease.
+No native peer `visibleState`, `inIslandState`, alpha, View visibility or translation write is added. No island rectangle field or monitor field is written. The only peer presentation write is reversible `clipBounds`; the only layout-width write is the existing bounded fixed Session lease. No timer, poller, custom threshold or second animator is added.
 
 ## Validation state
 
-Candidate identity: `0.0.5` / versionCode `261003671` / Build `20261003-671`.
+Candidate identity: `0.0.5` / versionCode `261003672` / Build `20261003-672`.
 
-Automated gate: exact-head Runtime CI.
+Required automated gate: exact-head Runtime CI.
 
-Device gate after Runtime success:
-1. ordinary island: a peer avoided once stays hidden for the rest of outward fake transition;
-2. charging island + dual SIM: Guiyuan presentation must remain active through the whole pull; no return to native status bar;
-3. peers not avoided by the island must not disappear near the endpoint;
-4. reverse keeps the outward latch until real overlap returns, then hands back to native avoidance without a reveal flash;
-5. no left jump when mid-gesture capacity lease activates;
-6. ordinary no-island pull remains unchanged;
+Required device gate after Runtime success:
+1. ordinary island: network speed hides only when its visible content actually contacts the island;
+2. VPN must remain visible while there is visible optical clearance, even if its outer View box overlaps;
+3. once a peer truly collides, it remains hidden for the rest of the outward fake transition;
+4. charging island + dual SIM: no `fake-carrier-capacity-insufficient`, no return to native status bar;
+5. no initial/lease-activation left jump;
+6. no-island pull remains unchanged;
 7. export one Detailed diagnostic.
 
 ## Immediate next step
 
-Run exact-head Runtime CI for Build 671, then one signed exact-head Work Branch Canary and freeze runtime for focused device validation.
+Run exact-head Runtime CI for Build 672, then one signed exact-head Work Branch Canary and freeze runtime for focused device validation.
