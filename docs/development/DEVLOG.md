@@ -3097,3 +3097,48 @@ No timer, delay, copied native duration/interpolator, peer translation, native a
 ### Validation gate
 
 Exact-head Runtime CI, then a signed Canary. Device focus is AOD -> Keyguard peer layout and Guiyuan continuity; Keyguard -> AOD is regression-only.
+
+## 2026-10-03 — Build 667: separate visual ownership from stable Keyguard readiness
+
+**Type:** Keyguard/AOD lifecycle ownership  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Build:** 667 / `20261003-667`
+
+### Problem
+
+Build 666 fixes AOD -> Keyguard peer-layout convergence, but device testing exposes two lifecycle-boundary defects:
+- Keyguard -> AOD releases Guiyuan as soon as native Keyguard status icons begin fading rather than when their visual lifetime ends.
+- AOD -> Keyguard can briefly fall back to native Control Center/status icons during a fast pull because the incoming Guiyuan presentation is already visually valid while stable `keyguardRuntimeReady` is still false.
+
+### Evidence
+
+- Outgoing Keyguard: native target resolves to AOD, then the first `isAodAnimate=true` callback deactivates Keyguard only milliseconds later, while stable AOD arrives hundreds of milliseconds afterward.
+- Incoming Keyguard: `aod.visualHandoff state=revealed` occurs before stable Keyguard. During that bounded interval Control Center logs `state=native ... keyguardRuntimeReady=false`, then automatically returns to combined when stable Keyguard commits.
+- Build 666 proves the exact Keyguard status-icon presentation lifecycle is the reliable visual authority; enclosing host visibility is not.
+
+### Conclusion
+
+Stable-family readiness and visual-presentation readiness are different lifecycle facts and must not share one boolean.
+
+### Change
+
+- Outgoing Keyguard remains owner while exact native Keyguard status-icons alpha is greater than zero. Native fade start is not cleanup.
+- Incoming AOD -> Keyguard derives a transient presentation-ready fact from the existing handoff state: visual handoff active, compact prelayout ready, visual boundary reached, host attached, Keyguard enabled, AOD projection disabled.
+- Control Center eligibility and lease acquisition may use stable readiness or this bounded transient readiness.
+- AOD-blocked state may not revoke an already-valid incoming Keyguard Control Center lease.
+- Fraction-zero/readiness churn does not tear down the incoming boundary owner while that transient presentation-ready fact remains true.
+- Stable `keyguardRuntimeReady` is not set early and remains owned by stable Keyguard cutover.
+
+### Lifecycle review
+
+Reviewed before Build-667 freeze:
+- one Keyguard presentation owner;
+- one Control Center compact owner;
+- no duplicate alpha/visibility/translation writer;
+- host detach, feature disable, AOD enable, resolver loss, Hot Reload and normal fail-native paths invalidate transient readiness;
+- stable AOD still forces native when AOD projection is disabled;
+- Home -> AOD origin handling remains intentionally separate.
+
+### Validation
+
+Exact-head Runtime CI and signed Canary are required. Device gate is in CURRENT.
