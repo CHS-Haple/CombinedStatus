@@ -458,7 +458,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = false,
-                keyguardStatusIconsAlpha = true,
+                keyguardStatusIconsAlpha = 1f,
             ),
         )
         assertEquals(
@@ -471,7 +471,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = true,
-                keyguardStatusIconsAlpha = false,
+                keyguardStatusIconsAlpha = 0f,
             ),
         )
     }
