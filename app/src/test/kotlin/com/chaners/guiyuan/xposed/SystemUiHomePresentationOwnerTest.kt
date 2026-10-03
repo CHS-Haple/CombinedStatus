@@ -48,6 +48,32 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun island2DGateRequiresRealRectangleOverlap() {
+        fun intersects(
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+        ): Boolean =
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = left,
+                    top = top,
+                    right = right,
+                    bottom = bottom,
+                    islandLeft = 522,
+                    islandTop = 31,
+                    islandRight = 918,
+                    islandBottom = 156,
+                )
+
+        assertTrue(intersects(left = 768, top = 89, right = 1246, bottom = 164))
+        assertFalse(intersects(left = 747, top = 204, right = 1225, bottom = 279))
+        assertFalse(intersects(left = 919, top = 89, right = 1200, bottom = 164))
+        assertFalse(intersects(left = 768, top = 156, right = 1246, bottom = 231))
+    }
+
+    @Test
     fun persistentIgnoredSlotRestoreRemovesOnlySessionOwnedDelta() {
         val existing = listOf("alarm_clock", "wifi")
         val requested = listOf("wifi", "mobile", "no_sim")

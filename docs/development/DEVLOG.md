@@ -3189,3 +3189,41 @@ Build 668 keeps the exact Build-667 runtime and makes the evidence durable:
 - no geometry/state writer, requestLayout, animation, timer, polling or additional Hook is introduced.
 
 One active-island pull with detailed diagnostics is sufficient. The resulting class/member signatures will determine the first monitor/statusContainerSpace-side functional correction.
+
+
+## 2026-10-03 — Build 669: gate QS_FAKE monitor width by real 2D overlap
+
+**Type:** root-cause correction / fake island semantic boundary  
+**Display version:** 0.0.5  
+**Build:** 669 / `20261003-669`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Problem
+
+Build 665 proved that intercepting `MiuiStatusIconContainer.getIslandShowing()` does not affect the production QS_FAKE island-layout path. Build 668 was therefore used only to persist the live fake island contract.
+
+### Evidence
+
+The Build-668 device diagnostic captures the current QS_FAKE `MiuiStatusIconContainer._islandMonitor` as `IslandMonitor$FakeContainerIslandMonitor`. That monitor owns native `islandShowing=true`, `islandWidth=147`, `getIslandShowing()`, `getIslandWidth()`, and a direct `StatusBarIslandControllerImpl` reference. The same controller exposes `statusContainerSpace`.
+
+Combined with Build 664, the dimensional mismatch is now fully isolated: the fake monitor continues to expose Home's scalar island width after native Control Center translation has moved the actual fake peer row below the live island rectangle.
+
+### Conclusion
+
+The narrow functional seam is `FakeContainerIslandMonitor.getIslandWidth()`, not the status-icon-container getter and not peer state. The correction should preserve native collision pressure only while the current QS_FAKE peer band physically intersects the live island rectangle.
+
+### Change
+
+- Install an optional exact-class `FakeContainerIslandMonitor.getIslandWidth(): int` Hook.
+- Bind the current QS_FAKE Session to its exact `_islandMonitor` object and intercept only that object.
+- Reuse the Build-664 verified live `islandRect` path, now outside the Detailed-diagnostics gate because it is functional authority.
+- Cache the current native peer vertical band after the already-hooked native `onLayout`.
+- Return the native monitor width while the peer band and island rectangle overlap; return 0 after 2D separation.
+- On missing monitor identity or geometry, return the native width unchanged.
+- Keep Build-663 progress reservation unchanged as the only Guiyuan horizontal occupancy writer.
+
+No monitor field write, island-rectangle write, child state/alpha/visibility/translation write, timer, polling loop, frame follower, requestLayout injection or custom gesture timing is added.
+
+### Validation
+
+Run exact-head Runtime CI. If green, one signed Work Branch Canary is required because this changes active-island runtime semantics. Device acceptance requires collision protection while overlapping, immediate release after vertical separation, reverse re-engagement, charging-island + dual-SIM sanity, ordinary no-island regression, and a detailed `islandWidth2DGate` trace.
