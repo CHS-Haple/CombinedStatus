@@ -2830,3 +2830,30 @@ No new latch is introduced. Island entry/exit is owned by the existing island so
 ### Device gate
 
 Slow-pull any island and verify that native icons do not disappear on first touch. Their island avoidance should remain HyperOS-owned and evolve with native motion. Also retest charging-only island + dual SIM and ordinary no-island pull-down.
+
+## 2026-10-03 — Build 657 QS_FAKE island-state timing probe
+
+**Type:** read-only runtime diagnostic / island motion root-cause isolation  
+**Display version:** 0.0.5  
+**Build:** 657 / `20261003-657`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Device evidence from Build 656
+The island defect remains unchanged after bypassing Guiyuan's Combined-participant Folme translation correction. Returned diagnostics keep `reservationMode=native-island-authority` with no native transition reservation, while the first captured QS_FAKE expansion bucket already reports `network_speed` / `vpn` in visibleState 2 and alpha 0 even though the final QS row still keeps those slots visible.
+
+The top-level fake root continues native X/Y motion, so the remaining defect is not a missing root translation. The unresolved boundary is the QS_FAKE `MiuiStatusIconContainer` island/visible-state calculation that precedes that motion.
+
+### Build 657 probe
+Extend only the existing bounded transition diagnostic:
+- status-row fields: `islandWidth`, `islandWidthChanged`, `ignoredSlots`;
+- child fields: `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, `layoutTranslationX`;
+- marker: `islandProbe=v1`.
+
+Reflection is read-only and evaluated only when the existing detailed diagnostic snapshot is produced.
+
+### Boundaries
+No new hook, listener, timer, polling path, layout request, geometry write, native visible-state write, alpha/visibility write, translation write, or island-width mutation. Runtime presentation is intentionally unchanged from Build 656.
+
+### Validation
+Exact-HEAD Runtime CI, then one signed Canary. One active-island slow pull plus a detailed diagnostic is sufficient to choose between terminal island-width input and child-state-machine cutover.
+

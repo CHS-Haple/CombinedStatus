@@ -37,66 +37,46 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 656 is the current focused device candidate. It is a single-variable correction on top of Build 655.
+Build 657 is the current focused diagnostic candidate after Build 656 device evidence rejected the participant-translation hypothesis.
 
-Build 655 device feedback:
-- Guiyuan transition remains present under island, and island mode correctly reports `reservationMode=native-island-authority` with no Guiyuan native reservation;
-- however non-represented native status icons are still removed too early: the steady Home row may show network-speed / VPN / other icons, then the first pull sample removes the icons that would not fit the fully-expanded island layout;
-- video evidence shows this happens before meaningful panel travel, then the remaining native row moves downward;
-- Build-655 diagnostics show the QS fake `system_icon_area` is already at the island/control-center width (`left=249,width=587`) and `MiuiStatusIconContainer` at `448px` from about fraction 0.11 through 0.86. The horizontal capacity is therefore effectively terminal while only root translation/alpha continues with gesture progress;
-- Build 655 proves the remaining issue is not the removed island-width hook and not the removed transition `paddingEnd` writer.
+Build 656 device evidence:
+- the reported island pull-down defect is unchanged: native icons beyond the island capacity disappear immediately, while the surviving native row then continues its pull motion;
+- `reservationMode=native-island-authority` remains active and `nativeReservation=-1`, so Guiyuan transition padding is not driving the cutover;
+- at the first captured expansion bucket (about fraction 0.11), QS_FAKE already has `network_speed` / `vpn` in native visibleState 2 with alpha 0 while the final QS row still reports those slots visible;
+- QS_FAKE `system_icon_area` / `MiuiStatusIconContainer` remain effectively fixed at the island layout width while the top-level fake root continues native X/Y translation;
+- the returned detailed log contains no Build-656 `slotTranslation ... bypass=true` marker, so the corrected Combined-participant Folme path is not established as the writer that performs this early native icon-state cutover.
 
-Build 656 hypothesis and correction:
-- the native `combined_status` participant still intercepts `MiuiStatusBarFolmeViewState.applyToView(...)` and overwrites both `translationX` and `NewStatusIconState.layoutTranslationX` with Guiyuan's stable end-side slot anchor;
-- under island, HyperOS owns collision / visibility state and may consume that Folme layout translation while deciding which status icons fit;
-- forcing the Combined participant to its stable/final end-side translation can therefore make native island capacity resolve as if the participant had already reached its terminal layout on the first pull sample;
-- while the existing generic island source explicitly reports `showing=true`, Build 656 bypasses Guiyuan's Combined-slot translation correction and passes HyperOS' Folme state through unchanged;
-- ordinary non-island behavior keeps the existing stable-slot correction;
-- the bypass is diagnostic-visible as `nativeCombinedParticipant slotTranslation authority=hyperos-island bypass=true moduleStateWrites=0`.
+The remaining causal boundary is therefore inside the QS_FAKE `MiuiStatusIconContainer` island-state / visible-state calculation, before the later fake-root motion can change what the user sees.
 
-Build 655 native-layout-authority behavior, charging Clip/tint/target timing, target geometry, QS fake masking, and no-island transition behavior are otherwise unchanged.
-
-No timer, delay, new progress threshold, fake-row geometry write, island-width patch, native peer alpha/visibility write, or second motion system is introduced.
+Build 657 is observation-only:
+- no geometry, alpha, visibility, padding, ignored-slot, translation, timing, island width, or animation state is written;
+- the existing bounded transition diagnostic now records the fake/final status-row `islandWidth`, `islandWidthChanged`, and `ignoredSlots`;
+- for the already-bounded first native children it also records `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, and `layoutTranslationX`;
+- the probe runs only where the existing detailed transition diagnostic is emitted and is tagged `islandProbe=v1`.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003656` / Build `20261003-656`.
-- Focused unit coverage locks:
-  - explicit island showing => do not correct native Combined-slot Folme translation;
-  - explicit no-island / unknown state => preserve the existing normal stable-slot correction;
-  - existing native slot geometry and occupancy tests remain unchanged.
-- Runtime diff from Build 655 is limited to the island-aware translation bypass plus one diagnostic marker.
-- Lifecycle review: island state comes from the existing event-driven `SystemUiIslandMotionSource`; no new latch is introduced. Island dismissal automatically restores the previous normal correction path. Hot Reload / reset clears only the one-shot diagnostic marker.
+- Candidate identity: `0.0.5` / versionCode `261003657` / Build `20261003-657`.
+- Runtime behavior is intentionally identical to Build 656.
+- Review boundary: reflection is read-only, bounded to existing diagnostic emission, and introduces no new hook/listener/state machine.
 - Exact-HEAD Runtime CI is required before Canary.
-- Device evidence is mandatory because this tests whether the premature native icon cutover is caused by the project writing `layoutTranslationX`.
+- Device evidence is mandatory because the next engineering decision depends on whether QS_FAKE receives a terminal `islandWidth` immediately or whether child island state changes independently of that width.
 
 ## Device gate
 
-Validate one signed Build-656 Canary:
+Validate one signed Build-657 Canary:
 
-1. Any active island event, slow pull
-   - steady Home native icons must remain present on first touch;
-   - network-speed / VPN / other non-represented icons must not disappear immediately merely because the final island layout cannot fit them;
-   - visibility/avoidance should evolve with HyperOS native gesture ownership rather than jump at gesture start;
-   - diagnostic should contain `authority=hyperos-island bypass=true`.
+1. Trigger any island event and keep it active.
+2. From Home, perform one slow Control Center pull-down through the point where the native icons disappear / move.
+3. Close Control Center and export one detailed diagnostic.
 
-2. Native row motion
-   - native status icons should follow the stock HyperOS pull trajectory;
-   - specifically, no project-induced early terminal horizontal settlement before the visible downward motion.
+Expected visual result is intentionally unchanged from Build 656. The diagnostic must contain `islandProbe=v1`; the captured fake-row values will decide the next runtime correction.
 
-3. Charging-only island + dual SIM
-   - preserve the expected dual-signal structure;
-   - no native-icon overlap with mobile signal;
-   - Guiyuan transition remains present.
-
-4. Regression
-   - ordinary no-island pull-down stays Build-652/655 behavior;
-   - charging lightning Clip/tint/target reveal unchanged;
-   - island dismissal, Hot Reload first pull, Keyguard/AOD unchanged.
+No Keyguard/AOD validation is required for this checkpoint.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 656. If green, request one signed Canary and freeze runtime for this single-variable device gate.
+Run exact-HEAD Runtime CI for Build 657. If green, request one signed Canary and freeze runtime until the focused island diagnostic returns.
 
 ## Reference priority
 

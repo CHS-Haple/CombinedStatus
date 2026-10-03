@@ -1041,6 +1041,55 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         ",w=" + view.width + ")"
                 }
 
+            fun readFieldValue(
+                target: Any,
+                name: String,
+            ): Any? {
+                var owner: Class<*>? = target.javaClass
+                while (owner != null && owner != Any::class.java) {
+                    val current = owner
+                    val field =
+                        runCatching {
+                            current.getDeclaredField(name).apply {
+                                isAccessible = true
+                            }
+                        }.getOrNull()
+                    if (field != null) {
+                        return runCatching { field.get(target) }.getOrNull()
+                    }
+                    owner = current.superclass
+                }
+                return null
+            }
+
+            fun valueToken(value: Any?): String =
+                when (value) {
+                    null -> "none"
+                    is Collection<*> ->
+                        value
+                            .take(8)
+                            .joinToString(prefix = "[", postfix = "]") { item ->
+                                item?.toString() ?: "null"
+                            }
+                    else -> value.toString()
+                }
+
+            fun groupIslandToken(group: ViewGroup): String =
+                "islandProbe=v1" +
+                    "/islandWidth=" + valueToken(readFieldValue(group, "islandWidth")) +
+                    "/islandWidthChanged=" +
+                    valueToken(readFieldValue(group, "islandWidthChanged")) +
+                    "/ignoredSlots=" + valueToken(readFieldValue(group, "ignoredSlots"))
+
+            fun childIslandToken(child: View): String =
+                "island={in=" + valueToken(readFieldValue(child, "inIslandState")) +
+                    ",before=" + valueToken(readFieldValue(child, "beforeInIslandState")) +
+                    ",changed=" + valueToken(readFieldValue(child, "islandChanged")) +
+                    ",supportAnim=" + valueToken(readFieldValue(child, "supportAnim")) +
+                    ",forceAppear=" + valueToken(readFieldValue(child, "forceAppear")) +
+                    ",layoutTx=" + valueToken(readFieldValue(child, "layoutTranslationX")) +
+                    "}"
+
             fun groupToken(group: ViewGroup): String {
                 val children =
                     buildList {
@@ -1062,11 +1111,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     ",a=" + child.alpha +
                                     ",l=" + child.left +
                                     ",r=" + child.right +
-                                    ",w=" + child.width + ")",
+                                    ",w=" + child.width +
+                                    "," + childIslandToken(child) + ")",
                             )
                         }
                     }.joinToString(",")
-                return "count=" + group.childCount + "/items=[" + children + "]"
+                return "count=" + group.childCount +
+                    "/" + groupIslandToken(group) +
+                    "/items=[" + children + "]"
             }
 
             return "{fakeRoot=" + rootToken(fakeRootRef.get()) +
