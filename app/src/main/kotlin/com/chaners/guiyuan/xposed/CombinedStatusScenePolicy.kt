@@ -410,10 +410,18 @@ internal object CombinedStatusScenePolicy {
                         KeyguardAodProjection.NATIVE
                     }
                 } else {
-                    if (aodEnabled) {
-                        KeyguardAodProjection.AOD
-                    } else {
-                        KeyguardAodProjection.NATIVE
+                    when {
+                        keyguardEnabled &&
+                            !aodEnabled &&
+                            lastStableFamilyScene == StableKeyguardAodScene.KEYGUARD ->
+                            if ((keyguardStatusIconsAlpha ?: 1f) > 0f) {
+                                KeyguardAodProjection.KEYGUARD
+                            } else {
+                                KeyguardAodProjection.NATIVE
+                            }
+
+                        aodEnabled -> KeyguardAodProjection.AOD
+                        else -> KeyguardAodProjection.NATIVE
                     }
                 }
             }
