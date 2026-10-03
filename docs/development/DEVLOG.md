@@ -3073,3 +3073,44 @@ The principal risk is the Build-653 concern that removing represented fake parti
 ### Validation
 
 Run exact-head Runtime CI, then one signed Canary. Focus on slow active-island outward/reverse pull, charging island + dual SIM, native knife-hide, absence of full-row left jump, ordinary no-island regression, and one detailed diagnostic.
+
+
+## 2026-10-03 — Build 664: trace QS_FAKE island 2D geometry source
+
+**Type:** bounded read-only diagnostic / island collision dimensionality  
+**Display version:** 0.0.5  
+**Build:** 664 / `20261003-664`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-663 device evidence
+
+The visual defect is no longer best described as a bad X trajectory. The maintainer notes that peers continue disappearing even after the translated fake row is visibly clear of the island.
+
+The detailed log supports that interpretation. Near fraction 0.115 the island progress reservation is only 2 px, yet fake `network_speed` is already in native island-hide state while VPN remains visible. As the reservation grows, peers are removed at later capacity thresholds. The fake root simultaneously moves downward under the native Control Center carrier.
+
+### Exact-target interpretation
+
+The retained SystemUI reference establishes that:
+- `RealContainerIslandMonitor.updateContainerSize(...)` computes Home `statusContainerSpace` from the live island rectangle and the **real Home container** screen position;
+- `FakeContainerIslandMonitor` collects that scalar layout-space result and feeds `MiuiStatusIconContainer` island width/state;
+- native Control Center motion later translates the fake root in X/Y.
+
+Therefore QS_FAKE can continue consuming a one-dimensional Home status-layout constraint after its own visual rectangle has separated vertically from the island. Build 663's semantic progress reservation remains a valid representation of Guiyuan's expanding horizontal volume; it should not be conflated with the extra island constraint.
+
+### Build-664 probe
+
+Keep Build 663 runtime behavior unchanged and extend only existing bounded diagnostics:
+
+- add screen Y / height / translationY to the already-captured Home island-owner View snapshots;
+- retain a weak reference only to the already-known injector and resolve its exact `islandController` field in diagnostic mode;
+- during existing bucketed `homeMotion` snapshots, inspect at most 12 objects / 32 entries / depth 2;
+- report `Rect`, `RectF`, View geometry, relevant scalar island/space/translation values, and safely-readable zero-argument `getValue()` results from relevant flow-like objects;
+- field traversal is restricted by names/types containing island/rect/bound/space/translation/monitor/container/area.
+
+### Boundaries
+
+No functional hook, new callback, pre-draw follower, timer, poller, requestLayout, padding mutation, island-width mutation, child state write, peer translation, alpha/visibility write or custom animation is added.
+
+### Decision gate
+
+One active-island slow pull with detailed diagnostics is enough. If the native controller graph exposes the live island rectangle or equivalent View bounds, the next build can perform true 2D overlap gating. If it does not, the next diagnostic must target the already-proven `RealContainerIslandMonitor.updateContainerSize(...)` Rect input directly rather than approximating island height.
