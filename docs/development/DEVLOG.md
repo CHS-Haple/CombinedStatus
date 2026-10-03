@@ -2902,3 +2902,40 @@ No child `NewStatusIconState`, alpha, visibility, translation, island width, pad
 
 ### Validation
 Exact-HEAD Runtime CI, then one signed Canary. Device acceptance requires active-island forward/reverse pull, charging-only island + dual SIM, no-island regression check, and a detailed diagnostic confirming the release event and corrected QS_FAKE child states.
+
+
+## 2026-10-03 — Build 660: restore QS_FAKE peer capacity under island-native layout
+
+**Type:** device-feedback correction / historical root-cause reconnection  
+**Display version:** 0.0.5  
+**Build:** 660 / `20261003-660`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Problem
+
+Build 659 changed only the QS_FAKE `getIslandShowing()` semantic under island-native-layout mode. Device feedback reports no improvement: ordinary island behavior is unchanged, and the longer charging island consumes the second mobile presentation entirely.
+
+### Evidence
+
+The rejected result is consistent with Build 658: the fake group reports no useful `islandWidth` input while peer `NewStatusIconState` is already terminal. Re-reading the accepted Build 599-612 history exposes a stronger regression path. Build 609 proved late `network_speed` disappearance was native QS_FAKE underflow; Build 611/612 solved it with a fixed, reversible fake-carrier capacity lease plus an end-anchored logical motion carrier.
+
+Build 655 later introduced island-native-layout authority and intentionally disabled both project end padding **and** the fake-carrier capacity lease. The current implementation still gates `syncEndReservation()` before `ensureFakeCarrierCapacityLease()`, so island sessions lose the accepted peer-capacity protection at the exact time represented Wi-Fi/mobile/Battery views are reintroduced into native measurement. That raises fake-row occupancy pressure and explains why the old near-terminal underflow can reappear much earlier under island.
+
+### Conclusion
+
+Build 659 targeted the wrong semantic boundary and is superseded. The durable split is:
+- HyperOS owns island collision, child state, peer translation and appearance;
+- Guiyuan may preserve QS_FAKE peer measurement capacity using the already-accepted fixed session lease;
+- project island end padding and represented-slot exclusion remain disabled.
+
+### Change
+
+- Remove the Build-659 `getIslandShowing()` Hook and its policy/tests.
+- Keep Build-655 island-native-layout behavior for `ignoredSlots` and `statusIcons.paddingEnd`.
+- Re-enable only the existing Build-611/612 fixed fake-carrier capacity lease for an island-native-layout QS_FAKE Session.
+- Reuse the existing end-anchor / parent-slack / writer-conflict / post-lease-layout guards and Build-612 logical-carrier motion separation.
+- Add a bounded `peerCapacity authority=island-native-layout` diagnostic; no peer state, alpha, visibility, translation, island width, progress or timing write is added.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device acceptance requires normal island slow-pull, charging island + dual SIM, no initial left jump, preserved native island avoidance, and ordinary no-island regression coverage.

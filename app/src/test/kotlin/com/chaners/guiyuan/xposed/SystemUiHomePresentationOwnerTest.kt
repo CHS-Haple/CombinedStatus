@@ -40,6 +40,13 @@ class SystemUiHomePresentationOwnerTest {
         )
         assertTrue(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyNativeLayoutPeerCapacityLease(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
                 .shouldApplyIgnoredSlots(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = false,
@@ -52,6 +59,13 @@ class SystemUiHomePresentationOwnerTest {
                     nativeLayoutAuthority = false,
                 ),
         )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyNativeLayoutPeerCapacityLease(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = false,
+                ),
+        )
         assertTrue(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
                 .shouldApplyEndReservation(
@@ -61,33 +75,8 @@ class SystemUiHomePresentationOwnerTest {
         )
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .resolveIslandShowing(
-                    nativeIslandShowing = true,
-                    surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = true,
-                ),
-        )
-        assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .resolveIslandShowing(
-                    nativeIslandShowing = true,
-                    surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = false,
-                ),
-        )
-        assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .resolveIslandShowing(
-                    nativeIslandShowing = true,
+                .shouldApplyNativeLayoutPeerCapacityLease(
                     surfaceName = "home",
-                    nativeLayoutAuthority = true,
-                ),
-        )
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .resolveIslandShowing(
-                    nativeIslandShowing = false,
-                    surfaceName = "control-center-fake",
                     nativeLayoutAuthority = true,
                 ),
         )
