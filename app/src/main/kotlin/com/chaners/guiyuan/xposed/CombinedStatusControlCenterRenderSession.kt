@@ -471,7 +471,6 @@ internal object CombinedStatusControlCenterRenderSession {
         layoutReady: Boolean,
         hostAttached: Boolean,
         nativePresentationReady: Boolean,
-        islandNativePresentationAuthority: Boolean = false,
     ): Boolean =
         featureEnabled &&
             sceneEligible &&
@@ -479,8 +478,7 @@ internal object CombinedStatusControlCenterRenderSession {
             tintReady &&
             layoutReady &&
             hostAttached &&
-            nativePresentationReady &&
-            !islandNativePresentationAuthority
+            nativePresentationReady
 
     internal fun resolveIslandNativeLayoutLatched(
         currentLatched: Boolean,
@@ -664,17 +662,6 @@ internal object CombinedStatusControlCenterRenderSession {
                 nativePresentationReady = false
                 syncPresentation(
                     if (!featureEnabled) "feature-ineligible" else "scene-ineligible",
-                )
-                return AttachResult.Ready
-            }
-            if (islandNativeLayoutLatched) {
-                SystemUiHomePresentationOwner.deactivateControlCenter(
-                    "island-native-presentation-authority",
-                )
-                setNativePresentationReady(
-                    ready = false,
-                    maskedViews = 0,
-                    source = "island-native-presentation-authority",
                 )
                 return AttachResult.Ready
             }
@@ -950,7 +937,6 @@ internal object CombinedStatusControlCenterRenderSession {
                 layoutReady = layoutReady,
                 hostAttached = host.get()?.isAttachedToWindow == true,
                 nativePresentationReady = nativePresentationReady,
-                islandNativePresentationAuthority = islandNativeLayoutLatched,
             )
 
         private fun syncPresentation(source: String) {
