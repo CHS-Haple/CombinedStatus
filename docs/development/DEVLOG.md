@@ -3262,3 +3262,40 @@ No `NewStatusIconState` field, alpha, View visibility, translation, island recta
 ### Validation
 
 Run exact-head Runtime CI, then one signed Canary. Device acceptance requires one-hide-per-gesture behavior, no late VPN/headset underflow, preserved knife-hide during real overlap, correct reverse release ordering, no capacity-activation left jump, and ordinary no-island regression coverage.
+
+
+## 2026-10-03 — Build 671: accumulate native island hides; fix mid-gesture lease capacity origin
+
+**Type:** device-feedback root-cause correction  
+**Display version:** 0.0.5  
+**Build:** 671 / `20261003-671`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-670 evidence
+
+Build 670's latch boundary is one native state update too late. Earlier fake-row snapshots show island-avoided peers in `inIslandState=10`, but at real 2D separation Build 670 records `islandPeerLatch snapshot=none`. The peer therefore reappears after island width is released.
+
+Charging island exposes a second defect. The separated-phase fixed carrier lease activates with existing progress reservation already applied, but Build 670 compares the **total** reservation against the lease's extra capacity. Near the capacity boundary it raises `fake-carrier-capacity-insufficient`, restores native presentation state, marks `nativePresentationReady=false`, and the original status bar becomes visible again.
+
+### Build-671 correction
+
+**Gesture latch**
+- Observe only existing native layouts while true 2D overlap remains active.
+- Accumulate non-represented slot names whose current or previous native island state is the pinned target's hidden state.
+- Freeze that accumulated set at 2D separation.
+- Rematch by slot on subsequent fake layouts and keep reversible empty clips applied for the separated phase.
+- This removes the fragile one-shot View identity snapshot and preserves the latch across child re-layout/rebinding.
+
+**Capacity**
+- Keep no-island fixed-lease accounting unchanged: reservation origin remains zero.
+- When island-native-layout first activates the lease after separation, snapshot the already-applied reservation as the activation origin.
+- Validate only reservation growth after activation against the lease delta.
+- Do not alter `nativeHide`, requested-slot progression, padding curve, carrier geometry or motion projection.
+
+### Ownership
+
+No native peer state/alpha/visibility/translation write, island geometry write, timer, polling loop or new animator. The only peer presentation operation remains the reversible clip pattern, now rematched by latched slot. Carrier width remains the existing bounded session lease with writer-conflict guards.
+
+### Validation
+
+Exact-head Runtime CI, then one signed Canary. Device gate: ordinary island one-hide-per-gesture, charging island no fail-native/native-row takeover, stable non-avoided peers near endpoint, reverse handoff without flash, no lease-activation jump, no-island regression, and Detailed latch/capacity diagnostics.
