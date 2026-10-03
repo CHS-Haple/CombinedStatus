@@ -246,8 +246,9 @@ class CombinedStatusScenePolicyTest {
         )
     }
 
+
     @Test
-    fun singleEnabledFamilyUsesNativeKeyguardVisualBoundary() {
+    fun singleEnabledFamilyUsesNativeKeyguardStatusIconsBoundary() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -259,7 +260,7 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
-                keyguardPresentationVisible = true,
+                keyguardStatusIconsAlpha = 1f,
             ),
         )
         assertEquals(
@@ -273,7 +274,7 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
-                keyguardPresentationVisible = false,
+                keyguardStatusIconsAlpha = 0.99f,
             ),
         )
         assertEquals(
@@ -284,10 +285,10 @@ class CombinedStatusScenePolicyTest {
                 aodEnabled = true,
                 toAod = false,
                 isAodAnimate = true,
-                steadySourceScene = CombinedStatusSourceScene.UNKNOWN,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
-                keyguardPresentationVisible = false,
+                keyguardStatusIconsAlpha = 0f,
             ),
         )
         assertEquals(
@@ -301,13 +302,74 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
-                keyguardPresentationVisible = true,
+                keyguardStatusIconsAlpha = 0.005f,
             ),
         )
     }
 
     @Test
-    fun aodOnlyHomePrearmBeatsTransientVisibleKeyguardBoundary() {
+    fun singleEnabledIncomingChildWaitsForNativeStatusIconsTakeover() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardStatusIconsAlpha = 0f,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardStatusIconsAlpha = 0.01f,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 1f,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 0.99f,
+            ),
+        )
+    }
+
+
+    @Test
+    fun aodOnlyHomePrearmBeatsTransientKeyguardStatusIconsBoundary() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -320,7 +382,7 @@ class CombinedStatusScenePolicyTest {
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
                 homePresentationOwned = true,
-                keyguardPresentationVisible = true,
+                keyguardStatusIconsAlpha = 1f,
             ),
         )
     }
@@ -383,7 +445,7 @@ class CombinedStatusScenePolicyTest {
                 toAod = false,
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                keyguardPresentationVisible = null,
+                keyguardStatusIconsAlpha = null,
             ),
         )
         assertEquals(
@@ -396,7 +458,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = false,
-                keyguardPresentationVisible = true,
+                keyguardStatusIconsAlpha = true,
             ),
         )
         assertEquals(
@@ -409,7 +471,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 homePresentationOwned = true,
-                keyguardPresentationVisible = false,
+                keyguardStatusIconsAlpha = false,
             ),
         )
     }

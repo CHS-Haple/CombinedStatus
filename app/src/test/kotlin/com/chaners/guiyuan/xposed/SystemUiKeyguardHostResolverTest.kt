@@ -19,42 +19,30 @@ class SystemUiKeyguardHostResolverTest {
         assertFalse(SystemUiKeyguardHostResolver.isKeyguardHostClassName("com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView"))
     }
     @Test
-    fun keyguardStatusPresentationVisibilityUsesNativeVisualState() {
+    fun keyguardStatusIconsAlphaUsesOnlyLocalNativeStatusIconLayer() {
         assertTrue(
-            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
-                hostShown = true,
-                statusIconsShown = true,
-                statusIconsAlpha = 1f,
-                batteryShown = true,
-                batteryAlpha = 0f,
-            ),
+            SystemUiKeyguardHostResolver.resolveStatusIconsPresentationAlpha(
+                visible = true,
+                alpha = 1f,
+            ) == 1f,
         )
         assertTrue(
-            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
-                hostShown = true,
-                statusIconsShown = true,
-                statusIconsAlpha = 0f,
-                batteryShown = true,
-                batteryAlpha = 1f,
-            ),
+            SystemUiKeyguardHostResolver.resolveStatusIconsPresentationAlpha(
+                visible = true,
+                alpha = 0.005f,
+            ) == 0.005f,
         )
-        assertFalse(
-            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
-                hostShown = true,
-                statusIconsShown = true,
-                statusIconsAlpha = 0f,
-                batteryShown = true,
-                batteryAlpha = 0f,
-            ),
+        assertTrue(
+            SystemUiKeyguardHostResolver.resolveStatusIconsPresentationAlpha(
+                visible = false,
+                alpha = 1f,
+            ) == 0f,
         )
-        assertFalse(
-            SystemUiKeyguardHostResolver.resolveStatusPresentationVisible(
-                hostShown = false,
-                statusIconsShown = true,
-                statusIconsAlpha = 1f,
-                batteryShown = true,
-                batteryAlpha = 1f,
-            ),
+        assertTrue(
+            SystemUiKeyguardHostResolver.resolveStatusIconsPresentationAlpha(
+                visible = true,
+                alpha = 2f,
+            ) == 1f,
         )
     }
 

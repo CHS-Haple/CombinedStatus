@@ -122,6 +122,10 @@ internal object CombinedStatusControlCenterRenderSession {
     }
 
     @Synchronized
+    fun beginVisibleCycle(): Boolean =
+        SystemUiHomePresentationOwner.onControlCenterVisibilityChanged(true)
+
+    @Synchronized
     fun setRequestedVisible(visible: Boolean): Boolean =
         current?.setRequestedVisible(visible) ?: false
 
@@ -601,6 +605,14 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         fun setRequestedVisible(visible: Boolean): Boolean {
+            if (
+                shouldEndCapacityLeaseOnVisibilityChange(
+                    previousRequestedVisible = requestedVisible,
+                    nextRequestedVisible = visible,
+                )
+            ) {
+                SystemUiHomePresentationOwner.onControlCenterVisibilityChanged(false)
+            }
             requestedVisible = visible
             syncPresentation("visibility")
             return projectionReady()
@@ -969,6 +981,12 @@ internal object CombinedStatusControlCenterRenderSession {
         }
         return found
     }
+
+    internal fun shouldEndCapacityLeaseOnVisibilityChange(
+        previousRequestedVisible: Boolean,
+        nextRequestedVisible: Boolean,
+    ): Boolean =
+        previousRequestedVisible && !nextRequestedVisible
 
     internal data class TransitionSourceSnapshot(
         val view: View,

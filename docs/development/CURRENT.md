@@ -15,63 +15,64 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 653 is the current Keyguard/AOD lifecycle correction candidate after Build-652 device evidence.
+Build 654 is the current Keyguard/AOD lifecycle candidate after Build-653 device evidence.
 
-Build-652 device evidence:
-- Keyguard + AOD ON: Keyguard -> Home and AOD -> Home followed by immediate fast Control Center pull can start and remain fully native; holding does not recover Guiyuan.
-- Keyguard OFF / AOD ON: steady Keyguard correctly stays native, but AOD -> Keyguard releases Guiyuan slightly late; Keyguard/AOD -> Home first pull does not reproduce the dual-enabled failure.
-- Keyguard ON / AOD OFF: Home -> AOD releases Guiyuan to native too late; Keyguard -> Home still reproduces the native first-pull failure, while AOD -> Home is normal.
+Build-653 device evidence:
+- dual-enabled: Home -> AOD can flash once; AOD may briefly show native; steady Keyguard regressed to fully native; AOD/Keyguard -> Home immediate fast Control Center pull can become native and remain native;
+- Keyguard OFF / AOD ON: same steady/first-pull regressions remain;
+- Keyguard ON / AOD OFF: AOD <-> Keyguard can briefly flash Guiyuan even though the target child is disabled, then return native.
 
-The Build-652 diagnostic and video review narrow two independent lifecycle defects:
-1. `MiuiBatteryMeterView.updateState()` is emitted by multiple Home/Keyguard Battery views. Build 652 let every structurally matching callback rewrite one global `steadyStatusSourceScene`, even when that source host was hidden. A hidden Keyguard source can therefore reassert KEYGUARD after visible Home already owns the screen and steer the immediate first pull back to native.
-2. Build 652 fixed early single-child release by retaining the enabled outgoing child until `isAodAnimate=false`. That is too late. Exact-target AOD motion independently changes Keyguard host/status-icons/Battery visibility and alpha before the animation flag clears, so the native visual ownership boundary is observable directly.
+The Build-653 diagnostic separates two root causes:
+1. the visible-host steady-scene gate is invalid for HyperOS Keyguard ownership. `isShown` is an animation/lifecycle visual fact, not a steady scene authority; using it rejected valid Keyguard ownership and caused the fully-native lockscreen regression;
+2. the immediate Home Control Center failure occurs after HyperOS already reports `sourceScene=HOME`. The actual fail-native reason is `fake-carrier-width-writer-conflict`: a QS_FAKE capacity lease from the previous visible Control Center cycle survived the native close boundary, while HyperOS had already restored the carrier width.
 
-Build 653 correction:
-- keep structural scene evidence for host discovery, but only a currently shown native Home/Keyguard host may update steady source ownership or the stable-family scene latch;
-- hidden structural Keyguard events may still refresh `SystemUiKeyguardHostResolver`; they cannot become scene authority;
-- sample the verified native Keyguard status presentation read-only from host visibility plus status-icons/Battery `isShown` and alpha;
-- Keyguard-only mode retains Guiyuan only while that native Keyguard presentation is visibly active; once it yields during AOD animation, the disabled AOD target returns to Native without waiting for animation-end;
-- AOD-only mode returns to Native only when a visible, qualified KEYGUARD source and visible native Keyguard status presentation agree;
-- dual-enabled Keyguard/AOD family retargeting remains unchanged;
-- no timer, delay, polling, copied AOD motion, native alpha/visibility/geometry writer, or `animToAod` direction inference is introduced.
+Build-654 correction:
+- restore Build-652 structural + status-bar-state steady scene authority; do not use `isShown` for steady scene ownership or Keyguard host selection;
+- keep the Build-652 direction-aware HOME/KEYGUARD Control Center source arbitration unchanged; Build-653 evidence already reaches effective HOME before the failure, so source routing is not reopened;
+- keep the QS_FAKE fake-root/presentation owner, represented-slot masks and compact readiness prearmed across pulls, but end only its carrier-width capacity lease on the true `requestedVisible: true -> false` boundary; hidden-state reservation sync is deferred until the next visible cycle reacquires from the current native baseline;
+- single-child Keyguard/AOD handoff observes only the native Keyguard status-icons layer alpha/visibility; Battery AOD alpha is independent and no longer extends whole-scene ownership;
+- dual-enabled family ownership remains the existing one-session retarget path.
+
+No timer, delay, polling, copied native animation, or native alpha/visibility/translation writer is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003653` / Build `20261003-653`.
-- PR #196 remains 0 behind current `dev` at the Build-652 checkpoint.
-- Focused unit coverage locks hidden-host rejection, surface matching, native Keyguard visual presence, single-enabled visual handoff and conservative fallback when visual evidence is unavailable.
+- Candidate identity: `0.0.5` / versionCode `261003654` / Build `20261003-654`.
+- Build 654 review commit has passed the final ownership/diff review against the Build-653 head; exact-head Runtime remains the next gate.
+- Focused unit coverage locks the existing direction-aware Control Center source arbitration, visible-cycle capacity-lease release, single-child status-icons cutover and existing Home->AOD prearm ordering.
 - Exact-HEAD Runtime CI is required before Canary.
-- Device evidence remains mandatory because the change affects scene ownership and native AOD visual cutover timing.
+- Device validation remains mandatory because the changes affect QS_FAKE mutable presentation lifetime and Keyguard/AOD visual cutover.
 
 ## Device gate
 
-After exact-HEAD Runtime passes, validate one signed Build-653 Canary:
+After Runtime passes, validate one signed Build-654 Canary:
 
 1. Keyguard + AOD both ON
-   - repeat Keyguard -> Home -> immediate fast/partial Control Center pull;
-   - repeat AOD -> Home -> immediate fast/partial Control Center pull;
-   - first non-zero pull must be Guiyuan and must remain Guiyuan without holding/recovery.
+   - steady Keyguard must be Guiyuan again;
+   - Home -> AOD may follow native screen flash, but must not expose an extra native represented-icon interval caused by Guiyuan ownership churn;
+   - AOD -> Home and Keyguard -> Home immediate fast/partial Control Center pull must be Guiyuan from the first usable frame and remain Guiyuan while held.
 
 2. Keyguard OFF / AOD ON
-   - steady Keyguard remains native;
-   - AOD -> Keyguard should release at the native Keyguard visual takeover, not at animation end;
-   - AOD -> Home must remain regression-free with no native represented-icon flash before Home takes over.
+   - steady Keyguard and Keyguard-originated Control Center remain native;
+   - AOD stays Guiyuan;
+   - AOD -> Keyguard must not flash Guiyuan after native Keyguard status-icons have started taking over;
+   - Home Control Center remains Guiyuan.
 
 3. Keyguard ON / AOD OFF
-   - Home -> AOD and Keyguard -> AOD should release Guiyuan when the native Keyguard status presentation yields, not at animation end;
-   - stable AOD remains native;
-   - Keyguard -> Home immediate pull must remain Guiyuan.
+   - steady Keyguard stays Guiyuan and stable AOD stays native;
+   - AOD <-> Keyguard must not briefly attach the disabled child;
+   - Keyguard -> Home immediate Control Center pull remains Guiyuan.
 
 4. Regression
-   - dual-enabled Keyguard <-> AOD continuity;
-   - ordinary Home and Keyguard pull-down;
+   - ordinary repeated Home pull-down / close / pull-down;
+   - dual-enabled Keyguard <-> AOD one-family continuity;
    - Hot Reload first pull;
-   - no hidden-host scene evidence may switch effective Control Center source;
-   - no repeated presentation cleanup/reacquire loop while a valid visible source remains projected.
+   - no `fake-carrier-width-writer-conflict` during a normal repeated Control Center cycle;
+   - no repeated family presentation attach -> cleanup -> attach loop at one visual boundary.
 
 ## Immediate next step
 
-Post-review Build 653 is ready to fast-forward onto #196. Then run exact-HEAD Runtime CI and generate one signed Canary for the focused device gate.
+Build 654 is code-reviewed. Run exact-HEAD Runtime on #196, then generate one signed Canary only if Runtime is green.
 
 ## Reference priority
 

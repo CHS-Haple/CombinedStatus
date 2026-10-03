@@ -1139,6 +1139,7 @@ class CombinedStatusModule : XposedModule() {
         }
 
         controlCenterSceneVisible = true
+        CombinedStatusControlCenterRenderSession.beginVisibleCycle()
         val panelSourceScene =
             update.controlCenterSourceScene
                 ?: CombinedStatusSourceScene.UNKNOWN
@@ -1915,34 +1916,12 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        val structuralSourceScene =
-            SystemUiSceneStateSource.steadySourceScene(update)
-        val sourceScene =
-            SystemUiSceneStateSource.visibleSteadySourceScene(update)
-        if (
-            structuralSourceScene != CombinedStatusSourceScene.UNKNOWN &&
-            sourceScene == CombinedStatusSourceScene.UNKNOWN &&
-            !SystemUiSceneStateSource.sceneHostShown(
-                update.sourceView,
-                structuralSourceScene,
-            )
-        ) {
-            logDiagnostic(
-                level = Log.INFO,
-                event = "scene.evidence",
-                component = "steadyStatus",
-                state = "ignored",
-                "structuralScene" to structuralSourceScene.name,
-                "surface" to update.surface.name,
-                "reason" to "source-host-hidden",
-                "nativeGeometryWrites" to 0,
-            )
-        }
+        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
         if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
             steadyStatusSourceScene = sourceScene
         }
         refreshStableKeyguardAodSceneFromSceneState(update, sourceScene)
-        if (structuralSourceScene == CombinedStatusSourceScene.KEYGUARD) {
+        if (sourceScene == CombinedStatusSourceScene.KEYGUARD) {
             SystemUiKeyguardHostResolver.observe(update)?.let { resolution ->
                 onKeyguardHostResolution(
                     resolution = resolution,
@@ -2119,9 +2098,9 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiHomePresentationOwner
                     .currentHomeRepresentedSlotOwnership()
                     .isNotEmpty(),
-            keyguardPresentationVisible =
+            keyguardStatusIconsAlpha =
                 SystemUiKeyguardHostResolver
-                    .isStatusPresentationVisible(resolved),
+                    .statusIconsPresentationAlpha(resolved),
         )
     }
 

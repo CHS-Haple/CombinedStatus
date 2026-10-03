@@ -58,27 +58,26 @@ internal object SystemUiKeyguardHostResolver {
     internal fun isKeyguardHostClassName(className: String): Boolean =
         className == KEYGUARD_HOST_CLASS
 
-    internal fun isStatusPresentationVisible(resolved: ResolvedHost): Boolean =
-        resolveStatusPresentationVisible(
-            hostShown = resolved.host.isShown,
-            statusIconsShown = resolved.statusIcons.isShown,
-            statusIconsAlpha = resolved.statusIcons.alpha,
-            batteryShown = resolved.battery.isShown,
-            batteryAlpha = resolved.battery.alpha,
+    internal fun statusIconsPresentationAlpha(
+        resolved: ResolvedHost,
+    ): Float? {
+        val statusIcons = resolved.statusIcons
+        if (!statusIcons.isAttachedToWindow) return null
+        return resolveStatusIconsPresentationAlpha(
+            visible = statusIcons.visibility == View.VISIBLE,
+            alpha = statusIcons.alpha,
         )
+    }
 
-    internal fun resolveStatusPresentationVisible(
-        hostShown: Boolean,
-        statusIconsShown: Boolean,
-        statusIconsAlpha: Float,
-        batteryShown: Boolean,
-        batteryAlpha: Float,
-    ): Boolean =
-        hostShown &&
-            (
-                (statusIconsShown && statusIconsAlpha > 0f) ||
-                    (batteryShown && batteryAlpha > 0f)
-            )
+    internal fun resolveStatusIconsPresentationAlpha(
+        visible: Boolean,
+        alpha: Float,
+    ): Float =
+        if (visible) {
+            alpha.coerceIn(0f, 1f)
+        } else {
+            0f
+        }
 
     @Synchronized
     fun resetRuntimeState() {

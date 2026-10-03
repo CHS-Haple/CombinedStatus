@@ -164,7 +164,7 @@ internal object CombinedStatusScenePolicy {
         steadySourceScene: CombinedStatusSourceScene = CombinedStatusSourceScene.UNKNOWN,
         lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
         homePresentationOwned: Boolean = false,
-        keyguardPresentationVisible: Boolean? = null,
+        keyguardStatusIconsAlpha: Float? = null,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (isAodAnimate) {
@@ -174,7 +174,7 @@ internal object CombinedStatusScenePolicy {
                 steadySourceScene = steadySourceScene,
                 lastStableFamilyScene = lastStableFamilyScene,
                 homePresentationOwned = homePresentationOwned,
-                keyguardPresentationVisible = keyguardPresentationVisible,
+                keyguardStatusIconsAlpha = keyguardStatusIconsAlpha,
             )
         }
         if (
@@ -217,7 +217,7 @@ internal object CombinedStatusScenePolicy {
         steadySourceScene: CombinedStatusSourceScene,
         lastStableFamilyScene: StableKeyguardAodScene,
         homePresentationOwned: Boolean,
-        keyguardPresentationVisible: Boolean? = null,
+        keyguardStatusIconsAlpha: Float? = null,
     ): KeyguardAodProjection {
         if (steadySourceScene == CombinedStatusSourceScene.HOME) {
             return if (
@@ -248,22 +248,53 @@ internal object CombinedStatusScenePolicy {
             return KeyguardAodProjection.AOD
         }
 
-        // Single-child mode hands off at the native visual boundary, not at
-        // animation start and not at the late isAodAnimate=false callback.
+        // Single-child handoff follows the native Keyguard status-icons
+        // layer in both directions. Alpha 1 belongs to the Keyguard endpoint;
+        // alpha 0 belongs to the AOD endpoint. Battery AOD alpha is a separate
+        // native animation and is not a whole-combined-scene lifetime signal.
         if (
             keyguardEnabled &&
             !aodEnabled &&
-            keyguardPresentationVisible == false
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD
         ) {
-            return KeyguardAodProjection.NATIVE
+            val alpha = keyguardStatusIconsAlpha
+            if (alpha != null) {
+                when (lastStableFamilyScene) {
+                    StableKeyguardAodScene.KEYGUARD ->
+                        if (alpha < 1f) return KeyguardAodProjection.NATIVE
+
+                    StableKeyguardAodScene.AOD ->
+                        return if (alpha > 0f) {
+                            KeyguardAodProjection.KEYGUARD
+                        } else {
+                            KeyguardAodProjection.NATIVE
+                        }
+
+                    StableKeyguardAodScene.UNKNOWN -> Unit
+                }
+            }
         }
         if (
             !keyguardEnabled &&
             aodEnabled &&
-            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            keyguardPresentationVisible == true
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD
         ) {
-            return KeyguardAodProjection.NATIVE
+            val alpha = keyguardStatusIconsAlpha
+            if (alpha != null) {
+                when (lastStableFamilyScene) {
+                    StableKeyguardAodScene.AOD ->
+                        if (alpha > 0f) return KeyguardAodProjection.NATIVE
+
+                    StableKeyguardAodScene.KEYGUARD ->
+                        return if (alpha < 1f) {
+                            KeyguardAodProjection.AOD
+                        } else {
+                            KeyguardAodProjection.NATIVE
+                        }
+
+                    StableKeyguardAodScene.UNKNOWN -> Unit
+                }
+            }
         }
 
         // Do not derive AOD animation direction from current presentation

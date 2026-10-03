@@ -2760,3 +2760,46 @@ Waiting for `isAodAnimate=false` is also not the visual cutover boundary. Exact-
 
 No timer, delay, polling, alpha/visibility/geometry writer, copied native animator, or `animToAod` direction inference is introduced.
 
+
+
+## 2026-10-03 — Build 654: close QS_FAKE lease per visible cycle and restore structural scene authority
+
+**Type:** device evidence / lifecycle ownership correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 653 -> 654
+
+### Device evidence
+
+Build-653 validation rejected the visible-host scene gate:
+- steady Keyguard could become fully native even with Keyguard projection enabled;
+- AOD/Keyguard -> Home immediate fast Control Center pull could remain native;
+- when only one family child was enabled, AOD <-> Keyguard could briefly show Guiyuan before returning native.
+
+The diagnostic additionally captures a failing Home pull where HyperOS already reports `sourceScene=HOME`, followed by `controlCenterPresentation failNative reason=fake-carrier-width-writer-conflict`.
+
+### Root cause
+
+Two independent ownership mistakes remained.
+
+First, `View.isShown` is a visual/lifecycle fact during HyperOS Keyguard/AOD animation, not a valid steady scene authority. Build 653 used it to reject structurally valid Keyguard state and therefore removed the steady Keyguard owner.
+
+Second, QS_FAKE carrier-width ownership was scoped to the fake-root session instead of the visible Control Center cycle. HyperOS can restore the fake carrier width when Control Center closes while the root stays attached. The next pull then sees a live native width different from Guiyuan's previous leased width and correctly trips the existing single-writer conflict guard.
+
+For single-child AOD/Keyguard handoff, the whole-host/Battery visibility aggregate was also too broad: native Battery AOD animation is independent of the Keyguard status-icons layer.
+
+### Build-654 correction
+
+- Restore Build-652 structural ancestry + native status-bar-state steady-scene authority.
+- Do not use `isShown` to choose steady scene ownership or Keyguard host ownership.
+- Preserve the Build-652 direction-aware Control Center source arbitration; the Build-653 failing trace already resolves effective HOME before failing, so source routing is not the defect.
+- Preserve the prearmed QS_FAKE presentation owner, represented-slot exclusion, clip masks and compact readiness across pulls. On a real visible -> hidden boundary, release only the carrier-width capacity lease and suppress hidden-state lease reacquisition; remember the native hidden-boundary layout width as a one-cycle read-only baseline witness so the next visible cycle does not confuse pending layout with a writer conflict, then clear that witness immediately after lease reacquisition.
+- Use only the read-only native Keyguard status-icons alpha/visibility as the single-child visual cutover witness; Battery AOD alpha does not extend the whole combined child.
+- Preserve the existing dual-enabled single-family renderer/presentation owner.
+
+### Review boundaries
+
+No timer, retry loop, polling, native alpha/visibility/translation writer, geometry hard patch, or second presentation owner is added. The existing width-conflict guard remains fail-native for genuine concurrent writers; Build 654 narrows only the capacity-lease lifetime while retaining the already-verified long-lived QS_FAKE prearm owner.
+
+### Validation
+
+Focused tests preserve the existing direction-aware Control Center arbitration and cover visible-cycle capacity-lease release, Keyguard status-icons cutover and Home->AOD prearm ordering. Exact-HEAD Runtime and signed Canary device validation are required.
