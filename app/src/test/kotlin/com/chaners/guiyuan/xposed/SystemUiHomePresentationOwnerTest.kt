@@ -23,12 +23,21 @@ class SystemUiHomePresentationOwnerTest {
 
 
     @Test
-    fun islandControlCenterKeepsFixedCarrierLeaseDisabled() {
+    fun islandControlCenterLeasesCapacityOnlyAfterReal2DSeparation() {
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
                 .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = true,
+                    island2DSeparated = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyFakeCarrierCapacityLease(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                    island2DSeparated = true,
                 ),
         )
         assertTrue(
@@ -43,6 +52,46 @@ class SystemUiHomePresentationOwnerTest {
                 .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "home",
                     nativeLayoutAuthority = true,
+                    island2DSeparated = true,
+                ),
+        )
+    }
+
+    @Test
+    fun islandPeerLatchTargetsOnlyNativeIslandHiddenNonRepresentedPeers() {
+        val represented = setOf("wifi", "mobile", "airplane")
+
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
+                .shouldLatchPeer(
+                    slot = "network_speed",
+                    representedSlots = represented,
+                    visible = true,
+                    width = 78,
+                    height = 75,
+                    inIslandState = 10,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
+                .shouldLatchPeer(
+                    slot = "vpn",
+                    representedSlots = represented,
+                    visible = true,
+                    width = 94,
+                    height = 75,
+                    inIslandState = 20,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
+                .shouldLatchPeer(
+                    slot = "wifi",
+                    representedSlots = represented,
+                    visible = true,
+                    width = 75,
+                    height = 75,
+                    inIslandState = 10,
                 ),
         )
     }
