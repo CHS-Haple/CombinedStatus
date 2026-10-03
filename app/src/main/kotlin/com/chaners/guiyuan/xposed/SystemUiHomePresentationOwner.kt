@@ -26,7 +26,10 @@ internal object SystemUiHomePresentationOwner {
         "combinedstatus.homePresentation.statusIconsLayout"
     private const val BATTERY_HIDE_HOOK_ID =
         "combinedstatus.homePresentation.batteryHideState"
+    private const val ISLAND_SHOWING_HOOK_ID =
+        "combinedstatus.homePresentation.fakeIslandShowing"
     private const val CONTROL_CENTER_FAKE_SURFACE = "control-center-fake"
+    private const val HOOK_COUNT = 4
 
     private val representedSlots =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
@@ -34,6 +37,7 @@ internal object SystemUiHomePresentationOwner {
     private var measureHook: HookHandle? = null
     private var layoutHook: HookHandle? = null
     private var batteryHideHook: HookHandle? = null
+    private var islandShowingHook: HookHandle? = null
     private var ignoredSlotsField: Field? = null
     private var addIgnoredSlotsMethod: java.lang.reflect.Method? = null
     private var setIgnoredSlotsMethod: java.lang.reflect.Method? = null
@@ -51,7 +55,13 @@ internal object SystemUiHomePresentationOwner {
     private var keyguardReadySink: ((StateResult.Active) -> Unit)? = null
 
     val installedHookCount: Int
-        @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
+        @Synchronized get() =
+            listOfNotNull(
+                measureHook,
+                layoutHook,
+                batteryHideHook,
+                islandShowingHook,
+            ).size
 
     @Synchronized
     internal fun currentHomeRepresentedSlotOwnership(): Set<String> =
@@ -75,7 +85,7 @@ internal object SystemUiHomePresentationOwner {
         onEvent: ((String) -> Unit)? = null,
         onFailNative: ((String) -> Unit)? = null,
     ): InstallResult {
-        if (installedHookCount == 3) {
+        if (installedHookCount == HOOK_COUNT) {
             eventSink = onEvent
             failNativeSink = onFailNative
             return InstallResult.AlreadyInstalled
@@ -185,6 +195,18 @@ internal object SystemUiHomePresentationOwner {
                 }
                 ?.apply { isAccessible = true }
                 ?: return InstallResult.Failure("on-layout-contract-missing")
+        val getIslandShowing =
+            generateSequence(containerClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredMethods.firstOrNull { method ->
+                        method.name == "getIslandShowing" &&
+                            method.parameterCount == 0 &&
+                            method.returnType == Boolean::class.javaPrimitiveType
+                    }
+                }
+                .firstOrNull()
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("island-showing-contract-missing")
 
         eventSink = onEvent
         failNativeSink = onFailNative
@@ -232,10 +254,26 @@ internal object SystemUiHomePresentationOwner {
                     "battery-hide-hook-" + (error.message ?: error.javaClass.simpleName),
                 )
             }
+        val fourth =
+            runCatching {
+                module
+                    .hook(getIslandShowing)
+                    .setId(ISLAND_SHOWING_HOOK_ID)
+                    .intercept(islandShowingHooker())
+            }.getOrElse { error ->
+                runCatching { first.unhook() }
+                runCatching { second.unhook() }
+                runCatching { third.unhook() }
+                clearInstallState()
+                return InstallResult.Failure(
+                    "island-showing-hook-" + (error.message ?: error.javaClass.simpleName),
+                )
+            }
 
         measureHook = first
         layoutHook = second
         batteryHideHook = third
+        islandShowingHook = fourth
         return InstallResult.Installed
     }
 
@@ -244,7 +282,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 3) {
+        if (installedHookCount != HOOK_COUNT) {
             return StateResult.Failure("hooks-not-ready")
         }
         val hostView =
@@ -337,7 +375,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 3) {
+        if (installedHookCount != HOOK_COUNT) {
             return StateResult.Failure("hooks-not-ready")
         }
 
@@ -471,7 +509,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return ControlCenterStateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 3) {
+        if (installedHookCount != HOOK_COUNT) {
             return ControlCenterStateResult.Failure("hooks-not-ready")
         }
         if (host !== batteryContainer || host.javaClass.name != BATTERY_CONTAINER) {
@@ -700,6 +738,7 @@ internal object SystemUiHomePresentationOwner {
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
         runCatching { batteryHideHook?.unhook() }
+        runCatching { islandShowingHook?.unhook() }
         clearInstallState()
     }
 
@@ -778,6 +817,32 @@ internal object SystemUiHomePresentationOwner {
                 }
             session?.syncEndReservation()
             result
+        }
+
+    private fun islandShowingHooker(): Hooker =
+        Hooker { chain ->
+            val nativeResult = chain.proceed()
+            val nativeShowing =
+                nativeResult as? Boolean
+                    ?: return@Hooker nativeResult
+            val target =
+                chain.thisObject as? ViewGroup
+                    ?: return@Hooker nativeResult
+            val session =
+                synchronized(this) {
+                    controlCenterCurrent
+                        ?.takeIf { candidate -> candidate.owns(target) }
+                } ?: return@Hooker nativeResult
+            val exposedShowing =
+                ControlCenterLayoutPolicy.resolveIslandShowing(
+                    nativeIslandShowing = nativeShowing,
+                    surfaceName = CONTROL_CENTER_FAKE_SURFACE,
+                    nativeLayoutAuthority = session.usesNativeLayoutAuthority(),
+                )
+            if (nativeShowing && !exposedShowing) {
+                session.reportIslandConstraintRelease()
+            }
+            exposedShowing
         }
 
     @Synchronized
@@ -894,6 +959,7 @@ internal object SystemUiHomePresentationOwner {
         measureHook = null
         layoutHook = null
         batteryHideHook = null
+        islandShowingHook = null
         ignoredSlotsField = null
         addIgnoredSlotsMethod = null
         setIgnoredSlotsMethod = null
@@ -948,6 +1014,7 @@ internal object SystemUiHomePresentationOwner {
         private var fakeCarrierCapacityLeaseAwaitingLayout = false
         private var transientLiveBatteryWidthUnavailable = false
         private var persistentIgnoredSlotsApplied = false
+        private var islandConstraintReleaseReported = false
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
         private var transitionRequestedSlotWidthPx: Int? = null
         private val clipStates = mutableListOf<ClipState>()
@@ -1006,6 +1073,17 @@ internal object SystemUiHomePresentationOwner {
             active && batteryContainer.get() === candidate
 
         fun usesNativeLayoutAuthority(): Boolean = nativeLayoutAuthority
+
+        fun reportIslandConstraintRelease() {
+            if (islandConstraintReleaseReported) return
+            islandConstraintReleaseReported = true
+            onEvent(
+                eventPrefix +
+                    " islandConstraint nativeShowing=true exposedShowing=false" +
+                    " authority=qs-fake-transition-native-layout" +
+                    " nativeFieldWrites=0 nativeGeometryWrites=0",
+            )
+        }
 
         fun ownedRepresentedSlots(): Set<String> {
             if (!active || !compactLayoutReady) return emptySet()
@@ -1862,6 +1940,14 @@ internal object SystemUiHomePresentationOwner {
             nativeLayoutAuthority: Boolean,
         ): Boolean =
             surfaceName != CONTROL_CENTER_FAKE_SURFACE || !nativeLayoutAuthority
+
+        fun resolveIslandShowing(
+            nativeIslandShowing: Boolean,
+            surfaceName: String,
+            nativeLayoutAuthority: Boolean,
+        ): Boolean =
+            nativeIslandShowing &&
+                !(surfaceName == CONTROL_CENTER_FAKE_SURFACE && nativeLayoutAuthority)
     }
 
     internal object PersistentIgnoredSlotPolicy {

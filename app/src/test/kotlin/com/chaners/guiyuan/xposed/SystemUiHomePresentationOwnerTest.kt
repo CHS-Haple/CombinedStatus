@@ -59,6 +59,38 @@ class SystemUiHomePresentationOwnerTest {
                     nativeLayoutAuthority = true,
                 ),
         )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .resolveIslandShowing(
+                    nativeIslandShowing = true,
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .resolveIslandShowing(
+                    nativeIslandShowing = true,
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .resolveIslandShowing(
+                    nativeIslandShowing = true,
+                    surfaceName = "home",
+                    nativeLayoutAuthority = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .resolveIslandShowing(
+                    nativeIslandShowing = false,
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                ),
+        )
     }
 
     @Test

@@ -91,6 +91,7 @@ Control Center is split into two ownership phases.
 - all other native status icons, including network speed, remain on SystemUI's own QS_FAKE/final surfaces. Guiyuan does not clip, redraw, pair or assign trajectories to them;
 - fake/final icon membership remains native: QS_FAKE follows `RIGHT_BLOCK_LIST`, final QS follows `CONTROL_CENTER_BLOCK_LIST`. A slot absent from QS_FAKE but present in final QS is a native final-only participant and enters only through the final surface;
 - transition Trinity follows the actual fake-root alpha for its overlay lifetime. Center/mobile transition tint is read from the final role-6 native peer group at session/appearance boundaries so inversion uses the same native peer-color fact without a second tint state machine; Battery retains its semantic color policy;
+- Build 659 narrows island-native-layout ownership for the QS_FAKE row: represented Wi-Fi/mobile/Battery Views remain measured and laid out as native transition witnesses, but while that exact fake Session is latched to island-native-layout, its `getIslandShowing()` semantic is exposed as false so the re-expanded masked participants cannot force an immediate Home-island hide decision onto non-represented peers. HyperOS `onMeasure/onLayout` still owns the resulting child states, positions, and animations; Home, final QS, and ordinary no-island rows keep their native island semantics.
 - SystemUI remains the sole native motion/geometry/appearance/tint owner.
 
 **Fully expanded endpoint — NATIVE_ONLY / verified**

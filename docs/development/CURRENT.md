@@ -37,47 +37,51 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 658 is the current focused diagnostic candidate after Build 656 device evidence rejected the participant-translation hypothesis and post-commit review found a more authoritative state-read seam than the first Build-657 probe.
+Build 659 is the focused island-transition correction candidate produced from Build-658 device evidence.
 
-Build 656 device evidence:
-- the reported island pull-down defect is unchanged: native icons beyond the island capacity disappear immediately, while the surviving native row then continues its pull motion;
-- `reservationMode=native-island-authority` remains active and `nativeReservation=-1`, so Guiyuan transition padding is not driving the cutover;
-- at the first captured expansion bucket (about fraction 0.11), QS_FAKE already has `network_speed` / `vpn` in native visibleState 2 with alpha 0 while the final QS row still reports those slots visible;
-- QS_FAKE `system_icon_area` / `MiuiStatusIconContainer` remain effectively fixed at the island layout width while the top-level fake root continues native X/Y translation;
-- the returned detailed log contains no Build-656 `slotTranslation ... bypass=true` marker, so the corrected Combined-participant Folme path is not established as the writer that performs this early native icon-state cutover.
+Build 658 proves the early cutover is inside the QS_FAKE native icon-state calculation:
+- at the first captured island pull bucket (fraction about 0.13), the QS_FAKE root is still in native X/Y motion, but `network_speed` is already `visibleState=2`, `inIslandState=10`, alpha 0, and `layoutTranslationX=196`;
+- the final QS row keeps the same slot visible with `visibleState=0`, `inIslandState=20`, and `layoutTranslationX=6`;
+- the fake state stays terminal through later forward/reverse buckets, while no-island samples keep the fake slot at `visibleState=0 / inIslandState=20`;
+- Build-655 island-native-layout mode intentionally stops excluding represented Wi-Fi/mobile/Battery slots so HyperOS can keep their geometry measured, while Guiyuan clips only their pixels.
 
-The remaining causal boundary is therefore inside the QS_FAKE `MiuiStatusIconContainer` island-state / visible-state calculation, before the later fake-root motion can change what the user sees.
+The resulting mismatch is now bounded: QS_FAKE reintroduces those represented native participants into its own island calculation even though the visible source presentation is still Guiyuan's compact slot. HyperOS then settles non-represented peer icons against that wider fake-row island state before the top-level fake carrier has completed its transition.
 
-Build 658 is observation-only:
-- no geometry, alpha, visibility, padding, ignored-slot, translation, timing, island width, or animation state is written;
-- the existing bounded transition diagnostic records the fake/final status-row `islandWidth`, `islandWidthChanged`, `ignoredSlots`, plus native panel-expansion flags;
-- child island state is read through the project's already-verified `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)` seam instead of guessing equivalent fields on the View object;
-- the native state object supplies `visibleState`, `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, and `layoutTranslationX`;
-- the probe runs only where the existing detailed transition diagnostic is emitted and is tagged `islandProbe=v2`.
+Build 659 keeps the Build-655 geometry contract but releases only this stale QS_FAKE island constraint:
+- `MiuiStatusIconContainer.getIslandShowing(): boolean` is hooked through the existing presentation owner;
+- the native return is changed from `true` to `false` only when the exact status-icon group belongs to the current Control Center fake Session and that Session is in latched island-native-layout mode;
+- represented native Wi-Fi/mobile/Battery Views stay measured and laid out, so transition/motion witnesses remain valid;
+- native `onMeasure/onLayout` still owns child visible state, island state, positions, and animations; Guiyuan does not write child state, alpha, visibility, translation, island width, padding, or ignored slots;
+- Home, Keyguard, final QS, ordinary no-island Control Center, and island detection/latching remain unchanged;
+- the functional hook is lifecycle-owned by `SystemUiHomePresentationOwner` and removed with the existing presentation Hook set on runtime reset / Hot Reload.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003658` / Build `20261003-658`.
-- Runtime behavior is intentionally identical to Build 656.
-- Review boundary: reflection is read-only, bounded to existing diagnostic emission, and introduces no new hook/listener/state machine.
-- Exact-HEAD Runtime CI is required before Canary.
-- Device evidence is mandatory because the next engineering decision depends on whether QS_FAKE receives a terminal `islandWidth` immediately or whether child island state changes independently of that width.
+- Candidate identity: `0.0.5` / versionCode `261003659` / Build `20261003-659`.
+- Code review must confirm one writer, exact fake-row identity scoping, lifecycle cleanup, and no geometry/timing patch.
+- Exact-HEAD Runtime CI is required before one signed Canary.
+- Device evidence remains mandatory because the correction changes native QS_FAKE island semantics.
 
 ## Device gate
 
-Validate one signed Build-658 Canary:
+Validate one signed Build-659 Canary:
 
-1. Trigger any island event and keep it active.
-2. From Home, perform one slow Control Center pull-down through the point where the native icons disappear / move.
-3. Close Control Center and export one detailed diagnostic.
+1. Keep any island event active and perform one slow Home -> Control Center pull, then return.
+2. Confirm network-speed / VPN / other native peer icons no longer disappear on the first pull sample and do not overlap the island or Guiyuan transition.
+3. Confirm surviving native peers follow the normal Control Center carrier motion rather than an early terminal island arrangement.
+4. Recheck charging-only island with dual SIM and one ordinary no-island pull.
+5. Export one detailed diagnostic.
 
-Expected visual result is intentionally unchanged from Build 656. The diagnostic must contain `islandProbe=v2`; the captured fake-row values will decide the next runtime correction.
+Expected diagnostic evidence:
+- one bounded `controlCenterPresentation islandConstraint nativeShowing=true exposedShowing=false` event during the island-native-layout Session;
+- QS_FAKE peer states should no longer stay terminal `visibleState=2 / inIslandState=10` from the first transition bucket;
+- no-island behavior must remain Build-652-equivalent.
 
 No Keyguard/AOD validation is required for this checkpoint.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 658. If green, request one signed Canary and freeze runtime until the focused island diagnostic returns.
+Run exact-HEAD Runtime CI for Build 659. If green, request one signed Canary and freeze runtime for focused device evidence.
 
 ## Reference priority
 

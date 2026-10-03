@@ -2870,3 +2870,35 @@ Build 658 exposes that existing read-only helper internally and reuses it for th
 
 No functional ownership changes. Build 657 is superseded before Canary; only exact-HEAD Build 658 should be device-tested.
 
+
+
+## 2026-10-03 — Build 659: release stale QS_FAKE island constraint
+
+**Type:** device-evidence root-cause correction  
+**Display version:** 0.0.5  
+**Build:** 659 / `20261003-659`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Problem
+Under an active island, non-represented native QS_FAKE icons such as network speed / VPN disappear at the first meaningful Control Center pull sample, while the top-level fake root is still moving.
+
+### Evidence
+Build 658 reads the real `NewStatusIconState` through `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)`. At the first captured island bucket, fake `network_speed` is already `visibleState=2 / inIslandState=10 / layoutTranslationX=196`, while the final QS peer is `visibleState=0 / inIslandState=20 / layoutTranslationX=6`. The fake state stays terminal through later buckets. No-island samples retain `visibleState=0 / inIslandState=20`.
+
+Build 655 intentionally made island Control Center use visual-mask-only native layout: represented Wi-Fi/mobile/Battery Views are no longer placed in `ignoredSlots`, so they remain measured as transition witnesses even though Guiyuan clips their pixels. Exact-target SystemUI evidence establishes that `MiuiStatusIconContainer.onMeasure()` also owns island visible-state decisions. The fake row therefore evaluates island collision against the re-expanded native participant set, not the compact visible Guiyuan source.
+
+### Conclusion
+The remaining defect is not fake-root motion, transition padding, the removed Build-652 island-width bridge, or the Build-656 participant Folme correction. It is a stale semantic constraint at the QS_FAKE island-state input boundary: Home island participation is still exposed to a fake row whose represented native geometry has intentionally been re-expanded for transition purposes.
+
+### Change
+- Add one exact `MiuiStatusIconContainer.getIslandShowing(): boolean` Hook to the existing presentation owner.
+- Preserve the native return everywhere except the exact current QS_FAKE status-icon Session while `nativeLayoutAuthority` is latched.
+- In that one case, expose `false` to the fake row so HyperOS' own `onMeasure/onLayout` recomputes normal fake-row child states without Home island hiding.
+- Keep represented native Views measured/laid out and clipped exactly as Build 655 requires.
+- Add one bounded event when the constraint is actually released.
+- Add focused policy tests for fake island/native-layout, ordinary fake, Home, and native-false cases.
+
+No child `NewStatusIconState`, alpha, visibility, translation, island width, padding, ignored slots, progress, or timing value is written. Home/final/no-island semantics remain native.
+
+### Validation
+Exact-HEAD Runtime CI, then one signed Canary. Device acceptance requires active-island forward/reverse pull, charging-only island + dual SIM, no-island regression check, and a detailed diagnostic confirming the release event and corrected QS_FAKE child states.
