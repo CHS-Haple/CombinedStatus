@@ -1075,6 +1075,42 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun armedKeyguardVisualHandoffCanPrecedeAodAnimateStateChange() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                fullAodTargetSourceReady = true,
+                fullAodVisualBoundary = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                fullAodTargetSourceReady = true,
+                fullAodVisualBoundary = false,
+            ),
+        )
+    }
+
+    @Test
     fun pendingFullAodTargetClosesOnlyAtItsMatchingStableEndpoint() {
         assertFalse(
             CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(

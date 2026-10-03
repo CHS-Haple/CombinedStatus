@@ -1972,6 +1972,11 @@ class CombinedStatusModule : XposedModule() {
         )
 
         (resolution as? SystemUiKeyguardHostResolver.ResolveResult.Ready)?.let { ready ->
+            armKeyguardBoundaryVisualHandoffIfEligible(
+                resolution = ready,
+                nativeToLockScreenTarget = target,
+                source = "animateFullAod:after",
+            )
             val prearmed =
                 armHomeAodTargetPrearmIfEligible(
                     resolution = ready,
@@ -2057,21 +2062,13 @@ class CombinedStatusModule : XposedModule() {
         )
         if (!eligible) return
 
-        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
         val visualOnlyIncomingKeyguard =
-            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
-                featureEnabled = settings.enabled,
-                keyguardEnabled = settings.keyguardEnabled,
-                aodEnabled = settings.aodEnabled,
-                lastStableFamilyScene = lastStableKeyguardAodScene,
-                nativeToLockScreenTarget = target,
-            )
-        if (visualOnlyIncomingKeyguard) {
-            beginKeyguardBoundaryVisualHandoff(
+            armKeyguardBoundaryVisualHandoffIfEligible(
                 resolution = resolution,
+                nativeToLockScreenTarget = target,
                 source = "status-icon-animation",
             )
-        } else {
+        if (!visualOnlyIncomingKeyguard) {
             onKeyguardHostResolution(
                 resolution = resolution,
                 source = "status-icon-animation",
@@ -2080,6 +2077,31 @@ class CombinedStatusModule : XposedModule() {
         }
         keyguardAodFullTargetPending = false
         keyguardAodPendingTargetToLockScreen = null
+    }
+
+    private fun armKeyguardBoundaryVisualHandoffIfEligible(
+        resolution: SystemUiKeyguardHostResolver.ResolveResult.Ready,
+        nativeToLockScreenTarget: Boolean?,
+        source: String,
+    ): Boolean {
+        if (keyguardBoundaryVisualHandoffActive) return true
+
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val eligible =
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
+                featureEnabled = settings.enabled,
+                keyguardEnabled = settings.keyguardEnabled,
+                aodEnabled = settings.aodEnabled,
+                lastStableFamilyScene = lastStableKeyguardAodScene,
+                nativeToLockScreenTarget = nativeToLockScreenTarget,
+            )
+        if (!eligible) return false
+
+        beginKeyguardBoundaryVisualHandoff(
+            resolution = resolution,
+            source = source,
+        )
+        return keyguardBoundaryVisualHandoffActive
     }
 
     private fun beginKeyguardBoundaryVisualHandoff(

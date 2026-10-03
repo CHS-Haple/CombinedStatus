@@ -2986,3 +2986,40 @@ The native status-icon boundary is useful as a **visual** boundary but is too ea
 - Any failure restores native clip state and fails native.
 
 No timer, delay, polling, copied animation timeline, native alpha/visibility/translation writer, geometry compensation, or second presentation owner is added.
+
+## 2026-10-03 — Build 664: prearm Keyguard visual lease at native target commit
+
+**Type:** device-evidence timing/ownership correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 663 -> 664
+
+### Problem
+
+Build 663 removes the Build-662 layout takeover regression, but AOD -> Keyguard still shows native represented icons at the beginning of the transition before Guiyuan becomes visible.
+
+### Evidence
+
+The Build-663 diagnostic separates the two boundaries:
+- `animateFullAod:after` reports authoritative native target `keyguard` at 11:10:22.014;
+- `animateIconContainer(true)` / visual-only handoff is not reached until 11:10:22.304, roughly 290 ms later;
+- at the 663 visual lease, `ignoredSlotsWrites=0 paddingWrites=0`, so the two-phase ownership split is working;
+- stable Keyguard arrives at 11:10:22.700, then deferred ignored-slot/end-reservation ownership is committed and native compact layout completes at 11:10:22.705.
+
+Video evidence matches that interval: the raw native row appears at the transition start/left position before the compact Guiyuan presentation takes over.
+
+### Conclusion
+
+`animateIconContainer(true)` is too late to **start** visual suppression for this single-enabled AOD -> Keyguard path. It remains a valid native status-icon lifecycle event, but the authoritative `mToLockScreen=true` commit is already available earlier and can safely prearm only reversible visual ownership.
+
+### Change
+
+- Start the existing Build-663 visual-only Keyguard lease at `animateFullAod:after` when the native target is Keyguard and policy proves stable-AOD -> enabled-Keyguard / disabled-AOD.
+- Allow that explicitly armed lease to project the Keyguard renderer before `isAodAnimate=true` reaches the AOD state source.
+- Keep native ignored slots, end reservation, compact layout and stable cutover deferred exactly as in Build 663.
+- Treat the later `animateIconContainer(true)` callback as confirmation of an already-active lease, not a second attach.
+
+No timer, custom animation, native alpha/visibility/translation writer, or geometry compensation is added.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. Primary device gate: no raw native row at AOD -> Keyguard start, no early native layout jump, and no regression in the accepted Keyguard-OFF/AOD-ON path.

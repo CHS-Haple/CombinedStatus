@@ -15,52 +15,47 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 663 is the focused recovery candidate after Build-662 device rejection.
+Build 664 is the focused follow-up to Build-663 device evidence.
 
-Build-662 device result:
-- no reported target is fixed;
-- Keyguard ON / AOD OFF regresses AOD -> Keyguard: native represented icons become visibly separated / stationary before Guiyuan finally composes, while the original late response remains;
-- frame evidence shows the raw native network/battery row is exposed during the transition before the compact Guiyuan owner appears;
-- the diagnostic shows `animateIconContainer(true)` at the native visual boundary, followed about 2 ms later by a Keyguard end-reservation write, while the stable Keyguard family edge arrives about 0.38 s later. Build 662 therefore acquired native layout ownership inside the native animation window;
-- Home -> AOD flash is unchanged, so the Build-662 Home-origin change has no accepted device value.
+Build-663 device result:
+- Keyguard ON / AOD OFF no longer performs the Build-662 early ignored-slot/end-reservation takeover. The diagnostic proves visual-only handoff writes zero native layout geometry, and ignoredSlots/end reservation are committed only at stable Keyguard.
+- AOD -> Keyguard still exposes native represented icons at the beginning of the transition. Video shows the native row appearing left of the compact endpoint before Guiyuan takes over.
+- The exact ordering explains the gap: `animateFullAod:after` already reports native target Keyguard at 11:10:22.014, but the visual-only lease is not armed until `animateIconContainer(true)` at 11:10:22.304, about 290 ms later.
+- Once armed, the 663 visual-only lease itself is structurally correct: clip masking / Guiyuan renderer become active with `ignoredSlotsWrites=0 paddingWrites=0`; stable Keyguard at 11:10:22.700 then commits the deferred layout and completes native layout at 11:10:22.705.
 
-Build-663 correction:
-- revert the unaccepted Build-662 synchronous boundary-layout takeover and Home-origin policy expansion back to the Build-660 rules;
-- for only AOD -> Keyguard when Keyguard is enabled and AOD is disabled, split handoff into two phases under the same presentation owner:
-  1. at native `animateIconContainer(true)`, attach the ready Keyguard renderer and clip-mask only the represented native views; do not write ignored slots, padding, or any native layout geometry;
-  2. after native state reaches stable Keyguard, commit ignored-slot/end-reservation ownership while those native views remain masked, then complete compact layout normally;
-- native layouts that occur during the visual-only phase may refresh the existing clip mask but cannot complete compact ownership or write reservation geometry;
-- Keyguard OFF / AOD ON and dual-enabled family paths are not changed by this recovery.
+Build-664 correction:
+- keep the Build-663 two-phase ownership split unchanged;
+- prearm the same visual-only Keyguard lease as soon as `animateFullAod` has committed authoritative `mToLockScreen=true` from a stable AOD origin;
+- allow that explicitly armed visual lease to project Keyguard even in the short interval before `setIsAodAnimate(true)` reaches the battery state source;
+- when `animateIconContainer(true)` later arrives, it observes the already-active lease instead of recreating it;
+- ignored slots, end reservation, compact layout ownership and stable-cutover timing remain deferred exactly as in Build 663.
 
-No timer, delay, polling, copied animation timeline, native alpha/visibility/translation writer, or geometry compensation is introduced. The existing clipBounds presentation writer remains the only native visual mask writer.
+No timer, delay, polling, custom duration/interpolator, native alpha/visibility/translation writer, or geometry compensation is introduced. The only earlier action is the existing reversible clip mask / Guiyuan renderer lease, driven by the already-authoritative native target commit.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003663` / Build `20261003-663`.
-- PR #196 is 0 behind `dev` before Build-663 authoring.
-- Unit coverage constrains the visual-only path to incoming enabled Keyguard from stable AOD and proves deferred visual handoff cannot write native layout or complete compact layout before explicit commit.
-- Runtime CI is required before Canary.
-- Device validation is mandatory.
+- Candidate identity: `0.0.5` / versionCode `261003664` / Build `20261003-664`.
+- PR #196 is 0 behind `dev` before Build-664 authoring.
+- Unit coverage proves the explicitly armed visual lease may override still-stable AOD only for the incoming enabled-Keyguard target, while the same stable AOD state remains native without that lease.
+- Runtime CI and one signed Canary are required before focused device validation.
 
 ## Device gate
 
-This build is intentionally one-variable after the Build-662 regression.
-
 1. Keyguard ON / AOD OFF — primary
-   - AOD -> Keyguard must no longer expose the separated native mobile/battery row.
-   - Guiyuan should become visible at the native status-icon boundary rather than only at the final stable edge.
-   - No ignored-slot/padding movement is allowed during the visual-only interval.
-   - Keyguard -> AOD remains at the Build-660 behavior.
+   - AOD -> Keyguard must not show the raw native row at the left/start position before Guiyuan appears.
+   - Guiyuan should already be prepared when the native Keyguard carrier becomes visible.
+   - No ignored-slot/padding/layout jump may occur before stable Keyguard.
+   - Keyguard -> AOD remains unchanged.
 
-2. Keyguard OFF / AOD ON — regression only
-   - must remain identical to the accepted Build-660 timing.
+2. Keyguard OFF / AOD ON — regression
+   - preserve the accepted Build-660 behavior.
 
 3. Both ON / Home -> AOD
-   - no new behavior is claimed in Build 663; the existing flash remains an open blocker for the next isolated change.
+   - remains intentionally outside this checkpoint; the existing flash is still open.
 
 ## Immediate next step
 
-Review Build 663 against Build 660/662, run exact-HEAD Runtime, then issue one signed Canary only if automated validation is clean.
+Review Build 664 for writer/lifecycle isolation, run exact-HEAD Runtime, then issue one signed Canary if automated validation is clean.
 
 ## Reference priority
 

@@ -194,6 +194,22 @@ internal object CombinedStatusScenePolicy {
             // transient KEYGUARD ancestry until native AOD state catches up.
             return KeyguardAodProjection.AOD
         }
+        if (
+            fullAodVisualBoundary &&
+            fullAodTargetSourceReady &&
+            nativeToLockScreenTarget == true &&
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            lastStableFamilyScene == StableKeyguardAodScene.AOD &&
+            keyguardEnabled &&
+            !aodEnabled
+        ) {
+            // An explicitly armed AOD -> Keyguard visual-only lease may start
+            // immediately after native mToLockScreen commits, before
+            // setIsAodAnimate(true) reaches the battery state source. This
+            // authorizes only the replacement renderer / clip mask; native
+            // ignored-slot and reservation ownership remain deferred.
+            return KeyguardAodProjection.KEYGUARD
+        }
         if (isAodAnimate) {
             return resolveAnimatingKeyguardAodProjection(
                 keyguardEnabled = keyguardEnabled,
