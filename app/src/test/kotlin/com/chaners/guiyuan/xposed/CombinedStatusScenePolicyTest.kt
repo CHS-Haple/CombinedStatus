@@ -768,6 +768,33 @@ class CombinedStatusScenePolicyTest {
         )
         assertFalse(
             CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+                visualHandoffActive = false,
+                layoutPrecommitActive = true,
+                compactLayoutReady = true,
+                visualBoundaryReached = true,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+                visualHandoffActive = true,
+                layoutPrecommitActive = false,
+                compactLayoutReady = true,
+                visualBoundaryReached = true,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+                visualHandoffActive = true,
+                layoutPrecommitActive = true,
+                compactLayoutReady = false,
+                visualBoundaryReached = true,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
                 visualHandoffActive = true,
                 layoutPrecommitActive = true,
                 compactLayoutReady = true,
@@ -819,14 +846,14 @@ class CombinedStatusScenePolicyTest {
         assertTrue(
             CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
-                keyguardRuntimeReady = true,
+                keyguardPresentationReady = true,
                 nativeFraction = 0.5f,
             ),
         )
         assertFalse(
             CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
-                keyguardRuntimeReady = true,
+                keyguardPresentationReady = true,
                 nativeFraction = 0f,
             ),
         )
