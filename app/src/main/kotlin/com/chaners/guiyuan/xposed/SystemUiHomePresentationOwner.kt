@@ -1150,7 +1150,10 @@ internal object SystemUiHomePresentationOwner {
                     top = fakeTop,
                     right = fakeRight,
                     bottom = fakeBottom,
-                    island = islandRectBuffer,
+                    islandLeft = islandRectBuffer.left,
+                    islandTop = islandRectBuffer.top,
+                    islandRight = islandRectBuffer.right,
+                    islandBottom = islandRectBuffer.bottom,
                 )
 
             if (lastIsland2DOverlap != overlap) {
@@ -2040,12 +2043,15 @@ internal object SystemUiHomePresentationOwner {
             top: Int,
             right: Int,
             bottom: Int,
-            island: Rect,
+            islandLeft: Int,
+            islandTop: Int,
+            islandRight: Int,
+            islandBottom: Int,
         ): Boolean =
-            left < island.right &&
-                island.left < right &&
-                top < island.bottom &&
-                island.top < bottom
+            left < islandRight &&
+                islandLeft < right &&
+                top < islandBottom &&
+                islandTop < bottom
     }
 
     internal object ControlCenterLayoutPolicy {

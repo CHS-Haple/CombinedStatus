@@ -1,6 +1,5 @@
 package com.chaners.guiyuan.xposed
 
-import android.graphics.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -50,48 +49,28 @@ class SystemUiHomePresentationOwnerTest {
 
     @Test
     fun island2DGateRequiresRealRectangleOverlap() {
-        val island = Rect(522, 31, 918, 156)
+        fun intersects(
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+        ): Boolean =
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = left,
+                    top = top,
+                    right = right,
+                    bottom = bottom,
+                    islandLeft = 522,
+                    islandTop = 31,
+                    islandRight = 918,
+                    islandBottom = 156,
+                )
 
-        assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
-                .intersects(
-                    left = 768,
-                    top = 89,
-                    right = 1246,
-                    bottom = 164,
-                    island = island,
-                ),
-        )
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
-                .intersects(
-                    left = 747,
-                    top = 204,
-                    right = 1225,
-                    bottom = 279,
-                    island = island,
-                ),
-        )
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
-                .intersects(
-                    left = 919,
-                    top = 89,
-                    right = 1200,
-                    bottom = 164,
-                    island = island,
-                ),
-        )
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
-                .intersects(
-                    left = 768,
-                    top = 156,
-                    right = 1246,
-                    bottom = 231,
-                    island = island,
-                ),
-        )
+        assertTrue(intersects(left = 768, top = 89, right = 1246, bottom = 164))
+        assertFalse(intersects(left = 747, top = 204, right = 1225, bottom = 279))
+        assertFalse(intersects(left = 919, top = 89, right = 1200, bottom = 164))
+        assertFalse(intersects(left = 768, top = 156, right = 1246, bottom = 231))
     }
 
     @Test
