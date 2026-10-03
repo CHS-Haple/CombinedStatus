@@ -176,7 +176,7 @@ internal object SystemUiIslandMotionSource {
 
     internal data class OwnerSnapshot(
         val views: Map<String, MotionViewSnapshot>,
-        val geometryProbe: IslandGeometryProbe?,
+        val geometryProbe: IslandGeometryProbe? = null,
     ) {
         val summary: String
             get() {
@@ -198,11 +198,11 @@ internal object SystemUiIslandMotionSource {
     internal data class MotionViewSnapshot(
         val className: String,
         val screenX: Int,
-        val screenY: Int,
+        val screenY: Int = 0,
         val width: Int,
-        val height: Int,
+        val height: Int = 0,
         val translationX: Float,
-        val translationY: Float,
+        val translationY: Float = 0f,
         val alpha: Float,
         val visibility: Int,
     ) {
