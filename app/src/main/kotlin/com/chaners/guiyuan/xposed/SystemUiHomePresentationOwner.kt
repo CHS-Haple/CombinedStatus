@@ -1527,7 +1527,7 @@ internal object SystemUiHomePresentationOwner {
                     compactSlotWidthPx = compactSlotWidthPx,
                     transitionRequestedSlotWidthPx = transitionRequestedSlotWidthPx,
                 )
-            val reservationDelta =
+            val requestedReservationDelta =
                 EndReservationPolicy.resolvePaddingEndDelta(
                     nativeHide = nativeHide,
                     actualBatteryWidthPx = actualBatteryWidthPx,
@@ -1536,6 +1536,17 @@ internal object SystemUiHomePresentationOwner {
             val capacityDeltaPx =
                 ensureFakeCarrierCapacityLease(hostView)
                     ?: return false
+            val reservationDelta =
+                if (surfaceName == CONTROL_CENTER_FAKE_SURFACE) {
+                    EndReservationPolicy.resolveCapacityBoundedReservationDelta(
+                        nativeHide = nativeHide,
+                        compactSlotWidthPx = compactSlotWidthPx,
+                        requestedReservationDeltaPx = requestedReservationDelta,
+                        capacityDeltaPx = capacityDeltaPx,
+                    )
+                } else {
+                    requestedReservationDelta
+                }
             val capacityReservationDeltaPx =
                 EndReservationPolicy.resolveFakeCarrierCapacityRequirement(
                     nativeHide = nativeHide,
@@ -1575,7 +1586,9 @@ internal object SystemUiHomePresentationOwner {
                         " requestedSlotWidth=" + requestedSlotWidthPx +
                         " transitionRequestedSlotWidth=" +
                         (transitionRequestedSlotWidthPx ?: -1) +
+                        " requestedPaddingEndDelta=" + requestedReservationDelta +
                         " paddingEndDelta=" + reservationDelta +
+                        " capacityClamped=" + (reservationDelta != requestedReservationDelta) +
                         " basePaddingEnd=" + baseline.end +
                         " appliedPaddingEnd=" + target.end +
                         " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
@@ -2252,6 +2265,19 @@ internal object SystemUiHomePresentationOwner {
             } else {
                 requested - actual
             }
+        }
+
+        fun resolveCapacityBoundedReservationDelta(
+            nativeHide: Boolean,
+            compactSlotWidthPx: Int,
+            requestedReservationDeltaPx: Int,
+            capacityDeltaPx: Int,
+        ): Int {
+            if (!nativeHide) return requestedReservationDeltaPx
+            val compact = compactSlotWidthPx.coerceAtLeast(0)
+            val capacity = capacityDeltaPx.coerceAtLeast(0)
+            val maxNativeReservation = compact + capacity
+            return requestedReservationDeltaPx.coerceAtMost(maxNativeReservation)
         }
 
         fun resolveFakeCarrierCapacityRequirement(

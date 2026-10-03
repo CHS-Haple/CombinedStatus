@@ -180,6 +180,40 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun chargingIslandNativeReservationStopsAtPhysicalCarrierCapacity() {
+        assertEquals(
+            354,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityBoundedReservationDelta(
+                    nativeHide = true,
+                    compactSlotWidthPx = 105,
+                    requestedReservationDeltaPx = 354,
+                    capacityDeltaPx = 249,
+                ),
+        )
+        assertEquals(
+            354,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityBoundedReservationDelta(
+                    nativeHide = true,
+                    compactSlotWidthPx = 105,
+                    requestedReservationDeltaPx = 382,
+                    capacityDeltaPx = 249,
+                ),
+        )
+        assertEquals(
+            382,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityBoundedReservationDelta(
+                    nativeHide = false,
+                    compactSlotWidthPx = 105,
+                    requestedReservationDeltaPx = 382,
+                    capacityDeltaPx = 249,
+                ),
+        )
+    }
+
+    @Test
     fun steadyPeerMirrorUsesOnlyHomeNativeIslandHiddenState() {
         assertTrue(
             SystemUiHomePresentationOwner.SteadyPeerMirrorPolicy

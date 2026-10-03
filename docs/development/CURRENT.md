@@ -77,3 +77,23 @@ Lifecycle review: Home deactivation and Hot Reload release both clear the live s
 
 
 Home fail-native cleanup also clears the mirror and releases any current fake peer clips before propagating fallback.
+
+
+## Build 677 charging-island capacity saturation
+
+Build 676 device evidence validates the steady-peer mirror for ordinary islands. The remaining charging-island fallback is deterministic: at requested native reservation 354px, the fake carrier consumes exactly its 249px lease beyond the 105px compact slot; the next reservation increment would exceed physical carrier expansion and triggers `failNative(fake-carrier-capacity-insufficient)`.
+
+Build 677 keeps the ordinary-island mirror unchanged. For exact QS_FAKE while native Battery is hidden:
+- transition requested width remains the full semantic value used by the Guiyuan overlay;
+- native status-icon end padding is saturated at `compactSlotWidth + fakeCarrierCapacityDelta`;
+- this preserves at least the Home steady peer content width instead of shrinking the native row further;
+- the existing capacity fail remains as a guard for all unsaturated/unsupported cases;
+- no fake width, island geometry/state, peer membership, timing, alpha, visibility, or translation algorithm is added.
+
+Diagnostic `endReservation` now records both requested and applied padding plus `capacityClamped`.
+
+Device gate:
+1. charging island must remain Guiyuan-owned past the previous ~0.88 cutover and through reverse;
+2. no `fake-carrier-capacity-insufficient` should appear;
+3. charging island + dual SIM must keep both targets and avoid overlap;
+4. ordinary island remains a regression check only.
