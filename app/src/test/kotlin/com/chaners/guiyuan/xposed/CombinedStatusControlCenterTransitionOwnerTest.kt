@@ -1141,9 +1141,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun batteryIslandReservationAuthorityUsesExactNativeContract() {
+    fun islandScenesKeepSemanticReservationForGuiyuanExpansion() {
         assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy
+            CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
@@ -1162,23 +1162,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
-                    charging = false,
-                    nativeBatteryIslandActive = true,
-                ),
-        )
-        assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy
-                .usesSemanticTransitionReservation(
-                    sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeBatteryIslandActive = null,
-                ),
-        )
-        assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .usesSemanticTransitionReservation(
-                    sourceScene = CombinedStatusSourceScene.HOME,
-                    charging = false,
                     nativeBatteryIslandActive = null,
                 ),
         )
@@ -1193,16 +1177,16 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun genericIslandAlwaysPreservesNativePaddingAuthority() {
+    fun nativeIslandCollisionDoesNotDisableGuiyuanPaddingReflow() {
         assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy
+            CombinedStatusControlCenterTransitionOwner.Policy
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     genericIslandShowing = true,
                 ),
         )
         assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy
+            CombinedStatusControlCenterTransitionOwner.Policy
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.KEYGUARD,
                     genericIslandShowing = true,
@@ -1223,17 +1207,10 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 ),
         )
         assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .allowsNativeTransitionPaddingExpansion(
-                    sourceScene = CombinedStatusSourceScene.KEYGUARD,
-                    genericIslandShowing = false,
-                ),
-        )
-        assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.UNKNOWN,
-                    genericIslandShowing = false,
+                    genericIslandShowing = true,
                 ),
         )
     }

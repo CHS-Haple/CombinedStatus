@@ -4,7 +4,7 @@
 
 - Branch: `fix/qs-fake-native-source-sync`.
 - Base: Build 652 checkpoint `f8df74f`.
-- Build 674 candidate restores HyperOS native QS_FAKE island authority and adds temporary read-only diagnostics.
+- Build 675 candidate keeps HyperOS native QS_FAKE island authority while restoring Guiyuan transition reflow under island.
 - PR #197 / Builds 653-672 remain historical experimental evidence and are not the runtime base for this line.
 
 ## Ownership model under test
@@ -33,3 +33,18 @@ Charging-island behavior is not an acceptance gate for Build 674.
 ## Build 674 compile correction
 
 Build 673 failed before runtime because the temporary diagnostic called the existing transition-state reader while that helper was still private on the Build-652 codebase. Build 674 changes only that helper's Kotlin visibility from private to internal so the read-only diagnostic can reuse the exact existing reflection path. No runtime state writer or island behavior changes.
+
+
+## Build 675 device-evidence correction
+
+Build 674 device evidence showed two reservation gates were too broad after native island authority was restored:
+- ordinary-island QS_FAKE retained HyperOS root motion but Guiyuan transition padding was disabled, so native peers visually fell mostly vertically instead of reflowing left with the expanding combined status;
+- charging-island Home disabled semantic reservation when the native Battery island was active, leaving the dual-SIM fake layout inconsistent with its native final target.
+
+Build 675 changes only those two gates. Verified Home/Keyguard sources keep Guiyuan semantic transition reservation and padding reflow while HyperOS keeps native island collision authority. The rejected Build-652 fake island-boundary projection remains absent. The existing fixed QS_FAKE capacity lease and Build-674 read-only diagnostics stay unchanged for this evidence pass.
+
+Immediate device gate:
+1. ordinary island: native peers should regain leftward reflow while the combined status unfolds;
+2. ordinary island: watch for any new premature native hide/knife behavior;
+3. charging island + dual SIM: both mobile targets should unfold consistently toward the final row;
+4. no-island pull remains a regression check.

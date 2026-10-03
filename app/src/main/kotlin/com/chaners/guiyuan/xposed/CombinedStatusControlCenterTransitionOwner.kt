@@ -336,26 +336,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
             nativeBatteryIslandActive: Boolean? = null,
         ): Boolean =
             when (sourceScene) {
-                CombinedStatusSourceScene.HOME ->
-                    !charging || nativeBatteryIslandActive == false
-                CombinedStatusSourceScene.KEYGUARD ->
-                    true
-                CombinedStatusSourceScene.UNKNOWN ->
-                    false
-            }
-
-        fun allowsNativeTransitionPaddingExpansion(
-            sourceScene: CombinedStatusSourceScene,
-            genericIslandShowing: Boolean?,
-        ): Boolean {
-            if (genericIslandShowing == true) return false
-            return when (sourceScene) {
                 CombinedStatusSourceScene.HOME,
                 CombinedStatusSourceScene.KEYGUARD,
                 -> true
                 CombinedStatusSourceScene.UNKNOWN -> false
             }
-        }
+
+        fun allowsNativeTransitionPaddingExpansion(
+            sourceScene: CombinedStatusSourceScene,
+            genericIslandShowing: Boolean?,
+        ): Boolean =
+            when (sourceScene) {
+                CombinedStatusSourceScene.HOME,
+                CombinedStatusSourceScene.KEYGUARD,
+                -> true
+                CombinedStatusSourceScene.UNKNOWN -> false
+            }
 
         data class ReservationSpan(
             val sourceLeft: Float,
@@ -1010,6 +1006,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
+                    genericIslandShowing == true && nativePaddingExpansionAllowed ->
+                        "native-progress-total-padding+native-island-collision"
                     genericIslandShowing == true -> "native-island-authority"
                     !nativePaddingExpansionAllowed -> "native-padding-guard"
                     else -> "native-progress-total-padding"
