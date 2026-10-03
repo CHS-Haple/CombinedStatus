@@ -16,7 +16,6 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
-                islandNativeFallbackLatched = false,
             ),
         )
         assertFalse(
@@ -28,7 +27,6 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
-                islandNativeFallbackLatched = false,
             ),
         )
         assertFalse(
@@ -40,7 +38,6 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = false,
-                islandNativeFallbackLatched = false,
             ),
         )
         assertFalse(
@@ -52,29 +49,28 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
-                islandNativeFallbackLatched = false,
             ),
         )
     }
 
     @Test
-    fun islandNativeFallbackLatchesForTheActiveGesture() {
+    fun islandNativeLayoutLatchesForTheActiveGesture() {
         assertTrue(
-            CombinedStatusControlCenterRenderSession.resolveIslandNativeFallbackLatched(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeLayoutLatched(
                 currentLatched = false,
                 islandShowing = true,
                 requestedVisible = false,
             ),
         )
         assertTrue(
-            CombinedStatusControlCenterRenderSession.resolveIslandNativeFallbackLatched(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeLayoutLatched(
                 currentLatched = true,
                 islandShowing = false,
                 requestedVisible = true,
             ),
         )
         assertFalse(
-            CombinedStatusControlCenterRenderSession.resolveIslandNativeFallbackLatched(
+            CombinedStatusControlCenterRenderSession.resolveIslandNativeLayoutLatched(
                 currentLatched = true,
                 islandShowing = false,
                 requestedVisible = false,
@@ -83,8 +79,8 @@ class CombinedStatusControlCenterRenderSessionTest {
     }
 
     @Test
-    fun islandFallbackAlwaysBlocksGuiyuanControlCenterProjection() {
-        assertFalse(
+    fun islandNativeLayoutStillAllowsGuiyuanControlCenterProjection() {
+        assertTrue(
             CombinedStatusControlCenterRenderSession.resolveProjectionReady(
                 featureEnabled = true,
                 sceneEligible = true,
@@ -93,7 +89,6 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
-                islandNativeFallbackLatched = true,
             ),
         )
     }
