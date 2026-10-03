@@ -1231,10 +1231,14 @@ class CombinedStatusModule : XposedModule() {
             source = "source-scene:" + authority,
         )
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val incomingBoundaryReady =
+            incomingKeyguardPresentationReadyForControlCenter()
+        val keyguardPresentationReady =
+            keyguardRuntimeReady || incomingBoundaryReady
         val keyguardEligible =
             settings.enabled &&
                 settings.keyguardEnabled &&
-                keyguardRuntimeReady
+                keyguardPresentationReady
         val nextEligible =
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
                 featureEnabled = settings.enabled,
@@ -1257,6 +1261,8 @@ class CombinedStatusModule : XposedModule() {
             "authority" to authority,
             "keyguardEnabled" to settings.keyguardEnabled,
             "keyguardRuntimeReady" to keyguardRuntimeReady,
+            "incomingBoundaryReady" to incomingBoundaryReady,
+            "keyguardPresentationReady" to keyguardPresentationReady,
             "controlCenterVisible" to controlCenterSceneVisible,
             "fallback" to if (nextEligible) "combined-qs-fake" else "native-qs-fake",
             "nativeGeometryWrites" to 0,
@@ -1287,11 +1293,14 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun acquireKeyguardControlCenterLeaseIfEligible(source: String) {
+        val keyguardPresentationReady =
+            keyguardRuntimeReady ||
+                incomingKeyguardPresentationReadyForControlCenter()
         if (
             keyguardControlCenterLeaseActive ||
             !CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
                 sourceScene = controlCenterSourceScene,
-                keyguardRuntimeReady = keyguardRuntimeReady,
+                keyguardRuntimeReady = keyguardPresentationReady,
                 nativeFraction = controlCenterExpansionFraction,
             )
         ) {
@@ -1324,6 +1333,8 @@ class CombinedStatusModule : XposedModule() {
                 .currentState(resolved.host.battery)
                 ?.blocksProjection
                 ?: true
+        val incomingBoundaryReady =
+            incomingKeyguardPresentationReadyForControlCenter()
         return CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
             leaseActive = keyguardControlCenterLeaseActive,
             sourceScene = controlCenterSourceScene,
@@ -1331,6 +1342,7 @@ class CombinedStatusModule : XposedModule() {
             keyguardEnabled = settings.keyguardEnabled,
             hostAttached = resolved.host.systemIcons.isAttachedToWindow,
             aodBlocked = aodBlocked,
+            incomingBoundaryPresentationReady = incomingBoundaryReady,
             nativeFraction = controlCenterExpansionFraction,
         )
     }
@@ -1354,11 +1366,29 @@ class CombinedStatusModule : XposedModule() {
             "timingDelay" to false,
             "nativeGeometryWrites" to 0,
         )
-        if (reconcileReadiness && !keyguardPresentationReadyObserved) {
+        if (
+            reconcileReadiness &&
+            !keyguardPresentationReadyObserved &&
+            !incomingKeyguardPresentationReadyForControlCenter()
+        ) {
             applyKeyguardPresentationReadinessLost(
                 source = "lease-release:" + source,
             )
         }
+    }
+
+    private fun incomingKeyguardPresentationReadyForControlCenter(): Boolean {
+        val resolved =
+            SystemUiKeyguardHostResolver.current()
+                as? SystemUiKeyguardHostResolver.ResolveResult.Ready
+                ?: return false
+        return CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+            visualHandoffActive = keyguardBoundaryVisualHandoffActive,
+            layoutPrecommitActive = keyguardBoundaryLayoutPrecommitActive,
+            compactLayoutReady = keyguardBoundaryCompactLayoutReady,
+            visualBoundaryReached = keyguardBoundaryVisualBoundaryReached,
+            hostAttached = resolved.host.systemIcons.isAttachedToWindow,
+        )
     }
 
     private fun refreshControlCenterSourceSceneEligibility(authority: String) {
@@ -2285,6 +2315,11 @@ class CombinedStatusModule : XposedModule() {
             "nativeVisualBoundaryReached" to keyguardBoundaryVisualBoundaryReached,
             "nativeGeometryWrites" to 0,
         )
+        if (keyguardBoundaryVisualBoundaryReached) {
+            reconcileControlCenterForKeyguardLifecycle(
+                "keyguard-boundary-layout-ready",
+            )
+        }
     }
 
     private fun onKeyguardBoundaryVisualBoundaryReached(source: String) {
@@ -2300,6 +2335,9 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
                 "layoutAuthority" to "precommitted-before-native-animation",
                 "nativeGeometryWrites" to 0,
+            )
+            reconcileControlCenterForKeyguardLifecycle(
+                "keyguard-boundary-visual-ready",
             )
         } else {
             CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
@@ -2938,6 +2976,21 @@ class CombinedStatusModule : XposedModule() {
     ) {
         keyguardPresentationReadyObserved = ready
         if (!ready) {
+            if (incomingKeyguardPresentationReadyForControlCenter()) {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.readiness",
+                    component = "keyguardPresentation",
+                    state = "retained",
+                    "source" to source,
+                    "reason" to "incoming-boundary-presentation-ready",
+                    "nativeFraction" to controlCenterExpansionFraction,
+                    "leaseActive" to keyguardControlCenterLeaseActive,
+                    "timingDelay" to false,
+                    "nativeGeometryWrites" to 0,
+                )
+                return
+            }
             if (shouldRetainKeyguardControlCenterLease()) {
                 logDiagnostic(
                     level = Log.INFO,
