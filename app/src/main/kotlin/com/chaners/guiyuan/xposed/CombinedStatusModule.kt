@@ -2669,6 +2669,10 @@ class CombinedStatusModule : XposedModule() {
             }
         }
         if (sourceScene == CombinedStatusSourceScene.HOME) {
+            if (!keyguardAodFullTransitionActive) {
+                homeNativeAodFallbackCandidate = false
+                homeNativeAodFallbackActive = false
+            }
             // UNLOCKED_STATUS_BAR + Home ancestry is the authoritative unlock
             // boundary. A Keyguard Control Center lease must never outlive it:
             // otherwise a fast first pull-down can consume stale KEYGUARD
