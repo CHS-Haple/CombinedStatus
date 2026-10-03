@@ -750,6 +750,9 @@ internal object SystemUiHomePresentationOwner {
                 } ?: return@Hooker chain.proceed()
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
+            if (refreshMasksAfter) {
+                session.reportNativeSourceSyncDiagnosticAfterLayout()
+            }
             if (
                 refreshMasksAfter &&
                 session.validateNativeLayoutBeforeVisualMask()
@@ -922,6 +925,7 @@ internal object SystemUiHomePresentationOwner {
         private var compactLayoutReady = false
         private var layoutReadyCallback: ((Int) -> Unit)? = null
         private var lastReservationDelta: Int? = null
+        private var lastNativeSourceSyncDiagnostic: String? = null
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
         private var nativeFakeCarrierLayoutWidthPx: Int? = null
@@ -1717,6 +1721,51 @@ internal object SystemUiHomePresentationOwner {
                     " maskedViews=" + maskedViews,
             )
             callback?.invoke(maskedViews)
+        }
+
+        fun reportNativeSourceSyncDiagnosticAfterLayout() {
+            if (!active || surfaceName !in setOf("home", CONTROL_CENTER_FAKE_SURFACE)) return
+            val group = statusIcons.get() ?: return
+            val container = batteryContainer.get() ?: return
+            val hostView = host.get() ?: return
+            val nativeHide = runCatching { batteryHideField.getBoolean(container) }.getOrNull()
+            val peers =
+                buildList {
+                    for (index in 0 until group.childCount) {
+                        val child = group.getChildAt(index)
+                        val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+                        if (slot in representedSlots) continue
+                        val state =
+                            SystemUiNativeNetworkSuppressionOwner
+                                .readTransitionIconState(group, child)
+                        add(
+                            slot +
+                                "{v=" + child.visibility +
+                                ",a=" + "%.2f".format(java.util.Locale.US, child.alpha) +
+                                ",w=" + child.width +
+                                ",state=" + (state?.visibleState ?: -1) +
+                                ",island=" + (state?.inIslandState ?: -1) +
+                                ",before=" + (state?.beforeInIslandState ?: -1) +
+                                "}",
+                        )
+                    }
+                }
+                .joinToString(",")
+            val snapshot =
+                "surface=" + surfaceName +
+                    " islandShowing=" + (SystemUiIslandMotionSource.currentIslandShowing() ?: "unknown") +
+                    " nativeHideBattery=" + (nativeHide ?: "unknown") +
+                    " hostWidth=" + hostView.width +
+                    " groupWidth=" + group.width +
+                    " measuredGroupWidth=" + group.measuredWidth +
+                    " paddingEnd=" + group.paddingEnd +
+                    " transitionReservation=" + (transitionRequestedSlotWidthPx ?: -1) +
+                    " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
+                    " peers=[" + peers + "]"
+            if (snapshot != lastNativeSourceSyncDiagnostic) {
+                lastNativeSourceSyncDiagnostic = snapshot
+                onEvent(eventPrefix + " nativeSourceSyncDiag " + snapshot)
+            }
         }
 
         fun refreshClipMasks(): Int {
