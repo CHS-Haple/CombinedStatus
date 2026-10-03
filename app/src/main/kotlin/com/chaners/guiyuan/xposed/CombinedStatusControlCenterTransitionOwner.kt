@@ -347,22 +347,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun allowsNativeTransitionPaddingExpansion(
             sourceScene: CombinedStatusSourceScene,
             genericIslandShowing: Boolean?,
-            fakeIslandReservationBridgeReady: Boolean = false,
-        ): Boolean =
-            when (sourceScene) {
-                CombinedStatusSourceScene.HOME ->
-                    genericIslandShowing != true || fakeIslandReservationBridgeReady
-                CombinedStatusSourceScene.KEYGUARD -> true
+        ): Boolean {
+            if (genericIslandShowing == true) return false
+            return when (sourceScene) {
+                CombinedStatusSourceScene.HOME,
+                CombinedStatusSourceScene.KEYGUARD,
+                -> true
                 CombinedStatusSourceScene.UNKNOWN -> false
             }
-
-        fun compensateFakeIslandWidth(
-            nativeIslandWidthPx: Int,
-            transitionPaddingDeltaPx: Int,
-        ): Int {
-            if (nativeIslandWidthPx <= 0) return nativeIslandWidthPx
-            return (nativeIslandWidthPx - transitionPaddingDeltaPx.coerceAtLeast(0))
-                .coerceAtLeast(0)
         }
 
         data class ReservationSpan(
@@ -952,8 +944,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var transitionReservationEnabled = false
         private var nativePaddingExpansionAllowed = true
         private var genericIslandShowing: Boolean? = null
-        private var fakeIslandBoundaryProjectionReady = false
-        private var fakeIslandBoundaryDeltaPx: Int? = null
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -1020,19 +1010,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
-                    genericIslandShowing == true && fakeIslandBoundaryProjectionReady ->
-                        "native-progress-fake-island-projected"
-                    !nativePaddingExpansionAllowed ->
-                        "internal-progress-island-projection-unavailable"
+                    genericIslandShowing == true -> "native-island-authority"
+                    !nativePaddingExpansionAllowed -> "native-padding-guard"
                     else -> "native-progress-total-padding"
                 } +
-                ",islandBoundaryProjection=" +
-                    when {
-                        fakeIslandBoundaryDeltaPx != null ->
-                            "active:delta=" + fakeIslandBoundaryDeltaPx
-                        fakeIslandBoundaryProjectionReady -> "ready"
-                        else -> "inactive"
-                    } +
                 "}"
 
         private fun statusIconCapacitySummary(): String {
@@ -1172,25 +1153,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.transitionReservationEnabled = transitionReservationEnabled
             this.genericIslandShowing = genericIslandShowing
 
-            val projectionRequired =
-                transitionReservationEnabled &&
-                    sourceScene == CombinedStatusSourceScene.HOME &&
-                    genericIslandShowing == true
-            this.fakeIslandBoundaryProjectionReady =
-                projectionRequired &&
-                    SystemUiPanelTransitionSource
-                        .isFakeIslandBoundaryProjectionAvailable()
-            if (!projectionRequired) {
-                SystemUiPanelTransitionSource
-                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                fakeIslandBoundaryDeltaPx = null
-            }
             this.nativePaddingExpansionAllowed =
                 Policy.allowsNativeTransitionPaddingExpansion(
                     sourceScene = sourceScene,
                     genericIslandShowing = genericIslandShowing,
-                    fakeIslandReservationBridgeReady =
-                        fakeIslandBoundaryProjectionReady,
                 )
             if (appearanceChanged) {
                 refreshNativePeerTint()
@@ -1203,10 +1169,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
                 "transition-" + source,
             )
-            SystemUiPanelTransitionSource
-                .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-            fakeIslandBoundaryProjectionReady = false
-            fakeIslandBoundaryDeltaPx = null
             genericIslandShowing = null
             if (!started) return
             started = false
@@ -2391,9 +2353,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         "transition-source-native-peer-motion",
                     )
                 }
-                SystemUiPanelTransitionSource
-                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                fakeIslandBoundaryDeltaPx = null
                 lastReservationWidthPx = null
                 lastNativeReservationWidthPx = null
                 return
@@ -2419,9 +2378,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     progress = progress,
                 )
 
-            // The logical reservation is Guiyuan-owned. HyperOS keeps sole
-            // ownership of islandWidth; the fake-only hook projects the
-            // collision read by the same delta as paddingEnd expands.
+            // The logical transition width is Guiyuan-owned. Native status-icon
+            // capacity and island collision remain HyperOS-owned.
             lastReservationWidthPx = requestedWidth
 
             if (!nativePaddingExpansionAllowed) {
@@ -2431,46 +2389,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     )
                     lastNativeReservationWidthPx = null
                 }
-                SystemUiPanelTransitionSource
-                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                fakeIslandBoundaryDeltaPx = null
                 return
-            }
-
-            val projectionRequired =
-                genericIslandShowing == true &&
-                    fakeIslandBoundaryProjectionReady
-            val paddingDelta = (requestedWidth - compactWidth).coerceAtLeast(0)
-            val previousProjectionDelta = fakeIslandBoundaryDeltaPx
-
-            // Install the collision-boundary projection before paddingEnd can
-            // request native layout. This keeps the peer-X shift and island
-            // threshold shift atomic from MiuiStatusIconContainer's view.
-            if (projectionRequired) {
-                val projected =
-                    SystemUiPanelTransitionSource
-                        .updateFakeIslandBoundaryProjection(
-                            container = fakeStatusIcons,
-                            transitionPaddingDeltaPx = paddingDelta,
-                        )
-                if (!projected) {
-                    SystemUiHomePresentationOwner
-                        .clearControlCenterTransitionReservation(
-                            "transition-island-projection-unavailable",
-                        )
-                    SystemUiPanelTransitionSource
-                        .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                    fakeIslandBoundaryProjectionReady = false
-                    fakeIslandBoundaryDeltaPx = null
-                    nativePaddingExpansionAllowed = false
-                    lastNativeReservationWidthPx = null
-                    return
-                }
-                fakeIslandBoundaryDeltaPx = paddingDelta
-            } else {
-                SystemUiPanelTransitionSource
-                    .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                fakeIslandBoundaryDeltaPx = null
             }
 
             if (lastNativeReservationWidthPx != requestedWidth) {
@@ -2480,31 +2399,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             requestedSlotWidthPx = requestedWidth,
                         )
                 if (!applied) {
-                    // Reservation did not advance, so restore the projection
-                    // to the boundary paired with the previously applied
-                    // padding. Never leave a future delta active by itself.
-                    if (projectionRequired && previousProjectionDelta != null) {
-                        val restored =
-                            SystemUiPanelTransitionSource
-                                .updateFakeIslandBoundaryProjection(
-                                    container = fakeStatusIcons,
-                                    transitionPaddingDeltaPx =
-                                        previousProjectionDelta,
-                                )
-                        if (restored) {
-                            fakeIslandBoundaryDeltaPx = previousProjectionDelta
-                        } else {
-                            SystemUiPanelTransitionSource
-                                .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                            fakeIslandBoundaryProjectionReady = false
-                            fakeIslandBoundaryDeltaPx = null
-                            nativePaddingExpansionAllowed = false
-                        }
-                    } else {
-                        SystemUiPanelTransitionSource
-                            .clearFakeIslandBoundaryProjection(fakeStatusIcons)
-                        fakeIslandBoundaryDeltaPx = null
-                    }
                     return
                 }
                 lastNativeReservationWidthPx = requestedWidth

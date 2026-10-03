@@ -1193,21 +1193,19 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun genericHomeIslandOnlyGuardsNativePaddingExpansion() {
+    fun genericIslandAlwaysPreservesNativePaddingAuthority() {
         assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     genericIslandShowing = true,
-                    fakeIslandReservationBridgeReady = false,
                 ),
         )
         assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy
+            !CombinedStatusControlCenterTransitionOwner.Policy
                 .allowsNativeTransitionPaddingExpansion(
-                    sourceScene = CombinedStatusSourceScene.HOME,
+                    sourceScene = CombinedStatusSourceScene.KEYGUARD,
                     genericIslandShowing = true,
-                    fakeIslandReservationBridgeReady = true,
                 ),
         )
         assertTrue(
@@ -1228,7 +1226,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             CombinedStatusControlCenterTransitionOwner.Policy
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.KEYGUARD,
-                    genericIslandShowing = true,
+                    genericIslandShowing = false,
                 ),
         )
         assertTrue(
@@ -1236,42 +1234,6 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.UNKNOWN,
                     genericIslandShowing = false,
-                ),
-        )
-    }
-
-    @Test
-    fun fakeIslandWidthCompensationPreservesRelativeCollisionBoundary() {
-        assertEquals(
-            220,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .compensateFakeIslandWidth(
-                    nativeIslandWidthPx = 220,
-                    transitionPaddingDeltaPx = 0,
-                ),
-        )
-        assertEquals(
-            130,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .compensateFakeIslandWidth(
-                    nativeIslandWidthPx = 220,
-                    transitionPaddingDeltaPx = 90,
-                ),
-        )
-        assertEquals(
-            0,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .compensateFakeIslandWidth(
-                    nativeIslandWidthPx = 220,
-                    transitionPaddingDeltaPx = 250,
-                ),
-        )
-        assertEquals(
-            -1,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .compensateFakeIslandWidth(
-                    nativeIslandWidthPx = -1,
-                    transitionPaddingDeltaPx = 90,
                 ),
         )
     }
