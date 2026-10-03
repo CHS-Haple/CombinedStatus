@@ -89,11 +89,11 @@ internal object CombinedStatusScenePolicy {
 
     fun shouldAcquireKeyguardControlCenterLease(
         sourceScene: CombinedStatusSourceScene,
-        keyguardRuntimeReady: Boolean,
+        keyguardPresentationReady: Boolean,
         nativeFraction: Float,
     ): Boolean =
         sourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            keyguardRuntimeReady &&
+            keyguardPresentationReady &&
             nativeFraction > 0f
 
     fun shouldReconcileControlCenterForKeyguardLifecycle(
