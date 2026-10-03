@@ -1111,7 +1111,7 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun keyguardBoundaryLayoutPrecommitRequiresHiddenIncomingKeyguard() {
+    fun keyguardBoundaryLayoutPrecommitRequiresHiddenNativeStatusIcons() {
         assertTrue(
             CombinedStatusScenePolicy.shouldPrecommitKeyguardBoundaryLayout(
                 featureEnabled = true,
@@ -1120,7 +1120,7 @@ class CombinedStatusScenePolicyTest {
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
                 nativeToLockScreenTarget = true,
-                keyguardHostShown = false,
+                statusIconsPresentationAlpha = 0f,
             ),
         )
         assertFalse(
@@ -1131,7 +1131,18 @@ class CombinedStatusScenePolicyTest {
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
                 nativeToLockScreenTarget = true,
-                keyguardHostShown = true,
+                statusIconsPresentationAlpha = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldPrecommitKeyguardBoundaryLayout(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                statusIconsPresentationAlpha = null,
             ),
         )
     }
