@@ -311,6 +311,22 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
+    fun islandKeepsHyperOsSlotTranslationAuthority() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner
+                .allowsNativeSlotTranslationCorrection(islandShowing = true),
+        )
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner
+                .allowsNativeSlotTranslationCorrection(islandShowing = false),
+        )
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner
+                .allowsNativeSlotTranslationCorrection(islandShowing = null),
+        )
+    }
+
+    @Test
     fun nativeSlotTranslationUsesStableStatusIconBoundary() {
         assertEquals(
             478f,
