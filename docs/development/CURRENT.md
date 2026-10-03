@@ -37,66 +37,66 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 655 is the current device candidate, based on Build 654 device evidence.
+Build 656 is the current focused device candidate. It is a single-variable correction on top of Build 655.
 
-Build 654 device feedback:
-- the native-fallback latch solved ownership contention by removing Guiyuan from the gesture, but that is not an acceptable product behavior;
-- the returned Build-654 diagnostic shows the island event was detected and latched before pull-down, then every Control Center transition sample reported `transitionOwner=inactive`;
-- this proves the all-native pull-down was the direct consequence of the Build-654 fallback design, not a missed island event or timing race;
-- Build 654 therefore remains a diagnostic checkpoint only and is rejected as the runtime solution.
+Build 655 device feedback:
+- Guiyuan transition remains present under island, and island mode correctly reports `reservationMode=native-island-authority` with no Guiyuan native reservation;
+- however non-represented native status icons are still removed too early: the steady Home row may show network-speed / VPN / other icons, then the first pull sample removes the icons that would not fit the fully-expanded island layout;
+- video evidence shows this happens before meaningful panel travel, then the remaining native row moves downward;
+- Build-655 diagnostics show the QS fake `system_icon_area` is already at the island/control-center width (`left=249,width=587`) and `MiuiStatusIconContainer` at `448px` from about fraction 0.11 through 0.86. The horizontal capacity is therefore effectively terminal while only root translation/alpha continues with gesture progress;
+- Build 655 proves the remaining issue is not the removed island-width hook and not the removed transition `paddingEnd` writer.
 
-Build 655 correction:
-- keep the event-driven island latch, but reinterpret it as a Control Center native-layout-authority mode instead of a Guiyuan/native fallback switch;
-- island mode no longer participates in `projectionReady()`; Guiyuan overlay and `CombinedStatusControlCenterTransitionOwner` stay active;
-- while island native-layout authority is latched, the QS fake presentation does not add `wifi/mobile/stacked_mobile/airplane/no_sim` to native ignored slots;
-- island mode does not write the QS fake `paddingEnd` reservation or fake-carrier capacity lease;
-- the represented Wi-Fi/mobile/battery views remain in HyperOS native measure/layout so dual-SIM structure, island collision/knife avoidance, and native target geometry stay authoritative;
-- Guiyuan only applies clip visual masks to the represented native views, retaining their measured geometry as transition targets without exposing duplicate icons;
-- if an island disappears while Control Center remains visible, native-layout authority stays latched until the panel closes, preventing a second layout-mode switch during one gesture;
-- after the panel closes and the island is gone, the existing compact Control Center presentation is prepared again;
-- Build-654 Home charging-island `mIsHideBattery -> combined_status` occupancy reconciliation and diagnostics are retained;
-- Build-652 charging Clip/tint/target timing and no-island transition behavior remain unchanged.
+Build 656 hypothesis and correction:
+- the native `combined_status` participant still intercepts `MiuiStatusBarFolmeViewState.applyToView(...)` and overwrites both `translationX` and `NewStatusIconState.layoutTranslationX` with Guiyuan's stable end-side slot anchor;
+- under island, HyperOS owns collision / visibility state and may consume that Folme layout translation while deciding which status icons fit;
+- forcing the Combined participant to its stable/final end-side translation can therefore make native island capacity resolve as if the participant had already reached its terminal layout on the first pull sample;
+- while the existing generic island source explicitly reports `showing=true`, Build 656 bypasses Guiyuan's Combined-slot translation correction and passes HyperOS' Folme state through unchanged;
+- ordinary non-island behavior keeps the existing stable-slot correction;
+- the bypass is diagnostic-visible as `nativeCombinedParticipant slotTranslation authority=hyperos-island bypass=true moduleStateWrites=0`.
 
-No timer, polling, delay, replacement island classifier, native peer translation writer, alpha writer, or island geometry patch is added.
+Build 655 native-layout-authority behavior, charging Clip/tint/target timing, target geometry, QS fake masking, and no-island transition behavior are otherwise unchanged.
+
+No timer, delay, new progress threshold, fake-row geometry write, island-width patch, native peer alpha/visibility write, or second motion system is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003655` / Build `20261003-655`.
-- Focused unit coverage now locks:
-  - island state latches native-layout authority for the active gesture;
-  - island native-layout authority does not block Guiyuan Control Center projection;
-  - island Control Center presentation cannot apply persistent ignored slots;
-  - island Control Center presentation cannot apply end reservation / fake-carrier capacity ownership;
-  - ordinary no-island Control Center still uses the existing compact ownership path.
-- Lifecycle review verified mode replacement restores the old session's end reservation, ignored slots, and clip state before the new session starts.
+- Candidate identity: `0.0.5` / versionCode `261003656` / Build `20261003-656`.
+- Focused unit coverage locks:
+  - explicit island showing => do not correct native Combined-slot Folme translation;
+  - explicit no-island / unknown state => preserve the existing normal stable-slot correction;
+  - existing native slot geometry and occupancy tests remain unchanged.
+- Runtime diff from Build 655 is limited to the island-aware translation bypass plus one diagnostic marker.
+- Lifecycle review: island state comes from the existing event-driven `SystemUiIslandMotionSource`; no new latch is introduced. Island dismissal automatically restores the previous normal correction path. Hot Reload / reset clears only the one-shot diagnostic marker.
 - Exact-HEAD Runtime CI is required before Canary.
-- Device evidence is mandatory because this changes QS fake ownership while preserving the existing transition pipeline.
+- Device evidence is mandatory because this tests whether the premature native icon cutover is caused by the project writing `layoutTranslationX`.
 
 ## Device gate
 
-Validate one signed Build-655 Canary:
+Validate one signed Build-656 Canary:
 
-1. Any active island event
-   - pull down Control Center and confirm Guiyuan transition is present again; it must not regress to Build-654 all-native pull-down;
-   - non-represented native status icons must keep HyperOS island avoidance/knife-hide behavior instead of being dragged by Guiyuan's fake-row ownership.
+1. Any active island event, slow pull
+   - steady Home native icons must remain present on first touch;
+   - network-speed / VPN / other non-represented icons must not disappear immediately merely because the final island layout cannot fit them;
+   - visibility/avoidance should evolve with HyperOS native gesture ownership rather than jump at gesture start;
+   - diagnostic should contain `authority=hyperos-island bypass=true`.
 
-2. Charging-only island + dual SIM
-   - the expected dual-SIM / dual-signal native structure must remain available throughout layout;
-   - left-side native status icons must not overlap the mobile presentation;
-   - Guiyuan mobile/Wi-Fi/battery transition should still animate toward the native targets.
+2. Native row motion
+   - native status icons should follow the stock HyperOS pull trajectory;
+   - specifically, no project-induced early terminal horizontal settlement before the visible downward motion.
 
-3. Island dismissal during an open gesture
-   - no second layout jump or compact re-entry during the same gesture;
-   - close Control Center, then reopen with no island and verify normal compact/no-island Build-652 behavior returns.
+3. Charging-only island + dual SIM
+   - preserve the expected dual-signal structure;
+   - no native-icon overlap with mobile signal;
+   - Guiyuan transition remains present.
 
 4. Regression
-   - ordinary no-island pull-down unchanged from Build 652/653;
-   - charging lightning Clip timing, tint, target reveal and target geometry unchanged;
-   - Hot Reload first pull and Keyguard/AOD behavior unchanged.
+   - ordinary no-island pull-down stays Build-652/655 behavior;
+   - charging lightning Clip/tint/target reveal unchanged;
+   - island dismissal, Hot Reload first pull, Keyguard/AOD unchanged.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 655. If green, request one signed Canary and freeze runtime for the focused island/native-layout device gate.
+Run exact-HEAD Runtime CI for Build 656. If green, request one signed Canary and freeze runtime for this single-variable device gate.
 
 ## Reference priority
 
