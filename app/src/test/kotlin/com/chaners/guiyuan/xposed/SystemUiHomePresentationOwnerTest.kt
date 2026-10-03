@@ -23,7 +23,7 @@ class SystemUiHomePresentationOwnerTest {
 
 
     @Test
-    fun islandControlCenterKeepsHyperOsNativeLayoutAuthority() {
+    fun islandControlCenterUsesProgressReservationWithoutFixedCapacityLease() {
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
                 .shouldApplyIgnoredSlots(
@@ -36,11 +36,20 @@ class SystemUiHomePresentationOwnerTest {
                 .shouldApplyEndReservation(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = true,
+                    transitionReservationActive = false,
                 ),
         )
         assertTrue(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyNativeLayoutPeerCapacityLease(
+                .shouldApplyEndReservation(
+                    surfaceName = "control-center-fake",
+                    nativeLayoutAuthority = true,
+                    transitionReservationActive = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
+                .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = true,
                 ),
@@ -57,11 +66,12 @@ class SystemUiHomePresentationOwnerTest {
                 .shouldApplyEndReservation(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = false,
+                    transitionReservationActive = false,
                 ),
         )
-        assertFalse(
+        assertTrue(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyNativeLayoutPeerCapacityLease(
+                .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = false,
                 ),
@@ -71,11 +81,12 @@ class SystemUiHomePresentationOwnerTest {
                 .shouldApplyEndReservation(
                     surfaceName = "home",
                     nativeLayoutAuthority = true,
+                    transitionReservationActive = false,
                 ),
         )
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyNativeLayoutPeerCapacityLease(
+                .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "home",
                     nativeLayoutAuthority = true,
                 ),

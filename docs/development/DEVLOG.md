@@ -2939,3 +2939,46 @@ Build 659 targeted the wrong semantic boundary and is superseded. The durable sp
 ### Validation
 
 Run exact-head Runtime CI, then one signed Canary. Device acceptance requires normal island slow-pull, charging island + dual SIM, no initial left jump, preserved native island avoidance, and ordinary no-island regression coverage.
+
+
+## 2026-10-03 — Build 661: restore progress-synchronous island occupancy; reject fixed island capacity
+
+**Type:** device-feedback correction / historical contract recovery  
+**Display version:** 0.0.5  
+**Build:** 661 / `20261003-661`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Device evidence
+
+Build 660 is rejected. Maintainer video reports:
+- island avoidance / knife-hide is gone;
+- pull-down still jumps native peers to their terminal horizontal arrangement at gesture entry, then the row mainly travels downward.
+
+The detailed diagnostic explains both symptoms. In early island samples the fake carrier is already widened to the fixed leased width, while peer `NewStatusIconState` stays normal rather than entering island-hide state. The lease therefore solved the Build-658 early disappearance only by removing the native capacity/collision pressure.
+
+### Historical match
+
+This reproduces the documented Build-506 failure class. Build 506 performed a one-shot final occupancy cutover and device evidence showed the native peer row jumped to final horizontal layout at gesture entry. Build 507 corrected it with a reservation derived continuously from raw HyperOS expansion progress.
+
+Build 660 used a different one-shot property (fixed carrier width), but violated the same rule: semantic occupancy must not become a second motion system.
+
+### Build-661 correction
+
+- Remove the Build-660 island-only fixed fake-carrier capacity lease.
+- Keep the accepted no-island Build-611/612 capacity lease unchanged.
+- Keep island-native-layout represented participants measured; do not restore persistent `ignoredSlots`.
+- Keep the Build-653-removed `getIslandTranslationX()` compensation absent.
+- Under an exact island-native-layout QS_FAKE Session, allow only the existing progress-synchronous semantic `statusIcons.paddingEnd` reservation.
+- Do not apply steady/base island padding before a transition reservation exists; clearing the transition restores the native baseline.
+- Allow the existing charging/Battery-Island reservation path only under exact island-native-layout authority, because Build 655 removed the compact reservation assumed by the older Build-494 exclusion.
+- Add explicit `islandNativeLayout` / `native-island-progress-padding` diagnostics.
+
+No peer `NewStatusIconState`, alpha, visibility, translation, island width, island boundary, animator, timer, delay or custom easing is written.
+
+### Review boundary
+
+The candidate intentionally re-tests a narrower variant of a historically blocked island-padding path. It does **not** restore the rejected Build-652 combination: there is no island-boundary projection/compensation hook and no represented-slot exclusion. HyperOS remains the island collision and child-state authority.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device acceptance requires progressive horizontal peer motion, restored island avoidance, charging island + dual SIM, no initial left jump, ordinary no-island regression, and one detailed diagnostic.
