@@ -112,6 +112,7 @@ internal object CombinedStatusScenePolicy {
         keyguardEnabled: Boolean,
         hostAttached: Boolean,
         aodBlocked: Boolean,
+        incomingBoundaryPresentationReady: Boolean = false,
         nativeFraction: Float,
     ): Boolean =
         leaseActive &&
@@ -119,8 +120,21 @@ internal object CombinedStatusScenePolicy {
             featureEnabled &&
             keyguardEnabled &&
             hostAttached &&
-            !aodBlocked &&
+            (!aodBlocked || incomingBoundaryPresentationReady) &&
             nativeFraction > 0f
+
+    fun incomingKeyguardPresentationReady(
+        visualHandoffActive: Boolean,
+        layoutPrecommitActive: Boolean,
+        compactLayoutReady: Boolean,
+        visualBoundaryReached: Boolean,
+        hostAttached: Boolean,
+    ): Boolean =
+        visualHandoffActive &&
+            layoutPrecommitActive &&
+            compactLayoutReady &&
+            visualBoundaryReached &&
+            hostAttached
 
     fun retainedTransitionSourceWitnessAvailable(
         widthPx: Int,
@@ -437,7 +451,11 @@ internal object CombinedStatusScenePolicy {
             if (alpha != null) {
                 when (lastStableFamilyScene) {
                     StableKeyguardAodScene.KEYGUARD ->
-                        if (alpha < 1f) return KeyguardAodProjection.NATIVE
+                        return if (alpha > 0f) {
+                            KeyguardAodProjection.KEYGUARD
+                        } else {
+                            KeyguardAodProjection.NATIVE
+                        }
 
                     StableKeyguardAodScene.AOD ->
                         return if (alpha > 0f) {
