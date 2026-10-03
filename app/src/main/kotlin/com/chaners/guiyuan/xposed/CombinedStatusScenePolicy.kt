@@ -185,8 +185,16 @@ internal object CombinedStatusScenePolicy {
         fullAodVisualBoundary: Boolean = false,
         homeAodTransitionOrigin: Boolean = false,
         homeAodTargetPrearm: Boolean = false,
+        homeNativeAodFallbackActive: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
+        if (
+            homeNativeAodFallbackActive &&
+            keyguardEnabled &&
+            !aodEnabled
+        ) {
+            return KeyguardAodProjection.NATIVE
+        }
         if (
             homeAodTransitionOrigin &&
             nativeToLockScreenTarget == false &&
