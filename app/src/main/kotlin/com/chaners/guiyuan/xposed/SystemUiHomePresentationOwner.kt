@@ -26,7 +26,11 @@ internal object SystemUiHomePresentationOwner {
         "combinedstatus.homePresentation.statusIconsLayout"
     private const val BATTERY_HIDE_HOOK_ID =
         "combinedstatus.homePresentation.batteryHideState"
+    private const val ISLAND_SHOWING_HOOK_ID =
+        "combinedstatus.homePresentation.fakeIslandShowing"
     private const val CONTROL_CENTER_FAKE_SURFACE = "control-center-fake"
+    private const val HOME_SURFACE = "home"
+    private const val HOOK_COUNT = 4
 
     private val representedSlots =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
@@ -34,6 +38,7 @@ internal object SystemUiHomePresentationOwner {
     private var measureHook: HookHandle? = null
     private var layoutHook: HookHandle? = null
     private var batteryHideHook: HookHandle? = null
+    private var islandShowingHook: HookHandle? = null
     private var ignoredSlotsField: Field? = null
     private var addIgnoredSlotsMethod: java.lang.reflect.Method? = null
     private var setIgnoredSlotsMethod: java.lang.reflect.Method? = null
@@ -49,9 +54,17 @@ internal object SystemUiHomePresentationOwner {
     private var keyguardEventSink: ((String) -> Unit)? = null
     private var keyguardFailNativeSink: ((String) -> Unit)? = null
     private var keyguardReadySink: ((StateResult.Active) -> Unit)? = null
+    private var steadyPeerMirrorActive = false
+    private var steadyPeerMirrorHiddenSlots: Set<String> = emptySet()
 
     val installedHookCount: Int
-        @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
+        @Synchronized get() =
+            listOfNotNull(
+                measureHook,
+                layoutHook,
+                batteryHideHook,
+                islandShowingHook,
+            ).size
 
     @Synchronized
     internal fun currentHomeRepresentedSlotOwnership(): Set<String> =
@@ -75,7 +88,7 @@ internal object SystemUiHomePresentationOwner {
         onEvent: ((String) -> Unit)? = null,
         onFailNative: ((String) -> Unit)? = null,
     ): InstallResult {
-        if (installedHookCount == 3) {
+        if (installedHookCount == HOOK_COUNT) {
             eventSink = onEvent
             failNativeSink = onFailNative
             return InstallResult.AlreadyInstalled
@@ -185,6 +198,18 @@ internal object SystemUiHomePresentationOwner {
                 }
                 ?.apply { isAccessible = true }
                 ?: return InstallResult.Failure("on-layout-contract-missing")
+        val getIslandShowing =
+            generateSequence(containerClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredMethods.firstOrNull { method ->
+                        method.name == "getIslandShowing" &&
+                            method.parameterCount == 0 &&
+                            method.returnType == Boolean::class.javaPrimitiveType
+                    }
+                }
+                .firstOrNull()
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("island-showing-contract-missing")
 
         eventSink = onEvent
         failNativeSink = onFailNative
@@ -233,9 +258,27 @@ internal object SystemUiHomePresentationOwner {
                 )
             }
 
+        val fourth =
+            runCatching {
+                module
+                    .hook(getIslandShowing)
+                    .setId(ISLAND_SHOWING_HOOK_ID)
+                    .intercept(islandShowingHooker())
+            }.getOrElse { error ->
+                runCatching { first.unhook() }
+                runCatching { second.unhook() }
+                runCatching { third.unhook() }
+                clearInstallState()
+                return InstallResult.Failure(
+                    "island-showing-hook-" +
+                        (error.message ?: error.javaClass.simpleName),
+                )
+            }
+
         measureHook = first
         layoutHook = second
         batteryHideHook = third
+        islandShowingHook = fourth
         return InstallResult.Installed
     }
 
@@ -244,7 +287,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 3) {
+        if (installedHookCount != HOOK_COUNT) {
             return StateResult.Failure("hooks-not-ready")
         }
         val hostView =
@@ -337,7 +380,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 3) {
+        if (installedHookCount != HOOK_COUNT) {
             return StateResult.Failure("hooks-not-ready")
         }
 
@@ -470,7 +513,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return ControlCenterStateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 3) {
+        if (installedHookCount != HOOK_COUNT) {
             return ControlCenterStateResult.Failure("hooks-not-ready")
         }
         if (host !== batteryContainer || host.javaClass.name != BATTERY_CONTAINER) {
@@ -641,6 +684,12 @@ internal object SystemUiHomePresentationOwner {
     fun deactivate(source: String): StateResult {
         val session = current ?: return StateResult.Inactive(0)
         current = null
+        steadyPeerMirrorActive = false
+        steadyPeerMirrorHiddenSlots = emptySet()
+        controlCenterCurrent?.updateSteadyPeerMirror(
+            active = false,
+            hiddenSlots = emptySet(),
+        )
         val restored = session.stop(source)
         eventSink?.invoke(
             "homePresentation inactive source=" + source +
@@ -686,6 +735,8 @@ internal object SystemUiHomePresentationOwner {
         keyguardEventSink = null
         keyguardFailNativeSink = null
         keyguardReadySink = null
+        steadyPeerMirrorActive = false
+        steadyPeerMirrorHiddenSlots = emptySet()
         return homeRestored + keyguardRestored + controlCenterRestored
     }
 
@@ -697,6 +748,7 @@ internal object SystemUiHomePresentationOwner {
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
         runCatching { batteryHideHook?.unhook() }
+        runCatching { islandShowingHook?.unhook() }
         clearInstallState()
     }
 
@@ -751,6 +803,7 @@ internal object SystemUiHomePresentationOwner {
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
             if (refreshMasksAfter) {
+                syncSteadyPeerMirrorAfterNativeLayout(session)
                 session.reportNativeSourceSyncDiagnosticAfterLayout()
             }
             if (
@@ -762,6 +815,80 @@ internal object SystemUiHomePresentationOwner {
             }
             result
         }
+
+    private fun islandShowingHooker(): Hooker =
+        Hooker { chain ->
+            val nativeResult = chain.proceed()
+            val nativeShowing =
+                nativeResult as? Boolean
+                    ?: return@Hooker nativeResult
+            val target =
+                chain.thisObject as? ViewGroup
+                    ?: return@Hooker nativeResult
+            val session =
+                synchronized(this) {
+                    controlCenterCurrent
+                        ?.takeIf { candidate -> candidate.owns(target) }
+                } ?: return@Hooker nativeResult
+            val exposed =
+                SteadyPeerMirrorPolicy.exposeFakeIslandShowing(
+                    nativeIslandShowing = nativeShowing,
+                    steadyMirrorActive = session.isSteadyPeerMirrorActive(),
+                )
+            if (nativeShowing && !exposed) {
+                session.reportSteadyPeerMirrorIslandSuppression()
+            }
+            exposed
+        }
+
+    private fun syncSteadyPeerMirrorAfterNativeLayout(session: Session) {
+        val role =
+            synchronized(this) {
+                when {
+                    current === session -> HOME_SURFACE
+                    controlCenterCurrent === session -> CONTROL_CENTER_FAKE_SURFACE
+                    else -> null
+                }
+            } ?: return
+
+        if (role == HOME_SURFACE) {
+            val snapshot = session.captureSteadyPeerMirror()
+            val fake =
+                synchronized(this) {
+                    val changed =
+                        steadyPeerMirrorActive != snapshot.active ||
+                            steadyPeerMirrorHiddenSlots != snapshot.hiddenSlots
+                    steadyPeerMirrorActive = snapshot.active
+                    steadyPeerMirrorHiddenSlots = snapshot.hiddenSlots
+                    if (changed) {
+                        eventSink?.invoke(
+                            "steadyPeerMirror source=home active=" + snapshot.active +
+                                " hiddenSlots=[" +
+                                snapshot.hiddenSlots.sorted().joinToString(",") +
+                                "] authority=home-native-island-state",
+                        )
+                    }
+                    controlCenterCurrent
+                }
+            fake?.updateSteadyPeerMirror(
+                active = snapshot.active,
+                hiddenSlots = snapshot.hiddenSlots,
+            )
+            return
+        }
+
+        val snapshot =
+            synchronized(this) {
+                SteadyPeerMirrorSnapshot(
+                    active = steadyPeerMirrorActive,
+                    hiddenSlots = steadyPeerMirrorHiddenSlots,
+                )
+            }
+        session.updateSteadyPeerMirror(
+            active = snapshot.active,
+            hiddenSlots = snapshot.hiddenSlots,
+        )
+    }
 
     private fun batteryHideStateHooker(): Hooker =
         Hooker { chain ->
@@ -784,6 +911,12 @@ internal object SystemUiHomePresentationOwner {
     private fun onSessionFailure(reason: String) {
         val session = current ?: return
         current = null
+        steadyPeerMirrorActive = false
+        steadyPeerMirrorHiddenSlots = emptySet()
+        controlCenterCurrent?.updateSteadyPeerMirror(
+            active = false,
+            hiddenSlots = emptySet(),
+        )
         session.stop("fail-native:" + reason)
         eventSink?.invoke(
             "homePresentation failNative reason=" + reason + " restoredNative=true",
@@ -881,6 +1014,7 @@ internal object SystemUiHomePresentationOwner {
         measureHook = null
         layoutHook = null
         batteryHideHook = null
+        islandShowingHook = null
         ignoredSlotsField = null
         addIgnoredSlotsMethod = null
         setIgnoredSlotsMethod = null
@@ -895,6 +1029,8 @@ internal object SystemUiHomePresentationOwner {
         keyguardEventSink = null
         keyguardFailNativeSink = null
         keyguardReadySink = null
+        steadyPeerMirrorActive = false
+        steadyPeerMirrorHiddenSlots = emptySet()
     }
 
     private class Session(
@@ -926,6 +1062,10 @@ internal object SystemUiHomePresentationOwner {
         private var layoutReadyCallback: ((Int) -> Unit)? = null
         private var lastReservationDelta: Int? = null
         private var lastNativeSourceSyncDiagnostic: String? = null
+        private var lastSteadyPeerMirrorDiagnostic: String? = null
+        private var steadyPeerMirrorActive = false
+        private var steadyPeerMirrorHiddenSlots: Set<String> = emptySet()
+        private var steadyPeerMirrorIslandSuppressionReported = false
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
         private var nativeFakeCarrierLayoutWidthPx: Int? = null
@@ -938,6 +1078,7 @@ internal object SystemUiHomePresentationOwner {
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
         private var transitionRequestedSlotWidthPx: Int? = null
         private val clipStates = mutableListOf<ClipState>()
+        private val mirroredPeerClipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
                     _,
@@ -1076,6 +1217,7 @@ internal object SystemUiHomePresentationOwner {
             if (
                 !active &&
                 clipStates.isEmpty() &&
+                mirroredPeerClipStates.isEmpty() &&
                 appliedPadding == null &&
                 appliedFakeCarrierWidthPx == null
             ) {
@@ -1093,7 +1235,7 @@ internal object SystemUiHomePresentationOwner {
                 restorePersistentIgnoredSlots(
                     requestLayout = requestLayout,
                 )
-            val restored = restoreClipMasks()
+            val restored = restoreClipMasks() + restoreMirroredPeerClipMasks()
             val explicitLayoutRequest =
                 requestLayout && ignoredSlotLifetime == IgnoredSlotLifetime.NATIVE_CALL
             if (explicitLayoutRequest) {
@@ -1394,9 +1536,15 @@ internal object SystemUiHomePresentationOwner {
             val capacityDeltaPx =
                 ensureFakeCarrierCapacityLease(hostView)
                     ?: return false
+            val capacityReservationDeltaPx =
+                EndReservationPolicy.resolveFakeCarrierCapacityRequirement(
+                    nativeHide = nativeHide,
+                    compactSlotWidthPx = compactSlotWidthPx,
+                    reservationDeltaPx = reservationDelta,
+                )
             if (
                 surfaceName == CONTROL_CENTER_FAKE_SURFACE &&
-                reservationDelta.coerceAtLeast(0) > capacityDeltaPx
+                capacityReservationDeltaPx > capacityDeltaPx
             ) {
                 onFailNative("fake-carrier-capacity-insufficient")
                 return false
@@ -1432,6 +1580,7 @@ internal object SystemUiHomePresentationOwner {
                         " appliedPaddingEnd=" + target.end +
                         " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
                         " fakeCarrierCapacityDelta=" + capacityDeltaPx +
+                        " fakeCarrierCapacityRequired=" + capacityReservationDeltaPx +
                         " carrierAuthority=battery_icon_container " +
                         "owner=qs-fake-capacity-lease+statusIcons-paddingEnd",
                 )
@@ -1761,11 +1910,134 @@ internal object SystemUiHomePresentationOwner {
                     " paddingEnd=" + group.paddingEnd +
                     " transitionReservation=" + (transitionRequestedSlotWidthPx ?: -1) +
                     " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
-                    " peers=[" + peers + "]"
+                    " steadyMirrorActive=" + steadyPeerMirrorActive +
+                    " steadyMirrorHidden=[" +
+                    steadyPeerMirrorHiddenSlots.sorted().joinToString(",") +
+                    "] peers=[" + peers + "]"
             if (snapshot != lastNativeSourceSyncDiagnostic) {
                 lastNativeSourceSyncDiagnostic = snapshot
                 onEvent(eventPrefix + " nativeSourceSyncDiag " + snapshot)
             }
+        }
+
+        fun captureSteadyPeerMirror(): SteadyPeerMirrorSnapshot {
+            if (!active || surfaceName != HOME_SURFACE) {
+                return SteadyPeerMirrorSnapshot(false, emptySet())
+            }
+            val islandShowing = SystemUiIslandMotionSource.currentIslandShowing() == true
+            if (!islandShowing) {
+                return SteadyPeerMirrorSnapshot(false, emptySet())
+            }
+            val group = statusIcons.get()
+                ?: return SteadyPeerMirrorSnapshot(false, emptySet())
+            val hidden =
+                buildSet {
+                    for (index in 0 until group.childCount) {
+                        val child = group.getChildAt(index)
+                        val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+                        if (slot in representedSlots) continue
+                        val state =
+                            SystemUiNativeNetworkSuppressionOwner
+                                .readTransitionIconState(group, child)
+                                ?: continue
+                        if (
+                            SteadyPeerMirrorPolicy.isIslandHidden(
+                                visibleState = state.visibleState,
+                                inIslandState = state.inIslandState,
+                            )
+                        ) {
+                            add(slot)
+                        }
+                    }
+                }
+            return SteadyPeerMirrorSnapshot(true, hidden)
+        }
+
+        fun updateSteadyPeerMirror(
+            active: Boolean,
+            hiddenSlots: Set<String>,
+        ) {
+            if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return
+            val normalized = if (active) hiddenSlots.toSet() else emptySet()
+            val changed =
+                steadyPeerMirrorActive != active ||
+                    steadyPeerMirrorHiddenSlots != normalized
+            steadyPeerMirrorActive = active
+            steadyPeerMirrorHiddenSlots = normalized
+            if (!active) {
+                steadyPeerMirrorIslandSuppressionReported = false
+            }
+            if (compactLayoutReady) {
+                refreshMirroredPeerClipMasks()
+            }
+            if (changed) {
+                val diagnostic =
+                    "active=" + active +
+                        " hiddenSlots=[" + normalized.sorted().joinToString(",") + "]"
+                if (diagnostic != lastSteadyPeerMirrorDiagnostic) {
+                    lastSteadyPeerMirrorDiagnostic = diagnostic
+                    onEvent(
+                        eventPrefix +
+                            " steadyPeerMirror " + diagnostic +
+                            " authority=home-native-island-state" +
+                            " nativeStateWrites=0",
+                    )
+                }
+            }
+        }
+
+        fun isSteadyPeerMirrorActive(): Boolean =
+            active &&
+                surfaceName == CONTROL_CENTER_FAKE_SURFACE &&
+                steadyPeerMirrorActive
+
+        fun reportSteadyPeerMirrorIslandSuppression() {
+            if (steadyPeerMirrorIslandSuppressionReported) return
+            steadyPeerMirrorIslandSuppressionReported = true
+            onEvent(
+                eventPrefix +
+                    " steadyPeerMirror fakeIslandShowing native=true exposed=false" +
+                    " authority=home-native-island-state nativeFieldWrites=0",
+            )
+        }
+
+        private fun refreshMirroredPeerClipMasks(): Int {
+            if (!active || surfaceName != CONTROL_CENTER_FAKE_SURFACE || !compactLayoutReady) {
+                return 0
+            }
+            val group = statusIcons.get() ?: return 0
+            val targets = linkedSetOf<View>()
+            if (steadyPeerMirrorActive) {
+                for (index in 0 until group.childCount) {
+                    val child = group.getChildAt(index)
+                    val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+                    if (slot !in representedSlots && slot in steadyPeerMirrorHiddenSlots) {
+                        targets += child
+                    }
+                }
+            }
+
+            val iterator = mirroredPeerClipStates.iterator()
+            while (iterator.hasNext()) {
+                val state = iterator.next()
+                val view = state.view.get()
+                if (view == null || view !in targets) {
+                    if (view != null) {
+                        restoreClipState(state)
+                    }
+                    iterator.remove()
+                }
+            }
+
+            targets.forEach { view ->
+                if (mirroredPeerClipStates.none { state -> state.view.get() === view }) {
+                    val nativeClip = view.clipBounds?.let(::Rect)
+                    val applied = Rect(0, 0, 0, 0)
+                    view.clipBounds = applied
+                    mirroredPeerClipStates += ClipState(WeakReference(view), nativeClip, applied)
+                }
+            }
+            return mirroredPeerClipStates.count { state -> state.view.get() != null }
         }
 
         fun refreshClipMasks(): Int {
@@ -1812,6 +2084,7 @@ internal object SystemUiHomePresentationOwner {
                     clipStates += ClipState(WeakReference(view), nativeClip, applied)
                 }
             }
+            refreshMirroredPeerClipMasks()
             return clipStates.count { state -> state.view.get() != null }
         }
 
@@ -1835,6 +2108,18 @@ internal object SystemUiHomePresentationOwner {
             return restored
         }
 
+        private fun restoreMirroredPeerClipMasks(): Int {
+            val states = mirroredPeerClipStates.toList()
+            mirroredPeerClipStates.clear()
+            var restored = 0
+            states.forEach { state ->
+                if (restoreClipState(state)) {
+                    restored += 1
+                }
+            }
+            return restored
+        }
+
         private fun restoreClipState(state: ClipState): Boolean {
             val view = state.view.get() ?: return false
             if (view.clipBounds != state.appliedClip) {
@@ -1843,6 +2128,29 @@ internal object SystemUiHomePresentationOwner {
             view.clipBounds = state.nativeClip?.let(::Rect)
             return view.clipBounds == state.nativeClip
         }
+    }
+
+    private data class SteadyPeerMirrorSnapshot(
+        val active: Boolean,
+        val hiddenSlots: Set<String>,
+    )
+
+    internal object SteadyPeerMirrorPolicy {
+        private const val VISIBLE_STATE_HIDDEN = 2
+        private const val ISLAND_STATE_HIDDEN = 10
+
+        fun isIslandHidden(
+            visibleState: Int?,
+            inIslandState: Int?,
+        ): Boolean =
+            visibleState == VISIBLE_STATE_HIDDEN &&
+                inIslandState == ISLAND_STATE_HIDDEN
+
+        fun exposeFakeIslandShowing(
+            nativeIslandShowing: Boolean,
+            steadyMirrorActive: Boolean,
+        ): Boolean =
+            nativeIslandShowing && !steadyMirrorActive
     }
 
     private data class ClipState(
@@ -1943,6 +2251,19 @@ internal object SystemUiHomePresentationOwner {
                 requested
             } else {
                 requested - actual
+            }
+        }
+
+        fun resolveFakeCarrierCapacityRequirement(
+            nativeHide: Boolean,
+            compactSlotWidthPx: Int,
+            reservationDeltaPx: Int,
+        ): Int {
+            val reservation = reservationDeltaPx.coerceAtLeast(0)
+            return if (nativeHide) {
+                (reservation - compactSlotWidthPx.coerceAtLeast(0)).coerceAtLeast(0)
+            } else {
+                reservation
             }
         }
 

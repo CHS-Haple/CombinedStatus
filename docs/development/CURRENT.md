@@ -48,3 +48,32 @@ Immediate device gate:
 2. ordinary island: watch for any new premature native hide/knife behavior;
 3. charging island + dual SIM: both mobile targets should unfold consistently toward the final row;
 4. no-island pull remains a regression check.
+
+
+## Build 676 steady-result mirror
+
+Build 675 device evidence establishes two independent facts:
+- charging-island transition reaches `failNative(fake-carrier-capacity-insufficient)` when total native-hide reservation consumes the fixed lease; the compact 105px combined slot was being counted twice;
+- under every active island, Home and QS_FAKE can hold different native peer island states, so letting the altered fake row independently decide island membership does not reproduce HyperOS steady-state behavior.
+
+Build 676 implements the corrected ownership model:
+- Home native `NewStatusIconState` is the sole island peer-membership authority;
+- after each Home native layout, non-represented slots in the exact native hidden island state are captured as a live set;
+- the current QS_FAKE mirrors only that set through reversible slot-rematched empty clips;
+- while that live Home mirror is active, exact QS_FAKE `getIslandShowing()` is exposed as false so the fake row cannot make a second island-hide decision from Guiyuan-altered geometry;
+- no child native state, alpha, visibility, translation, island width/rect, timer, polling loop, or custom collision algorithm is written;
+- charging-island capacity validation now counts only reservation growth beyond the compact combined slot.
+
+Temporary `nativeSourceSyncDiag` remains enabled. New bounded `steadyPeerMirror` events report only mirror state changes.
+
+Device gate:
+1. ordinary island: fake peer count must match Home steady and follow later island growth/shrink;
+2. charging island: no `fake-carrier-capacity-insufficient`, no mid-gesture native takeover, reverse must remain Guiyuan-owned;
+3. charging island + dual SIM: both mobile targets remain available for the transition;
+4. no-island behavior remains unchanged.
+
+
+Lifecycle review: Home deactivation and Hot Reload release both clear the live steady-peer mirror before any later Control Center session can reuse it.
+
+
+Home fail-native cleanup also clears the mirror and releases any current fake peer clips before propagating fallback.
