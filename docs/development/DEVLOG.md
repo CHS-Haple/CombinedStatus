@@ -2857,3 +2857,16 @@ No new hook, listener, timer, polling path, layout request, geometry write, nati
 ### Validation
 Exact-HEAD Runtime CI, then one signed Canary. One active-island slow pull plus a detailed diagnostic is sufficient to choose between terminal island-width input and child-state-machine cutover.
 
+## 2026-10-03 — Build 658 native island-state accessor correction
+
+**Type:** read-only diagnostic precision correction  
+**Display version:** 0.0.5  
+**Build:** 658 / `20261003-658`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+Post-commit review of Build 657 found that direct reflection on the child View is weaker than an already-established project seam: `SystemUiNativeNetworkSuppressionOwner` resolves each child's real `NewStatusIconState` through `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)`.
+
+Build 658 exposes that existing read-only helper internally and reuses it for the QS_FAKE diagnostic. Group-level reflection remains limited to `islandWidth`, `islandWidthChanged`, `ignoredSlots`, and the native panel-expansion flags. The marker advances to `islandProbe=v2`.
+
+No functional ownership changes. Build 657 is superseded before Canary; only exact-HEAD Build 658 should be device-tested.
+

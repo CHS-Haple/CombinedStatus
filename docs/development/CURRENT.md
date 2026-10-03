@@ -37,7 +37,7 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 657 is the current focused diagnostic candidate after Build 656 device evidence rejected the participant-translation hypothesis.
+Build 658 is the current focused diagnostic candidate after Build 656 device evidence rejected the participant-translation hypothesis and post-commit review found a more authoritative state-read seam than the first Build-657 probe.
 
 Build 656 device evidence:
 - the reported island pull-down defect is unchanged: native icons beyond the island capacity disappear immediately, while the surviving native row then continues its pull motion;
@@ -48,15 +48,16 @@ Build 656 device evidence:
 
 The remaining causal boundary is therefore inside the QS_FAKE `MiuiStatusIconContainer` island-state / visible-state calculation, before the later fake-root motion can change what the user sees.
 
-Build 657 is observation-only:
+Build 658 is observation-only:
 - no geometry, alpha, visibility, padding, ignored-slot, translation, timing, island width, or animation state is written;
-- the existing bounded transition diagnostic now records the fake/final status-row `islandWidth`, `islandWidthChanged`, and `ignoredSlots`;
-- for the already-bounded first native children it also records `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, and `layoutTranslationX`;
-- the probe runs only where the existing detailed transition diagnostic is emitted and is tagged `islandProbe=v1`.
+- the existing bounded transition diagnostic records the fake/final status-row `islandWidth`, `islandWidthChanged`, `ignoredSlots`, plus native panel-expansion flags;
+- child island state is read through the project's already-verified `MiuiStatusIconContainer$Companion.access$getViewStateFromChild(View)` seam instead of guessing equivalent fields on the View object;
+- the native state object supplies `visibleState`, `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, and `layoutTranslationX`;
+- the probe runs only where the existing detailed transition diagnostic is emitted and is tagged `islandProbe=v2`.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003657` / Build `20261003-657`.
+- Candidate identity: `0.0.5` / versionCode `261003658` / Build `20261003-658`.
 - Runtime behavior is intentionally identical to Build 656.
 - Review boundary: reflection is read-only, bounded to existing diagnostic emission, and introduces no new hook/listener/state machine.
 - Exact-HEAD Runtime CI is required before Canary.
@@ -64,19 +65,19 @@ Build 657 is observation-only:
 
 ## Device gate
 
-Validate one signed Build-657 Canary:
+Validate one signed Build-658 Canary:
 
 1. Trigger any island event and keep it active.
 2. From Home, perform one slow Control Center pull-down through the point where the native icons disappear / move.
 3. Close Control Center and export one detailed diagnostic.
 
-Expected visual result is intentionally unchanged from Build 656. The diagnostic must contain `islandProbe=v1`; the captured fake-row values will decide the next runtime correction.
+Expected visual result is intentionally unchanged from Build 656. The diagnostic must contain `islandProbe=v2`; the captured fake-row values will decide the next runtime correction.
 
 No Keyguard/AOD validation is required for this checkpoint.
 
 ## Immediate next step
 
-Run exact-HEAD Runtime CI for Build 657. If green, request one signed Canary and freeze runtime until the focused island diagnostic returns.
+Run exact-HEAD Runtime CI for Build 658. If green, request one signed Canary and freeze runtime until the focused island diagnostic returns.
 
 ## Reference priority
 

@@ -1074,21 +1074,35 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     else -> value.toString()
                 }
 
-            fun groupIslandToken(group: ViewGroup): String =
-                "islandProbe=v1" +
+            fun groupIslandToken(group: ViewGroup): String {
+                val animatorController = readFieldValue(group, "animatorController")
+                return "islandProbe=v2" +
                     "/islandWidth=" + valueToken(readFieldValue(group, "islandWidth")) +
                     "/islandWidthChanged=" +
                     valueToken(readFieldValue(group, "islandWidthChanged")) +
-                    "/ignoredSlots=" + valueToken(readFieldValue(group, "ignoredSlots"))
+                    "/ignoredSlots=" + valueToken(readFieldValue(group, "ignoredSlots")) +
+                    "/notificationPanelExpand=" +
+                    valueToken(
+                        animatorController?.let { controller ->
+                            readFieldValue(controller, "notificationPanelExpand")
+                        },
+                    ) +
+                    "/controlPanelExpand=" +
+                    valueToken(
+                        animatorController?.let { controller ->
+                            readFieldValue(controller, "controlPanelExpand")
+                        },
+                    )
+            }
 
-            fun childIslandToken(child: View): String =
-                "island={in=" + valueToken(readFieldValue(child, "inIslandState")) +
-                    ",before=" + valueToken(readFieldValue(child, "beforeInIslandState")) +
-                    ",changed=" + valueToken(readFieldValue(child, "islandChanged")) +
-                    ",supportAnim=" + valueToken(readFieldValue(child, "supportAnim")) +
-                    ",forceAppear=" + valueToken(readFieldValue(child, "forceAppear")) +
-                    ",layoutTx=" + valueToken(readFieldValue(child, "layoutTranslationX")) +
-                    "}"
+            fun childIslandToken(
+                group: ViewGroup,
+                child: View,
+            ): String =
+                SystemUiNativeNetworkSuppressionOwner
+                    .readTransitionIconState(group, child)
+                    ?.let { state -> "islandState=" + state.summary }
+                    ?: "islandState=unavailable"
 
             fun groupToken(group: ViewGroup): String {
                 val children =
@@ -1112,7 +1126,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     ",l=" + child.left +
                                     ",r=" + child.right +
                                     ",w=" + child.width +
-                                    "," + childIslandToken(child) + ")",
+                                    "," + childIslandToken(group, child) + ")",
                             )
                         }
                     }.joinToString(",")
