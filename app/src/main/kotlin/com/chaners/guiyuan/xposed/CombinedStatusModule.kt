@@ -1957,6 +1957,9 @@ class CombinedStatusModule : XposedModule() {
             SystemUiHomePresentationOwner
                 .currentHomeRepresentedSlotOwnership()
                 .isNotEmpty()
+        val homeCarrierVisibleAtStart =
+            SystemUiHomePresentationOwner
+                .currentHomeCarrierPresentationVisible()
 
         keyguardAodFullTransitionActive = true
         keyguardAodPendingTargetToLockScreen = null
@@ -1966,8 +1969,8 @@ class CombinedStatusModule : XposedModule() {
                 featureEnabled = settings.enabled,
                 keyguardEnabled = settings.keyguardEnabled,
                 aodEnabled = settings.aodEnabled,
-                steadySourceScene = steadyStatusSourceScene,
                 homePresentationOwned = homeOwnedAtStart,
+                homeCarrierPresentationVisible = homeCarrierVisibleAtStart,
             )
         ) {
             homeNativeAodFallbackCandidate = true
@@ -2001,6 +2004,7 @@ class CombinedStatusModule : XposedModule() {
             "homeNativeAodFallbackCandidate" to homeNativeAodFallbackCandidate,
             "homeNativeAodFallbackActive" to homeNativeAodFallbackActive,
             "homePresentationOwnedAtStart" to homeOwnedAtStart,
+            "homeCarrierVisibleAtStart" to homeCarrierVisibleAtStart,
             "eventDriven" to true,
             "readOnly" to true,
             "nativeGeometryWrites" to 0,
@@ -2670,7 +2674,6 @@ class CombinedStatusModule : XposedModule() {
         }
         if (sourceScene == CombinedStatusSourceScene.HOME) {
             if (!keyguardAodFullTransitionActive) {
-                homeNativeAodFallbackCandidate = false
                 homeNativeAodFallbackActive = false
             }
             // UNLOCKED_STATUS_BAR + Home ancestry is the authoritative unlock
