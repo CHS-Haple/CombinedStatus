@@ -2786,3 +2786,47 @@ Mode replacement stops the previous Control Center presentation first, restoring
 ### Device gate
 
 Confirm Guiyuan transition returns under active islands, native non-represented status icons keep HyperOS island avoidance, charging-only island preserves dual-SIM layout without overlap, and no-island behavior remains Build-652-equivalent.
+
+
+## 2026-10-03 — Build 656: keep HyperOS Folme slot translation authoritative under island
+
+**Type:** focused device-feedback correction  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 655 -> 656
+
+### Device evidence
+
+Build 655 restored Guiyuan's island Control Center transition without reviving the removed island-width/padding writers, but the native status-icon row still settled too early.
+
+Returned video evidence shows a steady island Home row with network-speed / VPN / neighboring native icons. At the first meaningful pull movement, icons that do not fit the fully-expanded island layout disappear immediately while the surviving row has only begun its downward motion.
+
+Build-655 diagnostics independently show the QS fake native layout already fixed at `system_icon_area left=249,width=587` and `MiuiStatusIconContainer width=448` from roughly fraction 0.11 through 0.86. The native reservation is absent and `reservationMode=native-island-authority`, so the old Guiyuan transition-padding path is no longer the cause.
+
+### Remaining writer found
+
+The native `combined_status` participant still hooks `MiuiStatusBarFolmeViewState.applyToView(...)`. Before HyperOS applies `NewStatusIconState`, Guiyuan overwrites:
+- `translationX`;
+- `layoutTranslationX`;
+
+with a stable end-side slot translation resolved from Guiyuan's captured status-icon boundary.
+
+That correction is useful for ordinary Home participant alignment, but under island it competes with HyperOS' own Folme/island motion state. In particular, changing `layoutTranslationX` before native application can expose a terminal slot position to the platform while the pull is still at its first samples.
+
+### Build-656 correction
+
+- Reuse the existing event-driven `SystemUiIslandMotionSource.currentIslandShowing()` authority.
+- When it explicitly reports an active island, do not modify either Folme translation field; call through to HyperOS unchanged.
+- Keep the existing stable-slot translation correction for ordinary no-island and not-yet-observed state.
+- Add a one-shot diagnostic:
+  `nativeCombinedParticipant slotTranslation authority=hyperos-island bypass=true moduleStateWrites=0`.
+- Add focused unit coverage proving explicit island disables the correction and normal/unknown state preserves it.
+
+No fake-row geometry, padding, ignored-slot, alpha, visibility, expansion progress, target geometry, tint, or charging timing is changed.
+
+### Lifecycle review
+
+No new latch is introduced. Island entry/exit is owned by the existing island source. Leaving island automatically returns to the pre-existing non-island translation correction. Hot Reload / runtime reset clears only the one-shot bypass diagnostic flag.
+
+### Device gate
+
+Slow-pull any island and verify that native icons do not disappear on first touch. Their island avoidance should remain HyperOS-owned and evolve with native motion. Also retest charging-only island + dual SIM and ordinary no-island pull-down.
