@@ -559,6 +559,7 @@ class CombinedStatusModule : XposedModule() {
                         }
                     },
                     onFailNative = ::onHomePresentationRuntimeFailure,
+                    isProbeEnabled = { detailedDiagnosticsEnabled },
                 )
         ) {
             SystemUiHomePresentationOwner.InstallResult.Installed,

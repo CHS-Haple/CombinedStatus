@@ -1,5 +1,14 @@
 # Current Development State
 
+## 2026-10-03 — Build 667: trace the real QS_FAKE island-constraint seam
+
+Build 665 is rejected by device evidence. Its fake-only `getIslandShowing()` 2D gate produced no `island2DGate` event and the visual result was unchanged. The detailed log kept `network_speed` / `vpn` at native `inIslandState=10` after the fake row had already moved vertically below the island, while the transition diagnostic reported the gate geometry/state unavailable. This proves the getter seam is not the production input used by QS_FAKE island layout on this target.
+
+Exact-target reference remains authoritative: `FakeContainerIslandMonitor` collects `StatusBarIslandControllerImpl.statusContainerSpace`, feeds the fake `MiuiStatusIconContainer` island-width contract, marks the island-width change and requests native layout. Build 667 restores Build-664/663 runtime behavior and adds only a bounded, read-only contract probe for the live QS_FAKE view/delegate/object graph. It records island/monitor/space/delegate/controller-related fields and methods once when the fake Session starts under detailed diagnostics. The probe is not part of the pull-down hot path and performs no native geometry/state writes.
+
+Device gate: one active-island Home -> Control Center pull and one detailed diagnostic. The next functional correction must target the verified monitor/statusContainerSpace seam; do not revive the rejected getter gate, island-boundary compensation, fixed carrier lease, or per-peer geometry writes.
+
+
 This file is the concise recovery point for active Guiyuan development. Historical Build chronology, rejected hypotheses, detailed CI records, and device-by-device reasoning belong in `DEVLOG.md`.
 
 ## Accepted baseline

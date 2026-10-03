@@ -3159,3 +3159,16 @@ No new timer, poller, animator, callback, requestLayout, per-peer transition wri
 ### Validation
 
 Exact-head Runtime CI, then one signed Canary. Acceptance requires native collision while overlapping, release immediately after real 2D separation, re-engagement on reverse overlap, charging-island + dual-SIM sanity, ordinary no-island regression, and one detailed diagnostic.
+
+
+## 2026-10-03 — Build 667: retire ineffective getter gate; probe QS_FAKE island monitor contract
+
+**Type:** diagnostic / root-cause correction  
+**Build:** 667 / `20261003-667`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+Build 665 showed no visual change. Detailed device evidence contained no `island2DGate` event, while fake peers still entered `inIslandState=10` after the row had vertically cleared the island. The `MiuiStatusIconContainer.getIslandShowing()` hook is therefore not the active QS_FAKE island-layout input on this target and is removed.
+
+Build 667 restores the accepted Build-664/663 runtime path and adds one read-only, detailed-diagnostics-only contract probe. On the first Control Center fake Session it walks a bounded view/delegate object graph and records only fields/methods whose names or types are related to island / monitor / space / delegate / controller. This is session-time evidence only: no per-frame reflection, no animator, no timer, no child-state writes, no island-width writes, and no geometry writes.
+
+The target seam to verify is the exact-reference chain `FakeContainerIslandMonitor -> statusContainerSpace -> fake MiuiStatusIconContainer island-width/layout`. One detailed device log is required before any functional interception is added.

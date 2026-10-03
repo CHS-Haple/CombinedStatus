@@ -24,8 +24,6 @@ internal object SystemUiIslandMotionSource {
     private const val HOOK_ID = "combinedstatus.island.home.status"
     private const val BATTERY_VIEW_FIELD = "mBatteryView"
     private const val ISLAND_CONTROLLER_FIELD = "islandController"
-    private const val ISLAND_STATE_HANDLER_FIELD = "islandStateHandler"
-    private const val ISLAND_RECT_FIELD = "islandRect"
     private const val GEOMETRY_PROBE_MAX_ENTRIES = 32
     private const val GEOMETRY_PROBE_MAX_OBJECTS = 12
     private const val GEOMETRY_PROBE_MAX_DEPTH = 2
@@ -39,15 +37,9 @@ internal object SystemUiIslandMotionSource {
             BATTERY_VIEW_FIELD,
         )
 
-    @Volatile
     private var injectorRef = WeakReference<Any>(null)
     private var diagnosticFields: List<Pair<String, Field>> = emptyList()
-    @Volatile
     private var islandControllerField: Field? = null
-    @Volatile
-    private var islandStateHandlerField: Field? = null
-    @Volatile
-    private var islandRectField: Field? = null
     @Volatile
     private var islandShowing: Boolean? = null
 
@@ -69,9 +61,13 @@ internal object SystemUiIslandMotionSource {
             ).apply { isAccessible = true }
         val diagnosticsEnabled = onEvent != null
         val outerField =
-            listenerClass.declaredFields
-                .firstOrNull { it.type == injectorClass }
-                ?.apply { isAccessible = true }
+            if (diagnosticsEnabled) {
+                listenerClass.declaredFields
+                    .firstOrNull { it.type == injectorClass }
+                    ?.apply { isAccessible = true }
+            } else {
+                null
+            }
         val resolvedDiagnosticFields =
             if (diagnosticsEnabled) {
                 diagnosticTrackedNames.mapNotNull { name ->
@@ -83,10 +79,15 @@ internal object SystemUiIslandMotionSource {
                 emptyList()
             }
         val resolvedIslandControllerField =
-            findFieldInHierarchy(
-                clazz = injectorClass,
-                name = ISLAND_CONTROLLER_FIELD,
-            )
+            if (diagnosticsEnabled) {
+                runCatching {
+                    injectorClass
+                        .getDeclaredField(ISLAND_CONTROLLER_FIELD)
+                        .apply { isAccessible = true }
+                }.getOrNull()
+            } else {
+                null
+            }
         synchronized(this) {
             diagnosticFields = resolvedDiagnosticFields
             islandControllerField = resolvedIslandControllerField
@@ -144,59 +145,6 @@ internal object SystemUiIslandMotionSource {
     @Synchronized
     fun currentIslandShowing(): Boolean? = islandShowing
 
-    /**
-     * Copies HyperOS' live island rectangle into [out].
-     *
-     * The exact field path was verified on the pinned target by Build 664:
-     * HomeStatusBarViewBinderInjector.islandController
-     *   -> StatusBarIslandControllerImpl.islandStateHandler
-     *   -> islandRect.
-     *
-     * Field discovery occurs only once on first successful access. The hot path
-     * performs direct cached Field.get calls and Rect.set only.
-     */
-    fun copyCurrentIslandRect(out: Rect): Boolean {
-        val injector = injectorRef.get() ?: return false
-        val controllerField = islandControllerField ?: return false
-        val controller =
-            try {
-                controllerField.get(injector)
-            } catch (_: Throwable) {
-                return false
-            } ?: return false
-
-        val handlerField =
-            islandStateHandlerField
-                ?: findFieldInHierarchy(
-                    clazz = controller.javaClass,
-                    name = ISLAND_STATE_HANDLER_FIELD,
-                )?.also { islandStateHandlerField = it }
-                ?: return false
-        val handler =
-            try {
-                handlerField.get(controller)
-            } catch (_: Throwable) {
-                return false
-            } ?: return false
-
-        val rectField =
-            islandRectField
-                ?: findFieldInHierarchy(
-                    clazz = handler.javaClass,
-                    name = ISLAND_RECT_FIELD,
-                )?.also { islandRectField = it }
-                ?: return false
-        val liveRect =
-            try {
-                rectField.get(handler) as? Rect
-            } catch (_: Throwable) {
-                null
-            } ?: return false
-        if (liveRect.isEmpty) return false
-        out.set(liveRect)
-        return true
-    }
-
     @Synchronized
     fun currentOwnerSnapshot(): OwnerSnapshot? {
         val injector = injectorRef.get() ?: return null
@@ -222,8 +170,6 @@ internal object SystemUiIslandMotionSource {
             injectorRef = WeakReference(null)
             diagnosticFields = emptyList()
             islandControllerField = null
-            islandStateHandlerField = null
-            islandRectField = null
             islandShowing = null
         }
     }
@@ -463,20 +409,6 @@ internal object SystemUiIslandMotionSource {
             value !is Boolean &&
             value !is String &&
             value !is Enum<*>
-
-    private fun findFieldInHierarchy(
-        clazz: Class<*>,
-        name: String,
-    ): Field? =
-        generateSequence<Class<*>>(clazz) { current -> current.superclass }
-            .takeWhile { current -> current != Any::class.java }
-            .mapNotNull { current ->
-                runCatching {
-                    current.getDeclaredField(name)
-                        .apply { isAccessible = true }
-                }.getOrNull()
-            }
-            .firstOrNull()
 
     private fun fieldsOf(clazz: Class<*>): List<Field> {
         val fields = ArrayList<Field>()

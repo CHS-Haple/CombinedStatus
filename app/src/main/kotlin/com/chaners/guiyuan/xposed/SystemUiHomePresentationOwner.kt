@@ -9,6 +9,10 @@ import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
+import java.lang.reflect.Modifier
+import java.util.ArrayDeque
+import java.util.Collections
+import java.util.IdentityHashMap
 
 internal object SystemUiHomePresentationOwner {
     private const val HOME_HOST =
@@ -26,10 +30,7 @@ internal object SystemUiHomePresentationOwner {
         "combinedstatus.homePresentation.statusIconsLayout"
     private const val BATTERY_HIDE_HOOK_ID =
         "combinedstatus.homePresentation.batteryHideState"
-    private const val ISLAND_SHOWING_HOOK_ID =
-        "combinedstatus.homePresentation.fakeIslandShowing2D"
     private const val CONTROL_CENTER_FAKE_SURFACE = "control-center-fake"
-    private const val HOOK_COUNT = 4
 
     private val representedSlots =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
@@ -37,7 +38,6 @@ internal object SystemUiHomePresentationOwner {
     private var measureHook: HookHandle? = null
     private var layoutHook: HookHandle? = null
     private var batteryHideHook: HookHandle? = null
-    private var islandShowingHook: HookHandle? = null
     private var ignoredSlotsField: Field? = null
     private var addIgnoredSlotsMethod: java.lang.reflect.Method? = null
     private var setIgnoredSlotsMethod: java.lang.reflect.Method? = null
@@ -53,15 +53,10 @@ internal object SystemUiHomePresentationOwner {
     private var keyguardEventSink: ((String) -> Unit)? = null
     private var keyguardFailNativeSink: ((String) -> Unit)? = null
     private var keyguardReadySink: ((StateResult.Active) -> Unit)? = null
+    private var contractProbeEnabled: () -> Boolean = { false }
 
     val installedHookCount: Int
-        @Synchronized get() =
-            listOfNotNull(
-                measureHook,
-                layoutHook,
-                batteryHideHook,
-                islandShowingHook,
-            ).size
+        @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
 
     @Synchronized
     internal fun currentHomeRepresentedSlotOwnership(): Set<String> =
@@ -88,10 +83,12 @@ internal object SystemUiHomePresentationOwner {
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
         onFailNative: ((String) -> Unit)? = null,
+        isProbeEnabled: () -> Boolean = { false },
     ): InstallResult {
-        if (installedHookCount == HOOK_COUNT) {
+        if (installedHookCount == 3) {
             eventSink = onEvent
             failNativeSink = onFailNative
+            contractProbeEnabled = isProbeEnabled
             return InstallResult.AlreadyInstalled
         }
         if (installedHookCount != 0) {
@@ -199,21 +196,10 @@ internal object SystemUiHomePresentationOwner {
                 }
                 ?.apply { isAccessible = true }
                 ?: return InstallResult.Failure("on-layout-contract-missing")
-        val getIslandShowing =
-            generateSequence(containerClass) { clazz -> clazz.superclass }
-                .mapNotNull { clazz ->
-                    clazz.declaredMethods.firstOrNull { method ->
-                        method.name == "getIslandShowing" &&
-                            method.parameterCount == 0 &&
-                            method.returnType == Boolean::class.javaPrimitiveType
-                    }
-                }
-                .firstOrNull()
-                ?.apply { isAccessible = true }
-                ?: return InstallResult.Failure("island-showing-contract-missing")
 
         eventSink = onEvent
         failNativeSink = onFailNative
+        contractProbeEnabled = isProbeEnabled
         ignoredSlotsField = field
         addIgnoredSlotsMethod = addIgnoredSlots
         setIgnoredSlotsMethod = setIgnoredSlots
@@ -258,26 +244,10 @@ internal object SystemUiHomePresentationOwner {
                     "battery-hide-hook-" + (error.message ?: error.javaClass.simpleName),
                 )
             }
-        val fourth =
-            runCatching {
-                module
-                    .hook(getIslandShowing)
-                    .setId(ISLAND_SHOWING_HOOK_ID)
-                    .intercept(islandShowingHooker())
-            }.getOrElse { error ->
-                runCatching { first.unhook() }
-                runCatching { second.unhook() }
-                runCatching { third.unhook() }
-                clearInstallState()
-                return InstallResult.Failure(
-                    "island-showing-hook-" + (error.message ?: error.javaClass.simpleName),
-                )
-            }
 
         measureHook = first
         layoutHook = second
         batteryHideHook = third
-        islandShowingHook = fourth
         return InstallResult.Installed
     }
 
@@ -286,7 +256,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != HOOK_COUNT) {
+        if (installedHookCount != 3) {
             return StateResult.Failure("hooks-not-ready")
         }
         val hostView =
@@ -379,7 +349,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != HOOK_COUNT) {
+        if (installedHookCount != 3) {
             return StateResult.Failure("hooks-not-ready")
         }
 
@@ -513,7 +483,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return ControlCenterStateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != HOOK_COUNT) {
+        if (installedHookCount != 3) {
             return ControlCenterStateResult.Failure("hooks-not-ready")
         }
         if (host !== batteryContainer || host.javaClass.name != BATTERY_CONTAINER) {
@@ -604,6 +574,7 @@ internal object SystemUiHomePresentationOwner {
                 eventPrefix = "controlCenterPresentation",
                 retainReservationOnTransientLiveWidthLoss = true,
                 nativeLayoutAuthority = nativeLayoutAuthority,
+                isProbeEnabled = { contractProbeEnabled() },
                 onEvent = { event -> controlCenterEventSink?.invoke(event) },
                 onFailNative = ::onControlCenterSessionFailure,
             )
@@ -742,7 +713,6 @@ internal object SystemUiHomePresentationOwner {
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
         runCatching { batteryHideHook?.unhook() }
-        runCatching { islandShowingHook?.unhook() }
         clearInstallState()
     }
 
@@ -796,9 +766,6 @@ internal object SystemUiHomePresentationOwner {
                 } ?: return@Hooker chain.proceed()
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
-            if (refreshMasksAfter) {
-                session.captureNativePeerVerticalBand()
-            }
             if (
                 refreshMasksAfter &&
                 session.validateNativeLayoutBeforeVisualMask()
@@ -807,29 +774,6 @@ internal object SystemUiHomePresentationOwner {
                 session.onNativeLayoutCompleted(masked)
             }
             result
-        }
-
-    private fun islandShowingHooker(): Hooker =
-        Hooker { chain ->
-            val nativeResult = chain.proceed()
-            val nativeShowing =
-                nativeResult as? Boolean
-                    ?: return@Hooker nativeResult
-            if (!nativeShowing) {
-                return@Hooker false
-            }
-            val target =
-                chain.thisObject as? ViewGroup
-                    ?: return@Hooker nativeResult
-            val session =
-                synchronized(this) {
-                    controlCenterCurrent
-                        ?.takeIf { candidate -> candidate.owns(target) }
-                } ?: return@Hooker nativeResult
-            session.resolve2DIslandShowing(
-                target = target,
-                nativeShowing = nativeShowing,
-            )
         }
 
     private fun batteryHideStateHooker(): Hooker =
@@ -958,7 +902,6 @@ internal object SystemUiHomePresentationOwner {
         measureHook = null
         layoutHook = null
         batteryHideHook = null
-        islandShowingHook = null
         ignoredSlotsField = null
         addIgnoredSlotsMethod = null
         setIgnoredSlotsMethod = null
@@ -973,6 +916,7 @@ internal object SystemUiHomePresentationOwner {
         keyguardEventSink = null
         keyguardFailNativeSink = null
         keyguardReadySink = null
+        contractProbeEnabled = { false }
     }
 
     private class Session(
@@ -990,6 +934,7 @@ internal object SystemUiHomePresentationOwner {
         private val eventPrefix: String,
         private val retainReservationOnTransientLiveWidthLoss: Boolean,
         private val nativeLayoutAuthority: Boolean = false,
+        private val isProbeEnabled: () -> Boolean = { false },
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -1015,12 +960,7 @@ internal object SystemUiHomePresentationOwner {
         private var persistentIgnoredSlotsApplied = false
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
         private var transitionRequestedSlotWidthPx: Int? = null
-        private var peerBandTopInsetPx: Int? = null
-        private var peerBandBottomInsetPx: Int? = null
-        private val islandRectBuffer = Rect()
-        private val screenLocationBuffer = IntArray(2)
-        private var lastIsland2DOverlap: Boolean? = null
-        private var island2DGeometryUnavailableReported = false
+        private var islandContractProbeReported = false
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -1078,113 +1018,116 @@ internal object SystemUiHomePresentationOwner {
 
         fun usesNativeLayoutAuthority(): Boolean = nativeLayoutAuthority
 
-        fun captureNativePeerVerticalBand() {
+        private fun reportIslandContractOnce(group: ViewGroup) {
             if (
-                !active ||
+                islandContractProbeReported ||
                 surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
-                (
-                    peerBandTopInsetPx != null &&
-                        peerBandBottomInsetPx != null
-                )
+                !isProbeEnabled()
             ) {
                 return
             }
-            val group = statusIcons.get() ?: return
-            var top = Int.MAX_VALUE
-            var bottom = Int.MIN_VALUE
-            for (index in 0 until group.childCount) {
-                val child = group.getChildAt(index)
-                if (
-                    child.visibility != View.VISIBLE ||
-                    child.width <= 0 ||
-                    child.height <= 0
-                ) {
-                    continue
+            islandContractProbeReported = true
+
+            fun relevantToken(value: String): Boolean {
+                val token = value.lowercase()
+                return token.contains("island") ||
+                    token.contains("monitor") ||
+                    token.contains("space") ||
+                    token.contains("delegate") ||
+                    token.contains("controller")
+            }
+
+            fun simpleValue(value: Any?): String =
+                when (value) {
+                    null -> "null"
+                    is Number,
+                    is Boolean,
+                    is CharSequence,
+                    is Enum<*>,
+                    -> value.toString()
+                    else -> value.javaClass.name
                 }
-                top = minOf(top, child.top)
-                bottom = maxOf(bottom, child.bottom)
-            }
-            if (top == Int.MAX_VALUE || bottom <= top) {
-                return
-            }
-            peerBandTopInsetPx = top
-            peerBandBottomInsetPx = bottom
-        }
 
-        fun resolve2DIslandShowing(
-            target: ViewGroup,
-            nativeShowing: Boolean,
-        ): Boolean {
-            if (
-                !nativeShowing ||
-                !active ||
-                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
-                !nativeLayoutAuthority
-            ) {
-                return nativeShowing
-            }
-            if (
-                !target.isAttachedToWindow ||
-                target.width <= 0 ||
-                target.height <= 0
-            ) {
-                reportIsland2DGeometryUnavailableOnce("fake-not-laid-out")
-                return nativeShowing
-            }
-            if (!SystemUiIslandMotionSource.copyCurrentIslandRect(islandRectBuffer)) {
-                reportIsland2DGeometryUnavailableOnce("live-island-rect-unavailable")
-                return nativeShowing
+            fun traversable(value: Any): Boolean =
+                value !is Number &&
+                    value !is Boolean &&
+                    value !is CharSequence &&
+                    value !is Enum<*> &&
+                    value !is Class<*>
+
+            val queue = ArrayDeque<Triple<String, Any, Int>>()
+            val seen = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
+            var view: View? = group
+            var viewIndex = 0
+            while (view != null && viewIndex < 5) {
+                queue.add(Triple("view[" + viewIndex + "]", view, 0))
+                view = view.parent as? View
+                viewIndex += 1
             }
 
-            target.getLocationOnScreen(screenLocationBuffer)
-            val fakeLeft = screenLocationBuffer[0]
-            val fakeTopBase = screenLocationBuffer[1]
-            val fakeRight = fakeLeft + target.width
-            val topInset = peerBandTopInsetPx ?: 0
-            val bottomInset = peerBandBottomInsetPx ?: target.height
-            val fakeTop = fakeTopBase + topInset
-            val fakeBottom = fakeTopBase + bottomInset
-            val overlap =
-                ControlCenterIslandOverlapPolicy.intersects(
-                    left = fakeLeft,
-                    top = fakeTop,
-                    right = fakeRight,
-                    bottom = fakeBottom,
-                    islandLeft = islandRectBuffer.left,
-                    islandTop = islandRectBuffer.top,
-                    islandRight = islandRectBuffer.right,
-                    islandBottom = islandRectBuffer.bottom,
-                )
+            var emitted = 0
+            while (queue.isNotEmpty() && emitted < 12 && seen.size < 16) {
+                val (path, target, depth) = queue.removeFirst()
+                if (!seen.add(target)) continue
 
-            if (lastIsland2DOverlap != overlap) {
-                lastIsland2DOverlap = overlap
+                val fieldTokens = mutableListOf<String>()
+                val methodTokens = mutableListOf<String>()
+                generateSequence<Class<*>>(target.javaClass) { owner -> owner.superclass }
+                    .takeWhile { owner -> owner != Any::class.java }
+                    .forEach { owner ->
+                        owner.declaredFields.forEach { field ->
+                            if (Modifier.isStatic(field.modifiers)) return@forEach
+                            val fieldRelevant =
+                                relevantToken(field.name) || relevantToken(field.type.name)
+                            if (!fieldRelevant) return@forEach
+                            val value =
+                                runCatching {
+                                    field.isAccessible = true
+                                    field.get(target)
+                                }.getOrNull()
+                            if (fieldTokens.size < 24) {
+                                fieldTokens +=
+                                    owner.simpleName + "." + field.name + ":" +
+                                        field.type.simpleName + "=" + simpleValue(value)
+                            }
+                            if (
+                                depth < 2 &&
+                                value != null &&
+                                traversable(value) &&
+                                seen.size + queue.size < 16
+                            ) {
+                                queue.add(
+                                    Triple(
+                                        path + "." + field.name,
+                                        value,
+                                        depth + 1,
+                                    ),
+                                )
+                            }
+                        }
+                        owner.declaredMethods.forEach { method ->
+                            val methodRelevant =
+                                relevantToken(method.name) ||
+                                    method.name == "updateContainerSize"
+                            if (!methodRelevant || methodTokens.size >= 24) return@forEach
+                            methodTokens +=
+                                owner.simpleName + "." + method.name + "(" +
+                                    method.parameterTypes.joinToString(",") { type ->
+                                        type.simpleName
+                                    } + "):" + method.returnType.simpleName
+                        }
+                    }
+
                 onEvent(
                     eventPrefix +
-                        " island2DGate nativeShowing=true" +
-                        " overlap=" + overlap +
-                        " fake=(" + fakeLeft + "," + fakeTop + "," +
-                        fakeRight + "," + fakeBottom + ")" +
-                        " island=(" + islandRectBuffer.left + "," +
-                        islandRectBuffer.top + "," +
-                        islandRectBuffer.right + "," +
-                        islandRectBuffer.bottom + ")" +
-                        " exposedShowing=" + overlap +
-                        " authority=live-island-rect" +
-                        " hotPath=field-cache+screen-location+int-overlap" +
-                        " nativeGeometryWrites=0",
+                        " islandContractProbe path=" + path +
+                        " class=" + target.javaClass.name +
+                        " fields=[" + fieldTokens.joinToString(";") + "]" +
+                        " methods=[" + methodTokens.joinToString(";") + "]" +
+                        " readOnly=true nativeGeometryWrites=0",
                 )
+                emitted += 1
             }
-            return overlap
-        }
-
-        private fun reportIsland2DGeometryUnavailableOnce(reason: String) {
-            if (island2DGeometryUnavailableReported) return
-            island2DGeometryUnavailableReported = true
-            onEvent(
-                eventPrefix +
-                    " island2DGate fallback=native reason=" + reason +
-                    " nativeGeometryWrites=0",
-            )
         }
 
         fun ownedRepresentedSlots(): Set<String> {
@@ -1218,9 +1161,9 @@ internal object SystemUiHomePresentationOwner {
                         return 0
                     }
             nativePadding = PaddingState.from(group)
+            reportIslandContractOnce(group)
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
-            captureNativePeerVerticalBand()
             if (!applyPersistentIgnoredSlotsIfNeeded(group)) return 0
             if (!syncEndReservation()) return 0
 
@@ -2035,23 +1978,6 @@ internal object SystemUiHomePresentationOwner {
     private enum class IgnoredSlotLifetime {
         NATIVE_CALL,
         PRESENTATION_SESSION,
-    }
-
-    internal object ControlCenterIslandOverlapPolicy {
-        fun intersects(
-            left: Int,
-            top: Int,
-            right: Int,
-            bottom: Int,
-            islandLeft: Int,
-            islandTop: Int,
-            islandRight: Int,
-            islandBottom: Int,
-        ): Boolean =
-            left < islandRight &&
-                islandLeft < right &&
-                top < islandBottom &&
-                islandTop < bottom
     }
 
     internal object ControlCenterLayoutPolicy {
