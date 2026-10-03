@@ -1003,7 +1003,7 @@ class CombinedStatusModule : XposedModule() {
                     " occupancy=" +
                     SystemUiNativeCombinedParticipantOwner.currentIslandOccupancyDiagnostic() +
                     " controlCenter=" +
-                    if (showing) "native-fallback-latched" else "resume-when-safe",
+                    if (showing) "native-layout-authority" else "compact-when-safe",
             )
         }
     }
