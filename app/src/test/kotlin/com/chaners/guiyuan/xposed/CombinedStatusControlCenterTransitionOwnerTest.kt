@@ -457,6 +457,69 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun batteryIslandNativeReservationTracksHyperOsFinalPeerCapacity() {
+        assertEquals(
+            105,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveBatteryIslandNativeReservationWidth(
+                    compactWidthPx = 105,
+                    semanticWidthPx = 105,
+                    progress = 0f,
+                    fakeBaseContentWidthPx = 832,
+                    finalUsableWidthPx = 521,
+                ),
+        )
+        assertEquals(
+            208,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveBatteryIslandNativeReservationWidth(
+                    compactWidthPx = 105,
+                    semanticWidthPx = 245,
+                    progress = 0.5f,
+                    fakeBaseContentWidthPx = 832,
+                    finalUsableWidthPx = 521,
+                ),
+        )
+        assertEquals(
+            311,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveBatteryIslandNativeReservationWidth(
+                    compactWidthPx = 105,
+                    semanticWidthPx = 384,
+                    progress = 1f,
+                    fakeBaseContentWidthPx = 832,
+                    finalUsableWidthPx = 521,
+                ),
+        )
+    }
+
+    @Test
+    fun batteryIslandNativeReservationNeverExceedsSemanticOccupancy() {
+        assertEquals(
+            180,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveBatteryIslandNativeReservationWidth(
+                    compactWidthPx = 105,
+                    semanticWidthPx = 180,
+                    progress = 0.75f,
+                    fakeBaseContentWidthPx = 832,
+                    finalUsableWidthPx = 400,
+                ),
+        )
+        assertEquals(
+            null,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveBatteryIslandNativeReservationWidth(
+                    compactWidthPx = 105,
+                    semanticWidthPx = 245,
+                    progress = 0.5f,
+                    fakeBaseContentWidthPx = 0,
+                    finalUsableWidthPx = 521,
+                ),
+        )
+    }
+
+    @Test
     fun latentRevealRequiresRealVisualReservationAndTargetProximity() {
         val target = geometry(centerX = 100f, centerY = 100f, width = 20f, height = 20f)
 

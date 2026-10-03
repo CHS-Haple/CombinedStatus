@@ -205,6 +205,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ),
             sourceScene = sourceScene,
             genericIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
+            nativeBatteryIslandActive = nativeBatteryIslandActive,
         )
     }
 
@@ -410,6 +411,36 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 compact +
                     (finalWidth - compact) * p
                 ).roundToInt().coerceAtLeast(compact)
+        }
+
+        fun resolveBatteryIslandNativeReservationWidth(
+            compactWidthPx: Int,
+            semanticWidthPx: Int,
+            progress: Float,
+            fakeBaseContentWidthPx: Int,
+            finalUsableWidthPx: Int,
+        ): Int? {
+            val compact = compactWidthPx.coerceAtLeast(0)
+            val semantic = semanticWidthPx.coerceAtLeast(compact)
+            if (
+                compact <= 0 ||
+                fakeBaseContentWidthPx <= 0 ||
+                finalUsableWidthPx <= 0 ||
+                finalUsableWidthPx > fakeBaseContentWidthPx
+            ) {
+                return null
+            }
+            val finalNativeReservation =
+                (fakeBaseContentWidthPx - finalUsableWidthPx)
+                    .coerceAtLeast(compact)
+            val p = geometryProgress(progress)
+            val native =
+                (
+                    compact +
+                        (finalNativeReservation - compact) * p
+                    ).roundToInt()
+                    .coerceAtLeast(compact)
+            return native.coerceAtMost(semantic)
         }
 
         fun transitionTintProgress(progress: Float): Float {
@@ -940,6 +971,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var transitionReservationEnabled = false
         private var nativePaddingExpansionAllowed = true
         private var genericIslandShowing: Boolean? = null
+        private var nativeBatteryIslandActive = false
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -1000,6 +1032,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",batteryNumberProbe=" + batteryNumberProbeSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
+                ",batteryIsland=" + nativeBatteryIslandActive +
                 ",iconCapacity=" + statusIconCapacitySummary() +
                 ",nativeRows=" + nativeStatusRowSummary() +
                 ",fakeCarrier=" + fakeCarrierHierarchySummary() +
@@ -1140,6 +1173,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             transitionReservationEnabled: Boolean,
             sourceScene: CombinedStatusSourceScene,
             genericIslandShowing: Boolean?,
+            nativeBatteryIslandActive: Boolean?,
         ) {
             val appearanceChanged =
                 this.nativeAppearance != nativeAppearance ||
@@ -1150,6 +1184,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.nativeAppearanceAnimated = nativeAppearanceAnimated
             this.transitionReservationEnabled = transitionReservationEnabled
             this.genericIslandShowing = genericIslandShowing
+            this.nativeBatteryIslandActive = nativeBatteryIslandActive == true
 
             this.nativePaddingExpansionAllowed =
                 Policy.allowsNativeTransitionPaddingExpansion(
@@ -1168,6 +1203,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 "transition-" + source,
             )
             genericIslandShowing = null
+            nativeBatteryIslandActive = false
             if (!started) return
             started = false
             val rootView = rootRef.get()
@@ -2380,6 +2416,35 @@ internal object CombinedStatusControlCenterTransitionOwner {
             // capacity and island collision remain HyperOS-owned.
             lastReservationWidthPx = requestedWidth
 
+            val nativeRequestedWidth =
+                if (nativeBatteryIslandActive) {
+                    val priorNativeReservation =
+                        lastNativeReservationWidthPx ?: compactWidth
+                    val inferredBasePaddingEnd =
+                        fakeStatusIcons.paddingEnd - priorNativeReservation
+                    val fakeBaseContentWidth =
+                        (
+                            fakeStatusIcons.width -
+                                fakeStatusIcons.paddingStart -
+                                inferredBasePaddingEnd
+                        ).coerceAtLeast(0)
+                    val finalUsableWidth =
+                        (
+                            finalStatusIcons.width -
+                                finalStatusIcons.paddingStart -
+                                finalStatusIcons.paddingEnd
+                        ).coerceAtLeast(0)
+                    Policy.resolveBatteryIslandNativeReservationWidth(
+                        compactWidthPx = compactWidth,
+                        semanticWidthPx = requestedWidth,
+                        progress = progress,
+                        fakeBaseContentWidthPx = fakeBaseContentWidth,
+                        finalUsableWidthPx = finalUsableWidth,
+                    ) ?: requestedWidth
+                } else {
+                    requestedWidth
+                }
+
             if (!nativePaddingExpansionAllowed) {
                 if (lastNativeReservationWidthPx != null) {
                     SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
@@ -2390,16 +2455,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 return
             }
 
-            if (lastNativeReservationWidthPx != requestedWidth) {
+            if (lastNativeReservationWidthPx != nativeRequestedWidth) {
                 val applied =
                     SystemUiHomePresentationOwner
                         .updateControlCenterTransitionReservation(
-                            requestedSlotWidthPx = requestedWidth,
+                            requestedSlotWidthPx = nativeRequestedWidth,
                         )
                 if (!applied) {
                     return
                 }
-                lastNativeReservationWidthPx = requestedWidth
+                lastNativeReservationWidthPx = nativeRequestedWidth
             }
         }
 

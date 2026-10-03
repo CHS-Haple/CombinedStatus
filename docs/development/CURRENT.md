@@ -97,3 +97,28 @@ Device gate:
 2. no `fake-carrier-capacity-insufficient` should appear;
 3. charging island + dual SIM must keep both targets and avoid overlap;
 4. ordinary island remains a regression check only.
+
+
+## Build 678 charging-island peer-row alignment
+
+Build 677 removes the charging-island fail-native fallback but device video/log evidence shows excessive visual separation between native peers and Guiyuan's unfolding represented icons. The gap is present before capacity saturation, so Build 677's 354px clamp is not the root cause.
+
+The measured ownership mismatch is:
+- charging-island QS_FAKE keeps its native row visually authoritative much later than an ordinary island;
+- semantic Guiyuan occupancy grows 105px -> 384px, while the native fake peer row only needs to converge to HyperOS final status-row capacity;
+- on the verified target, fake statusIcons width is 832px and the final native statusIcons usable width is 521px, so native peer reservation endpoint is 311px, not 384px/354px.
+
+Build 678 therefore separates two widths only for the explicit native Battery-island contract:
+- Guiyuan logical/overlay reservation remains unchanged and continues 105px -> semantic final width;
+- native QS_FAKE peer reservation interpolates from compact width to the width implied by HyperOS final status-row usable capacity;
+- the endpoint is measured at runtime from fake/final native containers, not hard-coded;
+- ordinary-island reservation and the accepted steady-peer mirror are unchanged;
+- Build 677 physical-capacity saturation remains as a final safety guard in HomePresentationOwner.
+
+No per-peer collision, island rectangle, optical overlap, custom timeline, alpha/visibility/translation write, or fixed spacing constant is added.
+
+Device gate:
+1. charging island: native-peer-to-Guiyuan visual gap should shrink to the normal final-row spacing;
+2. full pull/reverse remains Guiyuan-owned with no fail-native;
+3. dual-SIM charging island remains intact;
+4. ordinary island is regression-only.
