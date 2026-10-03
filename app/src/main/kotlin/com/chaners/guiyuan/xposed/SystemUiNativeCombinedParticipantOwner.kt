@@ -364,6 +364,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             ) {
                                 return@Hooker chain.proceed()
                             }
+                            if (
+                                !allowsNativeSlotTranslationCorrection(
+                                    SystemUiIslandMotionSource.currentIslandShowing(),
+                                )
+                            ) {
+                                return@Hooker chain.proceed()
+                            }
                             val desired =
                                 currentNativeSlotTranslationX(root)
                                     ?: return@Hooker chain.proceed()
@@ -1870,6 +1877,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         pendingPreDrawListener = listener
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
+
+    internal fun allowsNativeSlotTranslationCorrection(
+        islandShowing: Boolean?,
+    ): Boolean = islandShowing != true
 
     internal fun resolveNativeSlotTranslationX(
         statusIconsWidth: Int,
