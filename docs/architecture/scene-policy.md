@@ -234,3 +234,21 @@ Single-child Keyguard/AOD cutover observes the native Keyguard status-icons laye
 
 No timer, polling, copied native animator, or native alpha/visibility/translation writer is introduced. Missing evidence remains conservative/fail-native.
 
+### Build 655 candidate — full-AOD target event is a boundary, not a clock
+
+Build-654 device evidence separates native animation **start/end flags** from the visual handoff boundary needed by a single enabled Keyguard/AOD child. `mIsAodAnimate=true` can arrive before the desired Keyguard -> AOD handoff, while waiting for `mIsAodAnimate=false` makes AOD -> Keyguard visibly late.
+
+The pinned target exposes a narrower event contract:
+- `KeyguardStatusBarViewControllerInject.animateFullAod(boolean, boolean)` owns the native full-AOD transition;
+- `MiuiKeyguardStatusBarView.mToLockScreen` is retained native target state on the Keyguard-family host.
+
+Build 655 treats the callback only as an event that native target state has been committed. The raw boolean arguments are diagnostics only. After the callback, policy reads `mToLockScreen` and, for **single-child mode with a known stable family origin**, selects the enabled target child or Native. It does not derive progress, duration, interpolation, or geometry from that event.
+
+Priority remains:
+1. Home/UNKNOWN-origin AOD prearm;
+2. exact native full-AOD target for single-child Keyguard/AOD transition when available;
+3. local native status-icons alpha fallback;
+4. stable-family conservative routing.
+
+Dual-enabled Keyguard/AOD continues to use the existing one-owner retarget path. Missing full-AOD target evidence falls back to Build-654 behavior rather than inventing timing.
+

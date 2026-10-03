@@ -14,6 +14,7 @@ internal object SystemUiKeyguardHostResolver {
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
     private const val BATTERY_VIEW_CLASS =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    private const val TO_LOCK_SCREEN_FIELD = "mToLockScreen"
 
     private var lastSourceView: WeakReference<View>? = null
     private var lastSurface = SystemUiSceneStateSource.Surface.UNKNOWN
@@ -57,6 +58,14 @@ internal object SystemUiKeyguardHostResolver {
 
     internal fun isKeyguardHostClassName(className: String): Boolean =
         className == KEYGUARD_HOST_CLASS
+
+    internal fun nativeToLockScreenTarget(
+        resolved: ResolvedHost,
+    ): Boolean? =
+        findField(resolved.host.javaClass, TO_LOCK_SCREEN_FIELD)
+            ?.let { field ->
+                runCatching { field.get(resolved.host) as? Boolean }.getOrNull()
+            }
 
     internal fun statusIconsPresentationAlpha(
         resolved: ResolvedHost,

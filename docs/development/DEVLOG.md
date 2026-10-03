@@ -2803,3 +2803,36 @@ No timer, retry loop, polling, native alpha/visibility/translation writer, geome
 ### Validation
 
 Focused tests preserve the existing direction-aware Control Center arbitration and cover visible-cycle capacity-lease release, Keyguard status-icons cutover and Home->AOD prearm ordering. Exact-HEAD Runtime and signed Canary device validation are required.
+
+## 2026-10-03 — Build 655: use native full-AOD target boundary for single-child handoff
+
+**Type:** exact-device timing evidence / Keyguard-AOD native lifecycle source  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 654 -> 655
+
+### Build-654 device result
+
+The major Build-653 regressions are no longer the reported blocker. Remaining focused timing feedback is directional:
+
+- Keyguard OFF / AOD ON: AOD -> Keyguard is about half a beat late.
+- Keyguard ON / AOD OFF: AOD -> Keyguard is about half a beat late; Keyguard -> AOD is about half a beat early.
+- With both enabled, Home -> AOD can still flash once; the tester accepts that flash for this gate.
+
+The diagnostic shows why a symmetric alpha/end-state adjustment cannot solve both directions. Keyguard -> AOD drops the Keyguard presentation at the first `setIsAodAnimate(true)` edge, before the later AOD-mode callback. AOD -> Keyguard does not rebuild until the final `setIsAodAnimate(false)` stable-family edge. Once that late edge arrives, renderer attach and native-layout cutover complete within a few milliseconds, so layout readiness is not the source of the visible delay.
+
+### Build-655 candidate
+
+The exact target already verifies `KeyguardStatusBarViewControllerInject.animateFullAod(boolean, boolean)` and `MiuiKeyguardStatusBarView.mToLockScreen`. Build 655 adds a read-only event hook at that full-AOD callback and re-evaluates the existing family owner after native code has committed its target state.
+
+For single-child mode only:
+- `mToLockScreen=true` selects Keyguard if Keyguard Guiyuan is enabled, otherwise Native;
+- `mToLockScreen=false` selects AOD if AOD Guiyuan is enabled, otherwise Native.
+
+The target rule is used only with a known stable family origin. UNKNOWN-origin Home -> AOD prearm remains higher priority, and dual-enabled family routing is unchanged. Status-icons alpha remains the compatibility fallback when the exact full-AOD target source is unavailable.
+
+No raw `animateFullAod` boolean argument is assigned product semantics. No native view geometry/alpha/visibility is written, and no local timing constant or animation is introduced.
+
+### Device hypothesis
+
+This should move AOD -> Keyguard earlier from animation completion to the native full-AOD target switch, while moving Keyguard -> AOD later from the generic `isAodAnimate` start flag to that same native target switch. Real-device Build-655 evidence is required before promotion.
+

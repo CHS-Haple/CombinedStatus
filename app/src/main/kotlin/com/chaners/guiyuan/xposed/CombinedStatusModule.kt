@@ -1627,6 +1627,7 @@ class CombinedStatusModule : XposedModule() {
                 onTintState = ::onTintStateUpdate,
                 onSceneState = ::onSceneStateUpdate,
                 onKeyguardAodState = ::onKeyguardAodStateUpdate,
+                onKeyguardFullAodTransition = ::onKeyguardFullAodTransition,
                 onMobileTypeChanged = { drawable ->
                     refreshMobilePresentation(
                         trace = beginRenderTrace("mobileType"),
@@ -1667,6 +1668,8 @@ class CombinedStatusModule : XposedModule() {
                 "mobileTypeHooks" to result.mobileTypeHooks,
                 "keyguardAodHooks" to result.keyguardAodHooks,
                 "keyguardAodReady" to result.keyguardAodReady,
+                "keyguardFullAodHooks" to result.keyguardFullAodHooks,
+                "keyguardFullAodReady" to result.keyguardFullAodReady,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -1866,6 +1869,40 @@ class CombinedStatusModule : XposedModule() {
                             ?: "none"
                     ) +
                     " authority=live-systemui-status-icons",
+            )
+        }
+    }
+
+    private fun onKeyguardFullAodTransition() {
+        val resolution = SystemUiKeyguardHostResolver.current()
+        val target =
+            (resolution as? SystemUiKeyguardHostResolver.ResolveResult.Ready)
+                ?.host
+                ?.let { resolved ->
+                    SystemUiKeyguardHostResolver.nativeToLockScreenTarget(resolved)
+                }
+
+        logDiagnostic(
+            level = if (target != null) Log.INFO else Log.WARN,
+            event = "aod.target",
+            component = "keyguardAod",
+            state =
+                when (target) {
+                    true -> "keyguard"
+                    false -> "aod"
+                    null -> "unavailable"
+                },
+            "source" to "animateFullAod",
+            "authority" to "native-mToLockScreen",
+            "eventDriven" to true,
+            "readOnly" to true,
+            "nativeGeometryWrites" to 0,
+        )
+
+        resolution?.let { current ->
+            onKeyguardHostResolution(
+                resolution = current,
+                source = "full-aod-target",
             )
         }
     }
@@ -2101,6 +2138,11 @@ class CombinedStatusModule : XposedModule() {
             keyguardStatusIconsAlpha =
                 SystemUiKeyguardHostResolver
                     .statusIconsPresentationAlpha(resolved),
+            nativeToLockScreenTarget =
+                SystemUiKeyguardHostResolver
+                    .nativeToLockScreenTarget(resolved),
+            fullAodTargetSourceReady =
+                SystemUiPresentationRuntimeOwner.keyguardFullAodReady,
         )
     }
 

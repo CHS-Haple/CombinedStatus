@@ -745,4 +745,108 @@ class CombinedStatusScenePolicyTest {
             ),
         )
     }
+    @Test
+    fun singleChildUsesNativeFullAodTargetBeforeAlphaFallback() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 0f,
+                nativeToLockScreenTarget = true,
+                fullAodTargetSourceReady = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 1f,
+                nativeToLockScreenTarget = false,
+                fullAodTargetSourceReady = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardStatusIconsAlpha = 1f,
+                nativeToLockScreenTarget = false,
+                fullAodTargetSourceReady = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardStatusIconsAlpha = 0f,
+                nativeToLockScreenTarget = true,
+                fullAodTargetSourceReady = true,
+            ),
+        )
+    }
+
+    @Test
+    fun fullAodTargetDoesNotOverrideUnknownOriginOrDualEnabledFamily() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = true,
+                keyguardStatusIconsAlpha = 1f,
+                nativeToLockScreenTarget = true,
+                fullAodTargetSourceReady = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                nativeToLockScreenTarget = true,
+                fullAodTargetSourceReady = true,
+            ),
+        )
+    }
+
 }

@@ -165,6 +165,8 @@ internal object CombinedStatusScenePolicy {
         lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
         homePresentationOwned: Boolean = false,
         keyguardStatusIconsAlpha: Float? = null,
+        nativeToLockScreenTarget: Boolean? = null,
+        fullAodTargetSourceReady: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (isAodAnimate) {
@@ -175,6 +177,8 @@ internal object CombinedStatusScenePolicy {
                 lastStableFamilyScene = lastStableFamilyScene,
                 homePresentationOwned = homePresentationOwned,
                 keyguardStatusIconsAlpha = keyguardStatusIconsAlpha,
+                nativeToLockScreenTarget = nativeToLockScreenTarget,
+                fullAodTargetSourceReady = fullAodTargetSourceReady,
             )
         }
         if (
@@ -218,6 +222,8 @@ internal object CombinedStatusScenePolicy {
         lastStableFamilyScene: StableKeyguardAodScene,
         homePresentationOwned: Boolean,
         keyguardStatusIconsAlpha: Float? = null,
+        nativeToLockScreenTarget: Boolean? = null,
+        fullAodTargetSourceReady: Boolean = false,
     ): KeyguardAodProjection {
         if (steadySourceScene == CombinedStatusSourceScene.HOME) {
             return if (
@@ -246,6 +252,35 @@ internal object CombinedStatusScenePolicy {
             // ownership as prearm evidence. A latched AOD/Keyguard origin is
             // stronger and must not be overridden by stale Home ownership.
             return KeyguardAodProjection.AOD
+        }
+
+        // On the pinned HyperOS target, animateFullAod commits
+        // MiuiKeyguardStatusBarView.mToLockScreen before driving the native
+        // Battery/status-icon animation. Once that exact-target event source is
+        // available, a single enabled family child follows the persistent
+        // native target directly. This prevents the earlier isAodAnimate edge
+        // from cutting over too soon and avoids waiting for animation-end
+        // callbacks on the reverse direction.
+        if (
+            fullAodTargetSourceReady &&
+            nativeToLockScreenTarget != null &&
+            steadySourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            lastStableFamilyScene != StableKeyguardAodScene.UNKNOWN &&
+            keyguardEnabled != aodEnabled
+        ) {
+            return if (nativeToLockScreenTarget) {
+                if (keyguardEnabled) {
+                    KeyguardAodProjection.KEYGUARD
+                } else {
+                    KeyguardAodProjection.NATIVE
+                }
+            } else {
+                if (aodEnabled) {
+                    KeyguardAodProjection.AOD
+                } else {
+                    KeyguardAodProjection.NATIVE
+                }
+            }
         }
 
         // Single-child handoff follows the native Keyguard status-icons
