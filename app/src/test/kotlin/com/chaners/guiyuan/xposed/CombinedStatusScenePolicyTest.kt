@@ -1191,6 +1191,17 @@ class CombinedStatusScenePolicyTest {
         assertFalse(
             CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
                 featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                homeNativeAodFallbackActive = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
+                featureEnabled = true,
                 keyguardEnabled = false,
                 aodEnabled = true,
                 lastStableFamilyScene =
@@ -1277,6 +1288,18 @@ class CombinedStatusScenePolicyTest {
                     CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
                 nativeToLockScreenTarget = true,
                 statusIconsPresentationAlpha = 0f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldPrecommitKeyguardBoundaryLayout(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+                statusIconsPresentationAlpha = 0f,
+                homeNativeAodFallbackActive = true,
             ),
         )
         assertFalse(
