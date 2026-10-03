@@ -15,46 +15,52 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 666 is a focused lifecycle validation of the remaining Build-665 AOD -> Keyguard peer-motion defect.
+Build 667 follows Build-666 device validation and fixes two lifecycle-boundary defects without changing native motion ownership.
 
-Build-665 device evidence:
-- the defect still reproduces;
-- each incoming-Keyguard attempt reports `hostShownAtArm=true`, so Build 665 does not precommit compact occupancy;
-- the same transition then reports native `statusIconsAlpha=0.0`, proving the enclosing Keyguard host can already be shown while the animated native status-icon layer is still fully hidden;
-- therefore `View.isShown` is not the native presentation lifecycle authority for this transition.
+Build-666 device evidence:
+- AOD -> Keyguard peer icons no longer merge inward, validating native status-icon presentation alpha as the correct incoming-layout lifecycle authority.
+- Keyguard -> AOD returns to native too early: `animateIconContainer(false)` starts native status-icon fade, but the first `isAodAnimate=true` callback releases the Keyguard presentation only milliseconds later while the native transition is still active.
+- AOD -> Keyguard can briefly show native QS/status icons when pulled down quickly. The incoming Keyguard visual handoff is already revealed and compact layout is ready, but stable `keyguardRuntimeReady` is still false; Control Center therefore temporarily treats the source as native until stable Keyguard commits.
 
-Build-666 correction:
-- keep the same stable-AOD -> enabled-Keyguard / disabled-AOD eligibility;
-- replace the hidden-host guard with the exact Keyguard status-icon presentation state returned by `statusIconsPresentationAlpha()`;
-- allow precommit only when that exact native layer is attached and fully hidden (`alpha == 0f`);
-- unavailable or partially visible native status icons fail back to the existing deferred path.
+Build-667 lifecycle correction:
+- outgoing Keyguard visual ownership is retained while the exact native Keyguard status-icon layer still has visible presentation alpha (`alpha > 0`); release occurs only at `alpha == 0` or the stable AOD endpoint;
+- `animateIconContainer(false)` is treated as fade-start, not the outgoing owner cleanup boundary;
+- stable Keyguard readiness remains unchanged;
+- a derived incoming-boundary presentation-ready state is available only when visual handoff is active, compact prelayout is complete, the native visual boundary has been reached, the host is attached, Keyguard projection is enabled, and AOD projection is disabled;
+- Keyguard-originated Control Center may use that already-valid incoming presentation before stable-family commit, and a temporary AOD-blocked flag cannot revoke an active lease during that bounded incoming handoff;
+- fraction-zero cleanup and transient readiness loss do not tear down the incoming Keyguard owner while that derived presentation-ready state remains valid.
 
-No timer, copied animation duration, custom interpolator, peer translation, native alpha/visibility writer, or geometry compensation is introduced.
+No timer, delay, copied duration/interpolator, native alpha/visibility/translation writer, peer-motion writer, or second presentation owner is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003666` / Build `20261003-666`.
+- Candidate identity: `0.0.5` / versionCode `261003667` / Build `20261003-667`.
 - PR #196 was 0 behind `dev` before authoring.
-- Unit coverage now requires exact native status-icons hidden state for Keyguard boundary precommit.
-- Exact-head Runtime CI is running; one signed Canary follows only if Runtime is clean.
-- Home -> AOD transient-owner handling is intentionally unchanged in this minimal lifecycle checkpoint.
+- Pre-commit lifecycle review completed across Home / Keyguard / AOD / Keyguard Control Center ownership.
+- Unit coverage includes outgoing Keyguard alpha lifetime, native visual-boundary semantics, incoming boundary readiness, host detach failure, and AOD-blocked lease retention only during the verified incoming handoff.
+- Exact-head Runtime CI and one signed Canary are required.
 
 ## Device gate
 
-1. Keyguard ON / AOD OFF — AOD -> Keyguard:
-   - diagnostics should show `statusIconsAlphaAtArm=0.0` and `nativeLayoutOwnership=precommit-before-reveal`;
-   - adjacent native icons must no longer collapse inward from the middle;
-   - Guiyuan continuity must not regress.
+1. Keyguard ON / AOD OFF — Keyguard -> AOD:
+   - Guiyuan must not switch to native immediately at fade start;
+   - it should remain the outgoing owner until the native Keyguard status-icon presentation actually reaches its hidden endpoint;
+   - stable AOD remains native.
 
-2. Keyguard -> AOD:
-   - regression only; preserve accepted behavior.
+2. Keyguard ON / AOD OFF — AOD -> Keyguard, immediate/fast partial pull:
+   - no transient native status row / native QS fake;
+   - holding a partial pull must not wait for stable Keyguard to recover Guiyuan;
+   - aborting the pull must not tear down the incoming Keyguard handoff.
 
-3. Home/Desktop -> AOD:
-   - observe only in this build; do not judge the separate transient-owner issue as fixed yet.
+3. AOD -> Keyguard normal path:
+   - preserve Build-666 fix: no peer icons merging inward.
+
+4. Home/Desktop -> AOD:
+   - still observe only; the separate Home-origin transient-owner defect is not part of Build 667.
 
 ## Immediate next step
 
-Complete exact-head Runtime review. If green, issue one signed Canary and freeze runtime for the focused AOD -> Keyguard lifecycle gate.
+Freeze runtime at Build 667, run exact-head Runtime CI, then issue one signed Canary for the lifecycle gate above.
 
 ## Reference priority
 
