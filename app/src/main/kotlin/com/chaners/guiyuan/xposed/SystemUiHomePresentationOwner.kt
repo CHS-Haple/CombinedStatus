@@ -809,6 +809,7 @@ internal object SystemUiHomePresentationOwner {
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
             if (refreshMasksAfter) {
                 session.captureNativePeerVerticalBand()
+                session.accumulateIslandAvoidedSlotsAfterNativeLayout()
             }
             if (
                 refreshMasksAfter &&
@@ -1022,6 +1023,7 @@ internal object SystemUiHomePresentationOwner {
         private var nativeFakeCarrierParentContentWidthPx: Int? = null
         private var appliedFakeCarrierWidthPx: Int? = null
         private var fakeCarrierCapacityDeltaPx: Int? = null
+        private var fakeCarrierCapacityBaselineReservationPx: Int? = null
         private var fakeCarrierCapacityLeaseAwaitingLayout = false
         private var transientLiveBatteryWidthUnavailable = false
         private var persistentIgnoredSlotsApplied = false
@@ -1039,7 +1041,8 @@ internal object SystemUiHomePresentationOwner {
         private var islandReturnOverlapRequested = false
         private var islandReturnBaselineLayoutPending = false
         private var islandReturnExpectedCarrierWidthPx: Int? = null
-        private val pendingIslandAvoidedPeers = mutableListOf<WeakReference<View>>()
+        private val accumulatedIslandAvoidedSlots = linkedSetOf<String>()
+        private val latchedIslandAvoidedSlots = linkedSetOf<String>()
         private val islandPeerClipStates = mutableListOf<ClipState>()
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
@@ -1169,41 +1172,57 @@ internal object SystemUiHomePresentationOwner {
             peerBandBottomInsetPx = bottom
         }
 
-        private fun captureIslandAvoidedPeersForLatch(group: ViewGroup) {
-            pendingIslandAvoidedPeers.clear()
+        fun accumulateIslandAvoidedSlotsAfterNativeLayout() {
+            if (
+                !active ||
+                surfaceName != CONTROL_CENTER_FAKE_SURFACE ||
+                !nativeLayoutAuthority ||
+                lastIsland2DOverlap != true
+            ) {
+                return
+            }
+            val group = statusIcons.get() ?: return
+            val added = mutableListOf<String>()
             for (index in 0 until group.childCount) {
                 val child = group.getChildAt(index)
                 val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
-                val inIslandState =
+                if (
+                    slot in representedSlots ||
+                    child.visibility != View.VISIBLE ||
+                    child.width <= 0 ||
+                    child.height <= 0
+                ) {
+                    continue
+                }
+                val state =
                     SystemUiNativeNetworkSuppressionOwner
                         .readTransitionIconState(group, child)
-                        ?.inIslandState
+                        ?: continue
                 if (
                     !ControlCenterIslandGesturePolicy.shouldLatchPeer(
                         slot = slot,
                         representedSlots = representedSlots,
-                        visible = child.visibility == View.VISIBLE,
+                        visible = true,
                         width = child.width,
                         height = child.height,
-                        inIslandState = inIslandState,
+                        inIslandState = state.inIslandState,
+                        beforeInIslandState = state.beforeInIslandState,
                     )
                 ) {
                     continue
                 }
-                pendingIslandAvoidedPeers += WeakReference(child)
+                if (accumulatedIslandAvoidedSlots.add(slot)) {
+                    added += slot
+                }
             }
-            onEvent(
-                eventPrefix +
-                    " islandPeerLatch snapshot=" +
-                    pendingIslandAvoidedPeers
-                        .mapNotNull { reference ->
-                            reference.get()?.let(NativeParticipantRuntimeAccess::slotOf)
-                        }
-                        .joinToString(",")
-                        .ifEmpty { "none" } +
-                    " source=last-native-overlap-state" +
-                    " peerStateWrites=0",
-            )
+            if (added.isNotEmpty()) {
+                onEvent(
+                    eventPrefix +
+                        " islandPeerLatch accumulate=" + added.joinToString(",") +
+                        " total=" + accumulatedIslandAvoidedSlots.joinToString(",") +
+                        " source=native-overlap-layouts peerStateWrites=0",
+                )
+            }
         }
 
         fun resolve2DIslandWidth(nativeWidth: Int): Int {
@@ -1257,12 +1276,20 @@ internal object SystemUiHomePresentationOwner {
             val previousOverlap = lastIsland2DOverlap
             if (previousOverlap != overlap) {
                 if (previousOverlap == true && !overlap) {
-                    captureIslandAvoidedPeersForLatch(group)
+                    latchedIslandAvoidedSlots.clear()
+                    latchedIslandAvoidedSlots.addAll(accumulatedIslandAvoidedSlots)
                     islandPeerLatchRequested = true
                     islandReturnOverlapRequested = false
                     islandReturnBaselineLayoutPending = false
                     islandReturnExpectedCarrierWidthPx = null
+                    onEvent(
+                        eventPrefix +
+                            " islandPeerLatch snapshot=" +
+                            latchedIslandAvoidedSlots.joinToString(",").ifEmpty { "none" } +
+                            " source=accumulated-native-overlap-layouts peerStateWrites=0",
+                    )
                 } else if (previousOverlap == false && overlap) {
+                    accumulatedIslandAvoidedSlots.clear()
                     islandReturnOverlapRequested = true
                     islandPeerLatchRequested = false
                 }
@@ -1531,7 +1558,8 @@ internal object SystemUiHomePresentationOwner {
                 )
             val restored = restoreClipMasks()
             val restoredIslandPeerLatches = restoreIslandPeerLatchMasks()
-            pendingIslandAvoidedPeers.clear()
+            accumulatedIslandAvoidedSlots.clear()
+            latchedIslandAvoidedSlots.clear()
             islandPeerLatchRequested = false
             islandReturnOverlapRequested = false
             islandReturnBaselineLayoutPending = false
@@ -1840,17 +1868,44 @@ internal object SystemUiHomePresentationOwner {
                     nativeLayoutAuthority = nativeLayoutAuthority,
                     island2DSeparated = lastIsland2DOverlap == false,
                 )
+            val capacityActivationBaselineReservationPx =
+                if (
+                    capacityLeaseEnabled &&
+                    nativeLayoutAuthority &&
+                    lastIsland2DOverlap == false
+                ) {
+                    reservationDelta.coerceAtLeast(0)
+                } else {
+                    0
+                }
             val capacityDeltaPx =
                 if (capacityLeaseEnabled) {
-                    ensureFakeCarrierCapacityLease(hostView)
-                        ?: return false
+                    ensureFakeCarrierCapacityLease(
+                        hostView = hostView,
+                        reservationBaselinePx = capacityActivationBaselineReservationPx,
+                    ) ?: return false
+                } else {
+                    0
+                }
+            val capacityBaselineReservationPx =
+                if (capacityLeaseEnabled) {
+                    fakeCarrierCapacityBaselineReservationPx ?: 0
+                } else {
+                    0
+                }
+            val capacityReservationGrowthPx =
+                if (capacityLeaseEnabled) {
+                    EndReservationPolicy.resolveCapacityReservationGrowth(
+                        currentReservationPx = reservationDelta,
+                        baselineReservationPx = capacityBaselineReservationPx,
+                    )
                 } else {
                     0
                 }
             if (
                 surfaceName == CONTROL_CENTER_FAKE_SURFACE &&
                 capacityLeaseEnabled &&
-                reservationDelta.coerceAtLeast(0) > capacityDeltaPx
+                capacityReservationGrowthPx > capacityDeltaPx
             ) {
                 onFailNative("fake-carrier-capacity-insufficient")
                 return false
@@ -1887,6 +1942,10 @@ internal object SystemUiHomePresentationOwner {
                         " fakeCarrierWidth=" + (appliedFakeCarrierWidthPx ?: -1) +
                         " fakeCarrierCapacityDelta=" +
                         (if (capacityLeaseEnabled) capacityDeltaPx else -1) +
+                        " fakeCarrierCapacityBaselineReservation=" +
+                        (if (capacityLeaseEnabled) capacityBaselineReservationPx else -1) +
+                        " fakeCarrierCapacityGrowth=" +
+                        (if (capacityLeaseEnabled) capacityReservationGrowthPx else -1) +
                         " carrierAuthority=battery_icon_container " +
                         "owner=" +
                         (
@@ -1935,7 +1994,10 @@ internal object SystemUiHomePresentationOwner {
             return paddingRestored && carrierRestored
         }
 
-        private fun ensureFakeCarrierCapacityLease(hostView: ViewGroup): Int? {
+        private fun ensureFakeCarrierCapacityLease(
+            hostView: ViewGroup,
+            reservationBaselinePx: Int,
+        ): Int? {
             if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return 0
 
             val parent =
@@ -2017,6 +2079,8 @@ internal object SystemUiHomePresentationOwner {
             nativeFakeCarrierLayoutWidthPx = params.width
             nativeFakeCarrierParentContentWidthPx = parentContentWidthPx
             fakeCarrierCapacityDeltaPx = capacityDeltaPx
+            fakeCarrierCapacityBaselineReservationPx =
+                reservationBaselinePx.coerceAtLeast(0)
 
             if (params.width != parentContentWidthPx) {
                 params.width = parentContentWidthPx
@@ -2035,6 +2099,8 @@ internal object SystemUiHomePresentationOwner {
                     " nativeWidth=" + baselineWidthPx +
                     " leasedWidth=" + parentContentWidthPx +
                     " capacityDelta=" + capacityDeltaPx +
+                    " baselineReservation=" +
+                    (fakeCarrierCapacityBaselineReservationPx ?: 0) +
                     " owner=control-center-fake-session",
             )
             return capacityDeltaPx
@@ -2096,6 +2162,7 @@ internal object SystemUiHomePresentationOwner {
             nativeFakeCarrierParentContentWidthPx = null
             appliedFakeCarrierWidthPx = null
             fakeCarrierCapacityDeltaPx = null
+            fakeCarrierCapacityBaselineReservationPx = null
             fakeCarrierCapacityLeaseAwaitingLayout = false
         }
 
@@ -2197,6 +2264,17 @@ internal object SystemUiHomePresentationOwner {
                 return
             }
 
+            if (
+                latchedIslandAvoidedSlots.isNotEmpty() &&
+                (
+                    lastIsland2DOverlap == false ||
+                        islandReturnOverlapRequested ||
+                        islandReturnBaselineLayoutPending
+                )
+            ) {
+                refreshIslandPeerLatchMasks()
+            }
+
             if (islandReturnBaselineLayoutPending) {
                 val hostView =
                     host.get()
@@ -2223,7 +2301,7 @@ internal object SystemUiHomePresentationOwner {
                     return
                 }
                 val restored = restoreIslandPeerLatchMasks()
-                pendingIslandAvoidedPeers.clear()
+                latchedIslandAvoidedSlots.clear()
                 islandReturnBaselineLayoutPending = false
                 islandReturnExpectedCarrierWidthPx = null
                 onEvent(
@@ -2255,7 +2333,7 @@ internal object SystemUiHomePresentationOwner {
                     )
                 } else {
                     val restored = restoreIslandPeerLatchMasks()
-                    pendingIslandAvoidedPeers.clear()
+                    latchedIslandAvoidedSlots.clear()
                     onEvent(
                         eventPrefix +
                             " islandPeerLatch reverseOverlap=true" +
@@ -2269,7 +2347,7 @@ internal object SystemUiHomePresentationOwner {
                 return
             }
             islandPeerLatchRequested = false
-            applyIslandPeerLatchMasks()
+            refreshIslandPeerLatchMasks()
 
             val hostView =
                 host.get()
@@ -2277,9 +2355,6 @@ internal object SystemUiHomePresentationOwner {
                         onFailNative("island-separated-carrier-released")
                         return
                     }
-            val capacityDeltaPx =
-                ensureFakeCarrierCapacityLease(hostView)
-                    ?: return
             val baseline = nativePadding
             val group = statusIcons.get()
             if (baseline == null || group == null) {
@@ -2288,31 +2363,68 @@ internal object SystemUiHomePresentationOwner {
             }
             val livePaddingDelta =
                 (PaddingState.from(group).end - baseline.end).coerceAtLeast(0)
-            if (livePaddingDelta > capacityDeltaPx) {
+            val capacityDeltaPx =
+                ensureFakeCarrierCapacityLease(
+                    hostView = hostView,
+                    reservationBaselinePx = livePaddingDelta,
+                ) ?: return
+            val capacityBaselineReservationPx =
+                fakeCarrierCapacityBaselineReservationPx ?: livePaddingDelta
+            val capacityReservationGrowthPx =
+                EndReservationPolicy.resolveCapacityReservationGrowth(
+                    currentReservationPx = livePaddingDelta,
+                    baselineReservationPx = capacityBaselineReservationPx,
+                )
+            if (capacityReservationGrowthPx > capacityDeltaPx) {
                 onFailNative("island-separated-capacity-insufficient")
                 return
             }
             onEvent(
                 eventPrefix +
                     " islandPeerLatch active=true" +
-                    " slots=" + islandPeerLatchSlots() +
+                    " slots=" +
+                    latchedIslandAvoidedSlots.joinToString(",").ifEmpty { "none" } +
                     " capacityLease=active" +
                     " capacityDelta=" + capacityDeltaPx +
-                    " livePaddingDelta=" + livePaddingDelta +
+                    " baselineReservation=" + capacityBaselineReservationPx +
+                    " reservationGrowth=" + capacityReservationGrowthPx +
                     " peerStateWrites=0 nativeAlphaWrites=0" +
                     " nativeVisibilityWrites=0 nativeTranslationWrites=0",
             )
         }
 
-        private fun applyIslandPeerLatchMasks(): Int {
-            val iterator = pendingIslandAvoidedPeers.iterator()
-            while (iterator.hasNext()) {
-                val view = iterator.next().get()
-                if (view == null) {
-                    iterator.remove()
-                    continue
+        private fun refreshIslandPeerLatchMasks(): Int {
+            val group =
+                statusIcons.get()
+                    ?: run {
+                        onFailNative("island-peer-latch-status-icons-released")
+                        return 0
+                    }
+            val targets = linkedSetOf<View>()
+            for (index in 0 until group.childCount) {
+                val child = group.getChildAt(index)
+                if (NativeParticipantRuntimeAccess.slotOf(child) in latchedIslandAvoidedSlots) {
+                    targets += child
                 }
-                if (islandPeerClipStates.none { state -> state.view.get() === view }) {
+            }
+
+            val iterator = islandPeerClipStates.iterator()
+            while (iterator.hasNext()) {
+                val state = iterator.next()
+                val view = state.view.get()
+                if (view == null || view !in targets) {
+                    if (view != null) {
+                        restoreClipState(state)
+                    }
+                    iterator.remove()
+                }
+            }
+
+            targets.forEach { view ->
+                val existing =
+                    islandPeerClipStates
+                        .firstOrNull { state -> state.view.get() === view }
+                if (existing == null) {
                     val nativeClip = view.clipBounds?.let(::Rect)
                     val applied = Rect(0, 0, 0, 0)
                     view.clipBounds = applied
@@ -2322,19 +2434,15 @@ internal object SystemUiHomePresentationOwner {
                             nativeClip = nativeClip,
                             appliedClip = applied,
                         )
+                } else if (view.clipBounds == existing.nativeClip) {
+                    view.clipBounds = existing.appliedClip
+                } else if (view.clipBounds != existing.appliedClip) {
+                    onFailNative("island-peer-latch-clip-writer-conflict")
+                    return 0
                 }
             }
             return islandPeerClipStates.count { state -> state.view.get() != null }
         }
-
-        private fun islandPeerLatchSlots(): String =
-            islandPeerClipStates
-                .mapNotNull { state ->
-                    state.view.get()?.let(NativeParticipantRuntimeAccess::slotOf)
-                }
-                .distinct()
-                .joinToString(",")
-                .ifEmpty { "none" }
 
         private fun restoreIslandPeerLatchMasks(): Int {
             val states = islandPeerClipStates.toList()
@@ -2485,12 +2593,16 @@ internal object SystemUiHomePresentationOwner {
             width: Int,
             height: Int,
             inIslandState: Int?,
+            beforeInIslandState: Int? = null,
         ): Boolean =
             slot !in representedSlots &&
                 visible &&
                 width > 0 &&
                 height > 0 &&
-                inIslandState == NATIVE_ISLAND_HIDDEN_STATE
+                (
+                    inIslandState == NATIVE_ISLAND_HIDDEN_STATE ||
+                        beforeInIslandState == NATIVE_ISLAND_HIDDEN_STATE
+                )
     }
 
     internal object PersistentIgnoredSlotPolicy {
@@ -2570,6 +2682,15 @@ internal object SystemUiHomePresentationOwner {
                 requested - actual
             }
         }
+
+        fun resolveCapacityReservationGrowth(
+            currentReservationPx: Int,
+            baselineReservationPx: Int,
+        ): Int =
+            (
+                currentReservationPx.coerceAtLeast(0) -
+                    baselineReservationPx.coerceAtLeast(0)
+            ).coerceAtLeast(0)
 
         fun resolveFakeCarrierCapacityDelta(
             nativeCarrierWidthPx: Int,

@@ -83,6 +83,18 @@ class SystemUiHomePresentationOwnerTest {
                     inIslandState = 20,
                 ),
         )
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
+                .shouldLatchPeer(
+                    slot = "network_speed",
+                    representedSlots = represented,
+                    visible = true,
+                    width = 78,
+                    height = 75,
+                    inIslandState = 20,
+                    beforeInIslandState = 10,
+                ),
+        )
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterIslandGesturePolicy
                 .shouldLatchPeer(
@@ -209,6 +221,42 @@ class SystemUiHomePresentationOwnerTest {
                 actualBatteryWidthPx = 135,
                 requestedSlotWidthPx = 105,
             ),
+        )
+    }
+
+    @Test
+    fun islandMidGestureCapacityLeaseCountsOnlyPostActivationGrowth() {
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 200,
+                    baselineReservationPx = 200,
+                ),
+        )
+        assertEquals(
+            49,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 249,
+                    baselineReservationPx = 200,
+                ),
+        )
+        assertEquals(
+            250,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 250,
+                    baselineReservationPx = 0,
+                ),
+        )
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .resolveCapacityReservationGrowth(
+                    currentReservationPx = 180,
+                    baselineReservationPx = 200,
+                ),
         )
     }
 
