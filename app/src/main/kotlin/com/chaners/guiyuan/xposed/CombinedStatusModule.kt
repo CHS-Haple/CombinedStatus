@@ -2228,6 +2228,7 @@ class CombinedStatusModule : XposedModule() {
                 aodEnabled = settings.aodEnabled,
                 lastStableFamilyScene = lastStableKeyguardAodScene,
                 nativeToLockScreenTarget = nativeToLockScreenTarget,
+                homeNativeAodFallbackActive = homeNativeAodFallbackActive,
             )
         if (!eligible) return false
 
@@ -2261,6 +2262,7 @@ class CombinedStatusModule : XposedModule() {
                         resolution.host,
                     ),
                 statusIconsPresentationAlpha = statusIconsAlphaAtArm,
+                homeNativeAodFallbackActive = homeNativeAodFallbackActive,
             )
         keyguardBoundaryCompactLayoutReady = false
         keyguardBoundaryVisualBoundaryReached = visualBoundaryReached
