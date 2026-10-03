@@ -2157,6 +2157,10 @@ class CombinedStatusModule : XposedModule() {
     ) {
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
         keyguardBoundaryVisualHandoffActive = true
+        val statusIconsAlphaAtArm =
+            SystemUiKeyguardHostResolver.statusIconsPresentationAlpha(
+                resolution.host,
+            )
         keyguardBoundaryLayoutPrecommitActive =
             CombinedStatusScenePolicy.shouldPrecommitKeyguardBoundaryLayout(
                 featureEnabled = settings.enabled,
@@ -2167,7 +2171,7 @@ class CombinedStatusModule : XposedModule() {
                     SystemUiKeyguardHostResolver.nativeToLockScreenTarget(
                         resolution.host,
                     ),
-                keyguardHostShown = resolution.host.host.isShown,
+                statusIconsPresentationAlpha = statusIconsAlphaAtArm,
             )
         keyguardBoundaryCompactLayoutReady = false
         keyguardBoundaryVisualBoundaryReached = visualBoundaryReached
@@ -2195,7 +2199,8 @@ class CombinedStatusModule : XposedModule() {
                 },
             "nativeVisualMask" to "clipBounds",
             "renderer" to "keyguard-combined",
-            "hostShownAtArm" to resolution.host.host.isShown,
+            "statusIconsAlphaAtArm" to statusIconsAlphaAtArm,
+            "nativeLifecycleAuthority" to "status-icons-presentation-alpha",
             "nativeGeometryWrites" to 0,
         )
     }
