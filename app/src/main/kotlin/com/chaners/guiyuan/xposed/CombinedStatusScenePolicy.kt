@@ -330,14 +330,14 @@ internal object CombinedStatusScenePolicy {
         featureEnabled: Boolean,
         keyguardEnabled: Boolean,
         aodEnabled: Boolean,
-        steadySourceScene: CombinedStatusSourceScene,
         homePresentationOwned: Boolean,
+        homeCarrierPresentationVisible: Boolean,
     ): Boolean =
         featureEnabled &&
             keyguardEnabled &&
             !aodEnabled &&
-            steadySourceScene == CombinedStatusSourceScene.HOME &&
-            homePresentationOwned
+            homePresentationOwned &&
+            homeCarrierPresentationVisible
 
     fun shouldConsumeHomeNativeAodFallbackOnAodState(
         candidateActive: Boolean,
