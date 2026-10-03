@@ -2748,3 +2748,41 @@ Build 654 does not replace that contract; it re-reads the authoritative native h
 ### Review boundary
 
 No timer, delay, polling, new island classifier, peer translation write, or replacement island geometry was added. The Control Center fallback is fail-native and gesture-latched; the Home reconciliation is idempotent and uses the same native `mIsHideBattery` authority as the existing callback.
+
+
+## 2026-10-03 — Build 655: keep Guiyuan transition under HyperOS island-native layout
+
+**Type:** device-feedback correction of Build-654 ownership strategy  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197  
+**Builds:** 654 -> 655
+
+### Device evidence
+
+Build 654 intentionally latched full Native fallback for an active island gesture. The returned diagnostic proved that path executed exactly as designed: the island event arrived before pull-down, `islandPresentation` reported `native-fallback-latched`, and every subsequent Control Center geometry sample reported `transitionOwner=inactive`. Device feedback therefore rejected the strategy because pull-down became completely native instead of preserving Guiyuan's transition.
+
+### Root-cause refinement
+
+Build 653 showed that keeping the compact QS fake presentation during an island gesture allowed Guiyuan-owned ignored slots / reservation state to interfere with HyperOS' native island layout. Build 654 removed that interference by removing Guiyuan entirely. The required ownership split is narrower:
+
+- HyperOS must own QS fake measure/layout, dual-SIM structure, island collision and native status-icon avoidance.
+- Guiyuan may still own its overlay drawing and visual replacement masks.
+- Native represented views must stay measured and laid out so their geometry remains a valid transition target.
+
+### Build-655 correction
+
+- Reinterpret the island gesture latch as **native-layout authority**, not Native fallback.
+- Remove island latch from `projectionReady()`; Guiyuan overlay and TransitionOwner remain active.
+- Add Control Center native-layout mode in `SystemUiHomePresentationOwner`.
+- In that mode, do not apply persistent ignored slots.
+- In that mode, do not apply status-icons end padding or fake-carrier capacity lease.
+- Continue using clip visual masks for represented Wi-Fi/mobile/battery views so native geometry remains present but duplicate pixels do not.
+- Keep native-layout mode latched until an open gesture closes, avoiding a second layout-mode switch mid-gesture.
+- Retain Build-654 Home charging-island occupancy reconciliation based on the existing `mIsHideBattery` authority.
+
+### Review
+
+Mode replacement stops the previous Control Center presentation first, restoring its end reservation, fake-carrier lease, persistent ignored slots and clip states before the new mode starts. No new geometry writer, timer, delay, poller, alpha writer or island classifier is introduced.
+
+### Device gate
+
+Confirm Guiyuan transition returns under active islands, native non-represented status icons keep HyperOS island avoidance, charging-only island preserves dual-SIM layout without overlap, and no-island behavior remains Build-652-equivalent.
