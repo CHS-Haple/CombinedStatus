@@ -322,7 +322,7 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
@@ -333,6 +333,20 @@ class CombinedStatusScenePolicyTest {
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
                 keyguardStatusIconsAlpha = 0.99f,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 0f,
             ),
         )
         assertEquals(
@@ -742,6 +756,65 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun incomingKeyguardBoundaryPresentationCanBridgeStableReadiness() {
+        assertTrue(
+            CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+                visualHandoffActive = true,
+                layoutPrecommitActive = true,
+                compactLayoutReady = true,
+                visualBoundaryReached = true,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+                visualHandoffActive = true,
+                layoutPrecommitActive = true,
+                compactLayoutReady = true,
+                visualBoundaryReached = false,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.incomingKeyguardPresentationReady(
+                visualHandoffActive = true,
+                layoutPrecommitActive = true,
+                compactLayoutReady = true,
+                visualBoundaryReached = true,
+                hostAttached = false,
+            ),
+        )
+    }
+
+    @Test
+    fun keyguardControlCenterLeaseMaySpanIncomingBoundaryBeforeStableFamily() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = true,
+                incomingBoundaryPresentationReady = true,
+                nativeFraction = 0.2f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = true,
+                incomingBoundaryPresentationReady = false,
+                nativeFraction = 0.2f,
+            ),
+        )
+    }
+
+    @Test
     fun keyguardControlCenterLeaseExistsOnlyInsideVerifiedNativeTransitionLifetime() {
         assertTrue(
             CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
@@ -804,7 +877,7 @@ class CombinedStatusScenePolicyTest {
         )
     }
     @Test
-    fun singleChildUsesNativeFullAodTargetBeforeAlphaFallback() {
+    fun singleChildNativeTargetPreservesOutgoingVisualLifetime() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -823,7 +896,7 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
                 keyguardEnabled = true,
@@ -834,6 +907,23 @@ class CombinedStatusScenePolicyTest {
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
                 keyguardStatusIconsAlpha = 1f,
+                nativeToLockScreenTarget = false,
+                fullAodTargetSourceReady = true,
+                fullAodVisualBoundary = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 0f,
                 nativeToLockScreenTarget = false,
                 fullAodTargetSourceReady = true,
                 fullAodVisualBoundary = true,
@@ -876,7 +966,7 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun fullAodTargetPendingRetainsOutgoingSingleChildUntilNativeVisualBoundary() {
+    fun fullAodTargetPendingRetainsOutgoingSingleChildThroughFadeLifetime() {
         assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
@@ -895,6 +985,24 @@ class CombinedStatusScenePolicyTest {
             ),
         )
         assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 0.5f,
+                nativeToLockScreenTarget = false,
+                fullAodTargetSourceReady = true,
+                fullAodTargetPending = true,
+                fullAodVisualBoundary = true,
+            ),
+        )
+        assertEquals(
             CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
             CombinedStatusScenePolicy.resolveKeyguardAodProjection(
                 featureEnabled = true,
@@ -905,6 +1013,7 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                keyguardStatusIconsAlpha = 0f,
                 nativeToLockScreenTarget = false,
                 fullAodTargetSourceReady = true,
                 fullAodTargetPending = true,
