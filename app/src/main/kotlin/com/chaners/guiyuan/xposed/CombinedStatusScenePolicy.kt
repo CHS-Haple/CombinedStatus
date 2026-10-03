@@ -318,37 +318,46 @@ internal object CombinedStatusScenePolicy {
             statusIconsPresentationAlpha != null &&
             statusIconsPresentationAlpha == 0f
 
-    fun shouldLatchHomeDepartureForNativeAodFallback(
+    fun shouldArmHomeNativeAodFallbackCandidate(
         featureEnabled: Boolean,
         keyguardEnabled: Boolean,
         aodEnabled: Boolean,
-        previousSourceScene: CombinedStatusSourceScene,
-        nextSourceScene: CombinedStatusSourceScene,
+        steadySourceScene: CombinedStatusSourceScene,
         homePresentationOwned: Boolean,
-        nativeToAod: Boolean?,
-        nativeAodAnimating: Boolean?,
     ): Boolean =
         featureEnabled &&
             keyguardEnabled &&
             !aodEnabled &&
-            previousSourceScene == CombinedStatusSourceScene.HOME &&
-            nextSourceScene == CombinedStatusSourceScene.KEYGUARD &&
-            homePresentationOwned &&
-            nativeToAod == false &&
-            nativeAodAnimating == false
+            steadySourceScene == CombinedStatusSourceScene.HOME &&
+            homePresentationOwned
+
+    fun shouldConsumeHomeNativeAodFallbackOnAodState(
+        candidateActive: Boolean,
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        toAod: Boolean,
+        isAodAnimate: Boolean,
+    ): Boolean =
+        candidateActive &&
+            featureEnabled &&
+            keyguardEnabled &&
+            !aodEnabled &&
+            toAod &&
+            isAodAnimate
 
     fun shouldReleaseTransientHomeKeyguardForDisabledAod(
         featureEnabled: Boolean,
         keyguardEnabled: Boolean,
         aodEnabled: Boolean,
-        homeDeparturePending: Boolean,
+        homeNativeAodFallbackCandidate: Boolean,
         homePresentationOwnedAtFullAodStart: Boolean,
         nativeToLockScreenTarget: Boolean?,
     ): Boolean =
         featureEnabled &&
             keyguardEnabled &&
             !aodEnabled &&
-            homeDeparturePending &&
+            homeNativeAodFallbackCandidate &&
             homePresentationOwnedAtFullAodStart &&
             nativeToLockScreenTarget == false
 
@@ -558,7 +567,17 @@ internal object CombinedStatusScenePolicy {
         panelSourceScene: CombinedStatusSourceScene,
         steadySourceScene: CombinedStatusSourceScene,
         lastStableFamilyScene: StableKeyguardAodScene = StableKeyguardAodScene.UNKNOWN,
+        incomingKeyguardPresentationReady: Boolean = false,
     ): CombinedStatusSourceScene {
+        if (
+            incomingKeyguardPresentationReady &&
+            (
+                panelSourceScene == CombinedStatusSourceScene.KEYGUARD ||
+                    steadySourceScene == CombinedStatusSourceScene.KEYGUARD
+            )
+        ) {
+            return CombinedStatusSourceScene.KEYGUARD
+        }
         if (panelSourceScene == steadySourceScene) return panelSourceScene
         if (panelSourceScene == CombinedStatusSourceScene.UNKNOWN) return steadySourceScene
         if (steadySourceScene == CombinedStatusSourceScene.UNKNOWN) return panelSourceScene
