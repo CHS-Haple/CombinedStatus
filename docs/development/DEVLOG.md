@@ -3275,3 +3275,39 @@ The Build-667 incoming-boundary readiness fix remains. Build 669 retains the add
 ### Validation
 
 Exact-head Runtime CI and one signed Canary are required before device testing.
+
+## 2026-10-03 — Build 670: block Keyguard visual rearm during native AOD fallback
+
+**Type:** Home -> AOD lifecycle handoff correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Build:** 670 / `20261003-670`
+
+### Problem
+
+Build 669 still reproduces the Home/Desktop -> AOD sequence “Guiyuan disappears -> Guiyuan returns -> native” when Keyguard Guiyuan is enabled and AOD Guiyuan is disabled.
+
+### Evidence
+
+- Build 669 successfully arms Home provenance: `homeCarrierVisibleAtStart=true`, `homePresentationOwnedAtStart=true`, `homeNativeAodFallbackCandidate=true`.
+- Native `toAod=true / isAodAnimate=true` consumes the candidate, releases transient Keyguard presentation, and records `homeNativeAodFallbackActive=true`.
+- While that fallback is still active, HyperOS later emits a Keyguard-directed status-icon visual boundary; `aod.visualHandoff state=armed` and `renderer.attach` occur again.
+- The main scene resolver already returns NATIVE while the fallback is active. The reappearance therefore bypasses the projection resolver through the dedicated incoming-Keyguard visual-handoff path.
+
+### Conclusion
+
+The remaining Build-669 defect is not Home-origin detection and not fallback consumption. `armKeyguardBoundaryVisualHandoffIfEligible()` had an eligibility contract that did not include the already-authoritative Home-native-AOD fallback, allowing one side-channel renderer reacquire.
+
+### Change
+
+- Add `homeNativeAodFallbackActive` to incoming Keyguard visual-handoff eligibility and reject the handoff while active.
+- Apply the same veto to Keyguard boundary layout precommit.
+- Keep Build-669 Home carrier provenance, fallback consumption, stable-family cleanup and native animation ownership unchanged.
+- Add focused unit coverage for both visual-handoff and precommit rejection under an active fallback.
+
+### Boundaries
+
+No timer, delay, copied native duration/interpolator, geometry compensation, native alpha/visibility/translation write, extra Hook, second presentation owner, or new lifecycle authority.
+
+### Validation
+
+Exact-head Runtime CI, then one signed Canary. Device focus remains Home/Desktop -> AOD with Keyguard ON / AOD OFF, plus Build-667 Keyguard/AOD regressions.
