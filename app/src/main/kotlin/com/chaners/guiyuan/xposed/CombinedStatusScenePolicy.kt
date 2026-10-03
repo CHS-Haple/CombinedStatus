@@ -175,7 +175,8 @@ internal object CombinedStatusScenePolicy {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
         if (
             homeAodTransitionOrigin &&
-            nativeToLockScreenTarget == false
+            nativeToLockScreenTarget == false &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN
         ) {
             return if (aodEnabled) {
                 KeyguardAodProjection.AOD
@@ -185,7 +186,8 @@ internal object CombinedStatusScenePolicy {
         }
         if (
             homeAodTargetPrearm &&
-            aodEnabled
+            aodEnabled &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN
         ) {
             // The latch is armed only from an authoritative native AOD target
             // while Home still owns represented slots. Once armed, it may span
@@ -240,21 +242,6 @@ internal object CombinedStatusScenePolicy {
         }
     }
 
-    fun homeFullAodOriginEligible(
-        featureEnabled: Boolean,
-        familyProjectionEnabled: Boolean,
-        steadySourceScene: CombinedStatusSourceScene,
-        homePresentationOwned: Boolean,
-        toAod: Boolean?,
-        isAodAnimate: Boolean?,
-    ): Boolean =
-        featureEnabled &&
-            familyProjectionEnabled &&
-            steadySourceScene == CombinedStatusSourceScene.HOME &&
-            homePresentationOwned &&
-            toAod == false &&
-            isAodAnimate == false
-
     fun shouldArmHomeAodTargetPrearm(
         featureEnabled: Boolean,
         aodEnabled: Boolean,
@@ -269,6 +256,19 @@ internal object CombinedStatusScenePolicy {
             lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
             homePresentationOwned &&
             nativeToLockScreenTarget == false
+
+    fun shouldUseKeyguardBoundaryVisualHandoff(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        lastStableFamilyScene: StableKeyguardAodScene,
+        nativeToLockScreenTarget: Boolean?,
+    ): Boolean =
+        featureEnabled &&
+            keyguardEnabled &&
+            !aodEnabled &&
+            lastStableFamilyScene == StableKeyguardAodScene.AOD &&
+            nativeToLockScreenTarget == true
 
     fun fullAodPendingTargetReachedStableState(
         pendingTargetToLockScreen: Boolean?,

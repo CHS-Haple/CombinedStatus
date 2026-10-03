@@ -30,7 +30,7 @@ class CombinedStatusModule : XposedModule() {
     private var keyguardAodFullTargetPending = false
     private var keyguardAodPendingTargetToLockScreen: Boolean? = null
     private var keyguardAodFullTransitionActive = false
-    private var keyguardAodVisualBoundaryDispatchActive = false
+    private var keyguardBoundaryVisualHandoffActive = false
     private var homeAodTransitionOriginPending = false
     private var homeAodTargetPrearmPending = false
     private var controlCenterExpansionFraction = 0f
@@ -274,7 +274,7 @@ class CombinedStatusModule : XposedModule() {
             keyguardAodFullTargetPending = false
             keyguardAodPendingTargetToLockScreen = null
             keyguardAodFullTransitionActive = false
-            keyguardAodVisualBoundaryDispatchActive = false
+            keyguardBoundaryVisualHandoffActive = false
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
             controlCenterExpansionFraction = 0f
@@ -1895,28 +1895,16 @@ class CombinedStatusModule : XposedModule() {
             SystemUiHomePresentationOwner
                 .currentHomeRepresentedSlotOwnership()
                 .isNotEmpty()
-        val resolutionAtStart =
-            SystemUiKeyguardHostResolver.current()
-                as? SystemUiKeyguardHostResolver.ResolveResult.Ready
-        val nativeAodStateAtStart =
-            resolutionAtStart
-                ?.host
-                ?.battery
-                ?.let(SystemUiKeyguardAodStateSource::currentState)
 
         keyguardAodFullTransitionActive = true
-        keyguardAodVisualBoundaryDispatchActive = false
         keyguardAodPendingTargetToLockScreen = null
         homeAodTransitionOriginPending =
-            CombinedStatusScenePolicy.homeFullAodOriginEligible(
-                featureEnabled = settings.enabled,
-                familyProjectionEnabled =
-                    settings.keyguardEnabled || settings.aodEnabled,
-                steadySourceScene = steadyStatusSourceScene,
-                homePresentationOwned = homeOwnedAtStart,
-                toAod = nativeAodStateAtStart?.toAod,
-                isAodAnimate = nativeAodStateAtStart?.isAodAnimate,
-            )
+            settings.enabled &&
+                steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
+                lastStableKeyguardAodScene ==
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN &&
+                homeOwnedAtStart &&
+                (settings.keyguardEnabled || settings.aodEnabled)
         keyguardAodFullTargetPending =
             SystemUiPresentationRuntimeOwner.keyguardStatusIconReady &&
                 lastStableKeyguardAodScene !=
@@ -1937,10 +1925,6 @@ class CombinedStatusModule : XposedModule() {
                 },
             "homeOriginLatched" to homeAodTransitionOriginPending,
             "homePresentationOwnedAtStart" to homeOwnedAtStart,
-            "steadySourceSceneAtStart" to steadyStatusSourceScene.name,
-            "lastStableFamilyAtStart" to lastStableKeyguardAodScene.name,
-            "nativeToAodAtStart" to nativeAodStateAtStart?.toAod,
-            "nativeAodAnimatingAtStart" to nativeAodStateAtStart?.isAodAnimate,
             "eventDriven" to true,
             "readOnly" to true,
             "nativeGeometryWrites" to 0,
@@ -2073,18 +2057,102 @@ class CombinedStatusModule : XposedModule() {
         )
         if (!eligible) return
 
-        keyguardAodVisualBoundaryDispatchActive = true
-        try {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val visualOnlyIncomingKeyguard =
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
+                featureEnabled = settings.enabled,
+                keyguardEnabled = settings.keyguardEnabled,
+                aodEnabled = settings.aodEnabled,
+                lastStableFamilyScene = lastStableKeyguardAodScene,
+                nativeToLockScreenTarget = target,
+            )
+        if (visualOnlyIncomingKeyguard) {
+            beginKeyguardBoundaryVisualHandoff(
+                resolution = resolution,
+                source = "status-icon-animation",
+            )
+        } else {
             onKeyguardHostResolution(
                 resolution = resolution,
                 source = "status-icon-animation",
                 fullAodVisualBoundary = true,
             )
-        } finally {
-            keyguardAodVisualBoundaryDispatchActive = false
         }
         keyguardAodFullTargetPending = false
         keyguardAodPendingTargetToLockScreen = null
+    }
+
+    private fun beginKeyguardBoundaryVisualHandoff(
+        resolution: SystemUiKeyguardHostResolver.ResolveResult.Ready,
+        source: String,
+    ) {
+        keyguardBoundaryVisualHandoffActive = true
+        val attached =
+            attachKeyguardRenderer(
+                resolved = resolution.host,
+                source = source + ":visual-only",
+            )
+        if (!attached) {
+            keyguardBoundaryVisualHandoffActive = false
+            return
+        }
+        logDiagnostic(
+            level = Log.INFO,
+            event = "aod.visualHandoff",
+            component = "keyguardPresentation",
+            state = "armed",
+            "source" to source,
+            "nativeLayoutOwnership" to "deferred",
+            "nativeVisualMask" to "clipBounds",
+            "renderer" to "keyguard-combined",
+            "nativeGeometryWrites" to 0,
+        )
+    }
+
+    private fun completeKeyguardBoundaryVisualHandoff(source: String): Boolean {
+        if (!keyguardBoundaryVisualHandoffActive) return false
+        keyguardBoundaryVisualHandoffActive = false
+        return when (
+            val result =
+                SystemUiHomePresentationOwner.commitKeyguardDeferredLayoutOwnership()
+        ) {
+            is SystemUiHomePresentationOwner.StateResult.Active -> {
+                completeKeyguardPresentationCutover(
+                    result = result,
+                    source = source + ":compact-ready",
+                )
+                true
+            }
+
+            is SystemUiHomePresentationOwner.StateResult.Prepared -> {
+                keyguardRuntimeReady = false
+                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(false)
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.cutover",
+                    component = "keyguardPresentation",
+                    state = "visual-handoff-layout-pending",
+                    "source" to source,
+                    "representedSlots" to result.representedSlots,
+                    "reused" to result.reused,
+                    "nativeVisuals" to "masked",
+                    "next" to "native-status-icons-layout",
+                    "nativeGeometryWrites" to 0,
+                )
+                true
+            }
+
+            is SystemUiHomePresentationOwner.StateResult.Failure -> {
+                onKeyguardPresentationRuntimeFailure(result.reason)
+                deactivateKeyguardRuntime("boundary-layout-commit-failed")
+                true
+            }
+
+            is SystemUiHomePresentationOwner.StateResult.Inactive -> {
+                deactivateKeyguardRuntime("boundary-layout-session-missing")
+                true
+            }
+        }
     }
 
     private fun armHomeAodTargetPrearmIfEligible(
@@ -2176,6 +2244,10 @@ class CombinedStatusModule : XposedModule() {
         if (!keyguardAodFullTransitionActive && stableAod) {
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
+            if (keyguardBoundaryVisualHandoffActive) {
+                keyguardBoundaryVisualHandoffActive = false
+                deactivateKeyguardRuntime("boundary-handoff-returned-to-aod")
+            }
         }
 
         refreshStableKeyguardAodSceneFromAodState(update)
@@ -2185,11 +2257,19 @@ class CombinedStatusModule : XposedModule() {
                 reconcileReadiness = false,
             )
         }
-        SystemUiKeyguardHostResolver.current()?.let { resolution ->
-            onKeyguardHostResolution(
-                resolution = resolution,
-                source = "aod:" + update.source,
-            )
+        val boundaryHandoffHandled =
+            !update.isAodAnimate &&
+                !update.toAod &&
+                completeKeyguardBoundaryVisualHandoff(
+                    source = "aod:" + update.source,
+                )
+        if (!boundaryHandoffHandled && !keyguardBoundaryVisualHandoffActive) {
+            SystemUiKeyguardHostResolver.current()?.let { resolution ->
+                onKeyguardHostResolution(
+                    resolution = resolution,
+                    source = "aod:" + update.source,
+                )
+            }
         }
         CombinedStatusKeyguardRenderSession.onAodState(update)
         if (detailedDiagnosticsEnabled) {
@@ -2670,17 +2750,19 @@ class CombinedStatusModule : XposedModule() {
         if (
             resolveCurrentKeyguardAodProjection(
                 resolved = resolved.host,
-                fullAodVisualBoundary = keyguardAodVisualBoundaryDispatchActive,
+                fullAodVisualBoundary = keyguardBoundaryVisualHandoffActive,
             ) != CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
         ) {
             deactivateKeyguardRuntime("projection-ineligible")
             return
         }
 
+        val visualOnlyBoundary = keyguardBoundaryVisualHandoffActive
         when (
             val result =
                 SystemUiHomePresentationOwner.activateKeyguard(
                     resolved = resolved.host,
+                    deferNativeLayoutOwnershipUntilCommit = visualOnlyBoundary,
                     onEvent = { event ->
                         if (detailedDiagnosticsEnabled) {
                             log(Log.INFO, TAG, event)
@@ -2704,19 +2786,41 @@ class CombinedStatusModule : XposedModule() {
 
             is SystemUiHomePresentationOwner.StateResult.Prepared -> {
                 keyguardRuntimeReady = false
-                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
+                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(
+                    !visualOnlyBoundary,
+                )
                 logDiagnostic(
                     level = Log.INFO,
                     event = "presentation.cutover",
                     component = "keyguardPresentation",
-                    state = "prepared",
+                    state =
+                        if (visualOnlyBoundary) {
+                            "visual-handoff"
+                        } else {
+                            "prepared"
+                        },
                     "source" to source,
                     "representedSlots" to result.representedSlots,
                     "reused" to result.reused,
-                    "next" to "native-status-icons-layout",
-                    "fallback" to "native-keyguard-until-compact-layout",
+                    "next" to
+                        if (visualOnlyBoundary) {
+                            "stable-keyguard-layout-commit"
+                        } else {
+                            "native-status-icons-layout"
+                        },
+                    "fallback" to
+                        if (visualOnlyBoundary) {
+                            "combined-visual-native-layout-deferred"
+                        } else {
+                            "native-keyguard-until-compact-layout"
+                        },
+                    "nativeGeometryWrites" to 0,
                 )
-                refreshControlCenterSourceSceneEligibility("keyguard-compact-layout-pending")
+                if (!visualOnlyBoundary) {
+                    refreshControlCenterSourceSceneEligibility(
+                        "keyguard-compact-layout-pending",
+                    )
+                }
             }
 
             is SystemUiHomePresentationOwner.StateResult.Failure -> {
@@ -2740,6 +2844,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun applyKeyguardPresentationReadinessLost(source: String) {
+        keyguardBoundaryVisualHandoffActive = false
         keyguardRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateKeyguard("readiness-lost:" + source)
@@ -2756,10 +2861,8 @@ class CombinedStatusModule : XposedModule() {
             !settings.enabled ||
             !settings.keyguardEnabled ||
             resolved !is SystemUiKeyguardHostResolver.ResolveResult.Ready ||
-            resolveCurrentKeyguardAodProjection(
-                resolved = resolved.host,
-                fullAodVisualBoundary = keyguardAodVisualBoundaryDispatchActive,
-            ) != CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
+            resolveCurrentKeyguardAodProjection(resolved.host) !=
+                CombinedStatusScenePolicy.KeyguardAodProjection.KEYGUARD
         ) {
             deactivateKeyguardRuntime("cutover-projection-ineligible")
             return
@@ -2782,6 +2885,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onKeyguardPresentationRuntimeFailure(reason: String) {
+        keyguardBoundaryVisualHandoffActive = false
         keyguardControlCenterLeaseActive = false
         keyguardPresentationReadyObserved = false
         keyguardRuntimeReady = false
@@ -2799,6 +2903,7 @@ class CombinedStatusModule : XposedModule() {
 
     private fun deactivateKeyguardRuntime(source: String) {
         val wasReady = keyguardRuntimeReady
+        keyguardBoundaryVisualHandoffActive = false
         keyguardControlCenterLeaseActive = false
         keyguardPresentationReadyObserved = false
         keyguardRuntimeReady = false
@@ -4001,7 +4106,7 @@ class CombinedStatusModule : XposedModule() {
         keyguardAodFullTargetPending = false
         keyguardAodPendingTargetToLockScreen = null
         keyguardAodFullTransitionActive = false
-        keyguardAodVisualBoundaryDispatchActive = false
+        keyguardBoundaryVisualHandoffActive = false
         homeAodTransitionOriginPending = false
         homeAodTargetPrearmPending = false
         controlCenterSceneEligible = false

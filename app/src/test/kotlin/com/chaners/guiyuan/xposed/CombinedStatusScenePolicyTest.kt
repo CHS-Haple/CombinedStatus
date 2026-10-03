@@ -996,7 +996,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = false,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
                 homePresentationOwned = false,
                 nativeToLockScreenTarget = false,
                 homeAodTransitionOrigin = true,
@@ -1012,7 +1012,7 @@ class CombinedStatusScenePolicyTest {
                 isAodAnimate = true,
                 steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
                 lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
                 homePresentationOwned = false,
                 nativeToLockScreenTarget = false,
                 homeAodTransitionOrigin = true,
@@ -1021,74 +1021,55 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun homeFullAodOriginRequiresNativeNonAodHomeState() {
+    fun keyguardBoundaryVisualHandoffIsOnlyForIncomingEnabledKeyguard() {
         assertTrue(
-            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
                 featureEnabled = true,
-                familyProjectionEnabled = true,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
-                homePresentationOwned = true,
-                toAod = false,
-                isAodAnimate = false,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
             ),
         )
         assertFalse(
-            CombinedStatusScenePolicy.homeFullAodOriginEligible(
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
                 featureEnabled = true,
-                familyProjectionEnabled = true,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
-                homePresentationOwned = true,
-                toAod = true,
-                isAodAnimate = false,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
             ),
         )
         assertFalse(
-            CombinedStatusScenePolicy.homeFullAodOriginEligible(
-                featureEnabled = true,
-                familyProjectionEnabled = true,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
-                homePresentationOwned = true,
-                toAod = false,
-                isAodAnimate = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusScenePolicy.homeFullAodOriginEligible(
-                featureEnabled = true,
-                familyProjectionEnabled = true,
-                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
-                homePresentationOwned = true,
-                toAod = false,
-                isAodAnimate = false,
-            ),
-        )
-        assertFalse(
-            CombinedStatusScenePolicy.homeFullAodOriginEligible(
-                featureEnabled = true,
-                familyProjectionEnabled = true,
-                steadySourceScene = CombinedStatusSourceScene.HOME,
-                homePresentationOwned = false,
-                toAod = false,
-                isAodAnimate = false,
-            ),
-        )
-    }
-
-    @Test
-    fun latchedHomePrearmOverridesStaleFamilyHistory() {
-        assertEquals(
-            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
-            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = true,
-                toAod = false,
-                isAodAnimate = false,
-                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                nativeToLockScreenTarget = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
                 lastStableFamilyScene =
                     CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                nativeToLockScreenTarget = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldUseKeyguardBoundaryVisualHandoff(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
                 nativeToLockScreenTarget = false,
-                homeAodTargetPrearm = true,
             ),
         )
     }

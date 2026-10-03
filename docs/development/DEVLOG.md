@@ -2958,3 +2958,31 @@ No timer, delay, polling, copied animation timeline, native alpha/visibility/tra
 ### Validation
 
 Focused policy tests cover the native-state-qualified Home origin and stale-family override after that explicit witness. Exact-HEAD Runtime and signed Canary device validation are required.
+
+## 2026-10-03 — Build 663: recover from boundary layout takeover
+
+**Type:** device rejection / ownership correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 662 -> 663
+
+### Device evidence
+
+Build 662 does not improve the reported timing and introduces a new AOD -> Keyguard regression in the Keyguard-enabled/AOD-disabled mode. Video shows the represented native mobile/battery row exposed as separated, stationary-looking components before Guiyuan finally composes.
+
+The diagnostic provides the ownership ordering: native `animateIconContainer(true)` is observed, then the Keyguard presentation writes its end reservation about 2 ms later, while stable Keyguard is not reached until roughly 0.38 s later. Build 662 therefore moved ignored-slot/end-reservation ownership into the middle of HyperOS's own status-icon animation.
+
+The Build-662 Home-origin change also has no accepted device benefit; Home -> AOD still flashes.
+
+### Conclusion
+
+The native status-icon boundary is useful as a **visual** boundary but is too early for Guiyuan to mutate native compact layout. Timing and layout ownership must be separated.
+
+### Build-663 change
+
+- Restore the Build-660 Home-origin policy and remove Build-662's synchronous boundary-layout propagation.
+- Only for incoming Keyguard from stable AOD when Keyguard projection is enabled and AOD projection is disabled, create a visual-only handoff lease at `animateIconContainer(true)`.
+- During that lease, the same presentation owner clip-masks represented native views and exposes the already-ready Guiyuan Keyguard renderer, but explicitly blocks ignored-slot/end-reservation writes and compact-layout completion.
+- At stable Keyguard, commit the deferred native layout ownership while the represented native views remain masked; then finish the normal compact-layout cutover.
+- Any failure restores native clip state and fails native.
+
+No timer, delay, polling, copied animation timeline, native alpha/visibility/translation writer, geometry compensation, or second presentation owner is added.

@@ -250,6 +250,34 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun visualOnlyKeyguardHandoffDefersNativeLayoutMutationAndCompletion() {
+        assertFalse(
+            SystemUiHomePresentationOwner.DeferredNativeLayoutPolicy
+                .shouldWriteNativeLayout(
+                    nativeLayoutOwnershipDeferred = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.DeferredNativeLayoutPolicy
+                .shouldCompleteCompactLayout(
+                    nativeLayoutOwnershipDeferred = true,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.DeferredNativeLayoutPolicy
+                .shouldWriteNativeLayout(
+                    nativeLayoutOwnershipDeferred = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.DeferredNativeLayoutPolicy
+                .shouldCompleteCompactLayout(
+                    nativeLayoutOwnershipDeferred = false,
+                ),
+        )
+    }
+
+    @Test
     fun continuousHotReloadHandoffSuppressesIntermediateLayoutRequest() {
         assertFalse(
             SystemUiHomePresentationOwner.HotReloadHandoffPolicy
