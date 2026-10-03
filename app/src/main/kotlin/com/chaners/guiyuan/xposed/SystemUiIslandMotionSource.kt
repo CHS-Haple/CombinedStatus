@@ -49,8 +49,6 @@ internal object SystemUiIslandMotionSource {
     @Volatile
     private var islandRectField: Field? = null
     @Volatile
-    private var islandStateHandlerRef = WeakReference<Any>(null)
-    @Volatile
     private var islandShowing: Boolean? = null
 
     fun install(
@@ -85,11 +83,10 @@ internal object SystemUiIslandMotionSource {
                 emptyList()
             }
         val resolvedIslandControllerField =
-            runCatching {
-                injectorClass
-                    .getDeclaredField(ISLAND_CONTROLLER_FIELD)
-                    .apply { isAccessible = true }
-            }.getOrNull()
+            findFieldInHierarchy(
+                clazz = injectorClass,
+                name = ISLAND_CONTROLLER_FIELD,
+            )
         synchronized(this) {
             diagnosticFields = resolvedDiagnosticFields
             islandControllerField = resolvedIslandControllerField
@@ -162,38 +159,39 @@ internal object SystemUiIslandMotionSource {
         val injector = injectorRef.get() ?: return false
         val controllerField = islandControllerField ?: return false
         val controller =
-            runCatching { controllerField.get(injector) }.getOrNull()
-                ?: return false
+            try {
+                controllerField.get(injector)
+            } catch (_: Throwable) {
+                return false
+            } ?: return false
 
-        var handler = islandStateHandlerRef.get()
-        if (handler == null) {
-            val handlerField =
-                islandStateHandlerField
-                    ?: runCatching {
-                        controller.javaClass
-                            .getDeclaredField(ISLAND_STATE_HANDLER_FIELD)
-                            .apply { isAccessible = true }
-                    }.getOrNull()
-                        ?.also { islandStateHandlerField = it }
-                    ?: return false
-            handler =
-                runCatching { handlerField.get(controller) }.getOrNull()
-                    ?: return false
-            islandStateHandlerRef = WeakReference(handler)
-        }
+        val handlerField =
+            islandStateHandlerField
+                ?: findFieldInHierarchy(
+                    clazz = controller.javaClass,
+                    name = ISLAND_STATE_HANDLER_FIELD,
+                )?.also { islandStateHandlerField = it }
+                ?: return false
+        val handler =
+            try {
+                handlerField.get(controller)
+            } catch (_: Throwable) {
+                return false
+            } ?: return false
 
         val rectField =
             islandRectField
-                ?: runCatching {
-                    handler.javaClass
-                        .getDeclaredField(ISLAND_RECT_FIELD)
-                        .apply { isAccessible = true }
-                }.getOrNull()
-                    ?.also { islandRectField = it }
+                ?: findFieldInHierarchy(
+                    clazz = handler.javaClass,
+                    name = ISLAND_RECT_FIELD,
+                )?.also { islandRectField = it }
                 ?: return false
         val liveRect =
-            runCatching { rectField.get(handler) as? Rect }.getOrNull()
-                ?: return false
+            try {
+                rectField.get(handler) as? Rect
+            } catch (_: Throwable) {
+                null
+            } ?: return false
         if (liveRect.isEmpty) return false
         out.set(liveRect)
         return true
@@ -226,7 +224,6 @@ internal object SystemUiIslandMotionSource {
             islandControllerField = null
             islandStateHandlerField = null
             islandRectField = null
-            islandStateHandlerRef = WeakReference(null)
             islandShowing = null
         }
     }
@@ -466,6 +463,20 @@ internal object SystemUiIslandMotionSource {
             value !is Boolean &&
             value !is String &&
             value !is Enum<*>
+
+    private fun findFieldInHierarchy(
+        clazz: Class<*>,
+        name: String,
+    ): Field? =
+        generateSequence<Class<*>>(clazz) { current -> current.superclass }
+            .takeWhile { current -> current != Any::class.java }
+            .mapNotNull { current ->
+                runCatching {
+                    current.getDeclaredField(name)
+                        .apply { isAccessible = true }
+                }.getOrNull()
+            }
+            .firstOrNull()
 
     private fun fieldsOf(clazz: Class<*>): List<Field> {
         val fields = ArrayList<Field>()
