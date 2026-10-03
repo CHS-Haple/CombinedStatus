@@ -15,44 +15,30 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 657 is the current Keyguard/AOD lifecycle candidate after Build-656 device validation.
+Build 660 is the current Keyguard/AOD lifecycle candidate after Build-657 device validation.
 
-Build-654 result:
-- the large Build-653 regressions are closed: steady Keyguard is restored and the previous unlock/immediate-Control-Center failure is no longer the reported blocker;
-- dual-enabled Home -> AOD can still show one brief screen/status flash, but the tester considers it acceptable for this gate;
-- Keyguard OFF / AOD ON: AOD -> Keyguard releases Guiyuan about half a beat late;
-- Keyguard ON / AOD OFF: AOD -> Keyguard acquires Guiyuan about half a beat late, while Keyguard -> AOD releases Guiyuan about half a beat early.
+Build-657 device result:
+- Keyguard OFF / AOD ON and both ON: Home -> AOD still loses Guiyuan briefly and then reacquires it;
+- Keyguard ON / AOD OFF: Home -> AOD loses Guiyuan, briefly reacquires Guiyuan on transient Keyguard ancestry, then correctly settles to native AOD; AOD -> Keyguard still acquires Guiyuan late;
+- the 657 diagnostic contains no successful `aod.homePrearm` event;
+- `animateIconContainer(false)` can run inside `animateFullAod` before the post-call `mToLockScreen=AOD` snapshot is processed. By the time 657 re-checks Home origin, mutable scene/ownership evidence may already have changed;
+- the reverse pending lease also records only a Boolean lifetime, so a stale non-animating state cannot be distinguished from the pending target's actual stable endpoint.
 
-The 654 diagnostic explains the directional mismatch:
-- Keyguard -> AOD cleanup occurs at the first `setIsAodAnimate(true)` callback, before the later native AOD-mode transition callback, so `isAodAnimate` is too early to be the single-child cutover authority;
-- AOD -> Keyguard does not reacquire until the late `setIsAodAnimate(false)`/stable-family edge, so animation completion is too late;
-- once that late stable edge arrives, renderer attach and native-layout cutover complete within only a few milliseconds. The delay is therefore event authority, not layout/readiness cost.
-
-Build-655 device result:
-- the native full-AOD target removed the previous late handoff, but both tested single-child directions now cut about half a beat early;
-- therefore `mToLockScreen` is correct direction evidence but too early to serve as the visual cutover itself.
-
-Build-656 device result:
-- Keyguard -> AOD timing is now accepted in the tested single-child path;
-- AOD -> Keyguard became late because the pending target lease is cleared immediately after `animateFullAod` returns while native `animateIconContainer(true)` arrives later; the later visual event is therefore ignored and acquisition/release falls back to the final stable-family edge;
-- Home -> AOD is also late, and with both family children enabled the composed indicator can visibly disappear and then return;
-- device logs show the Home origin can still report `UNLOCKED_STATUS_BAR` when the full-AOD target sequence begins, while the status-icon callback may occur before `isAodAnimate=true`. Build 656 therefore waits too long to prepare the AOD owner.
-
-Build-657 candidate:
-- preserve the accepted Keyguard -> AOD `animateIconContainer` cutover;
-- do not clear the single-child full-AOD pending lease merely because the post-`animateFullAod` snapshot still reports `isAodAnimate=false`; retain it until the native status-icon event consumes it or a later non-animating AOD state closes the transition;
-- add one bounded Home -> AOD target-prearm lease. It may arm only when native target is AOD, the observed origin is steady Home / UNKNOWN family, AOD projection is enabled, and Home still owns represented slots at arm time;
-- once armed, the AOD owner may remain prepared across transient Keyguard ancestry until native AOD state catches up, so the outgoing Home visual does not disappear before the incoming AOD host is ready;
-- use the existing AOD pre-mask / compact-layout cutover contract; no new visual writer is introduced.
+Build-660 candidate:
+- latch the verified Home/UNKNOWN origin and Home represented-slot ownership at `animateFullAod` entry, before HyperOS mutates scene ancestry; the latch is origin evidence only and does not infer direction;
+- keep native `mToLockScreen` as direction authority and `animateIconContainer` as the visual boundary;
+- when the native target confirms AOD, the latched Home origin may arm the existing AOD pre-mask/compact owner even if current scene ancestry or Home ownership has already moved;
+- when AOD projection is disabled, the same latched Home origin forces Native instead of allowing transient Keyguard ancestry to momentarily acquire Guiyuan;
+- store the pending native target explicitly and close its lease only when a later non-animating state reaches that same endpoint. An old AOD state can no longer cancel a pending AOD -> Keyguard visual-boundary handoff.
 
 No timer, delay, polling, copied native duration/interpolator, native alpha/visibility/translation writer, or geometry patch is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003657` / Build `20261003-657`.
+- Candidate identity: `0.0.5` / versionCode `261003660` / Build `20261003-660`.
 - PR #196 is 0 behind `dev` before Build-655 authoring.
-- Build 657 source/tests/docs are staged off-branch for final diff review against the Build-656 head.
-- Focused tests preserve the accepted native status-icon cutover and add native-target Home -> AOD prearm eligibility / bounded-latch coverage.
+- Build 660 source/tests/docs encode the Build-657 device evidence: entry-time Home origin latching plus target-matched pending closure.
+- Focused tests cover lost current Home ownership, AOD-disabled transient-Keyguard suppression, and target-matched stable-endpoint closure.
 - Exact-HEAD Runtime CI is required before Canary.
 - Real-device validation is mandatory because the new source is an exact-target native lifecycle event.
 
@@ -81,7 +67,7 @@ No timer, delay, polling, copied native duration/interpolator, native alpha/visi
 
 ## Immediate next step
 
-Review Build 657 against Build 656, then fast-forward #196, run exact-HEAD Runtime, and issue one signed Canary for the focused lifecycle gate.
+Review Build 660 against Build 657, fast-forward #196, run exact-HEAD Runtime, then issue one signed Canary for the same three-mode lifecycle gate.
 
 ## Reference priority
 

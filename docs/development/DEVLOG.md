@@ -2895,3 +2895,31 @@ Home -> AOD has a different ownership problem. Native full-AOD/status-icon event
 - Explicit AOD runtime teardown, stable non-animating state, feature ineligibility, or a reverse/non-Home target ends the prearm lease.
 
 No timer, delay, polling, project-owned animation progress, native alpha/visibility/translation writer, or geometry compensation is added.
+
+
+## 2026-10-03 — Build 660: latch Home origin before native full-AOD mutation
+
+**Type:** device evidence / lifecycle authority correction  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Builds:** 657 -> 660
+
+### Build-657 device result
+
+Focused validation still reproduces one ownership gap:
+- Keyguard OFF / AOD ON and dual-enabled: Home -> AOD briefly loses Guiyuan and then reacquires it.
+- Keyguard ON / AOD OFF: Home -> AOD briefly loses Guiyuan, then transient Keyguard ancestry can reacquire Guiyuan before stable native AOD; AOD -> Keyguard still appears late.
+
+The diagnostic contains no successful `aod.homePrearm` event. It also shows that `animateIconContainer(false)` may run inside `animateFullAod` before the post-call native target snapshot is processed. Build 657 therefore asks mutable Home scene/ownership state for evidence after HyperOS has already started changing that state.
+
+A second lifetime defect remains in reverse single-child handoff: the pending full-AOD lease records only “pending”, not the target endpoint. A later non-animating snapshot can therefore close it without proving that the target endpoint was reached.
+
+### Build-660 correction
+
+- Capture only the Home/UNKNOWN origin witness and Home represented-slot ownership at `animateFullAod` entry. This is frozen origin evidence, not direction inference.
+- Continue reading direction only from native `mToLockScreen`.
+- Continue using `animateIconContainer` as the native status-icon visual boundary.
+- Once native direction confirms AOD, allow the frozen Home origin to arm the existing AOD family owner even if mutable scene ancestry or current Home ownership has already moved.
+- If AOD projection is disabled, the same verified Home-origin/AOD-target pair resolves to Native, preventing transient Keyguard ancestry from becoming an unintended Guiyuan child.
+- Persist the pending native target and release that lease only when a later non-animating AOD state matches the same endpoint.
+
+No timer, delay, polling, copied animation timeline, native alpha/visibility/translation writer, geometry compensation, or second family owner is introduced.

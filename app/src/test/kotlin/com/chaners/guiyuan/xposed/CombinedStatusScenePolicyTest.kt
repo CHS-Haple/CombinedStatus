@@ -984,4 +984,80 @@ class CombinedStatusScenePolicyTest {
         )
     }
 
+    @Test
+    fun latchedHomeOriginSurvivesMutableSceneAndOwnershipChanges() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.AOD,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = false,
+                aodEnabled = true,
+                toAod = false,
+                isAodAnimate = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = false,
+                nativeToLockScreenTarget = false,
+                homeAodTransitionOrigin = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = false,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homePresentationOwned = false,
+                nativeToLockScreenTarget = false,
+                homeAodTransitionOrigin = true,
+            ),
+        )
+    }
+
+    @Test
+    fun pendingFullAodTargetClosesOnlyAtItsMatchingStableEndpoint() {
+        assertFalse(
+            CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(
+                pendingTargetToLockScreen = true,
+                toAod = true,
+                isAodAnimate = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(
+                pendingTargetToLockScreen = true,
+                toAod = false,
+                isAodAnimate = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(
+                pendingTargetToLockScreen = false,
+                toAod = false,
+                isAodAnimate = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(
+                pendingTargetToLockScreen = false,
+                toAod = true,
+                isAodAnimate = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.fullAodPendingTargetReachedStableState(
+                pendingTargetToLockScreen = true,
+                toAod = false,
+                isAodAnimate = true,
+            ),
+        )
+    }
+
+
 }

@@ -169,9 +169,21 @@ internal object CombinedStatusScenePolicy {
         fullAodTargetSourceReady: Boolean = false,
         fullAodTargetPending: Boolean = false,
         fullAodVisualBoundary: Boolean = false,
+        homeAodTransitionOrigin: Boolean = false,
         homeAodTargetPrearm: Boolean = false,
     ): KeyguardAodProjection {
         if (!featureEnabled) return KeyguardAodProjection.NATIVE
+        if (
+            homeAodTransitionOrigin &&
+            nativeToLockScreenTarget == false &&
+            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN
+        ) {
+            return if (aodEnabled) {
+                KeyguardAodProjection.AOD
+            } else {
+                KeyguardAodProjection.NATIVE
+            }
+        }
         if (
             homeAodTargetPrearm &&
             aodEnabled &&
@@ -244,6 +256,22 @@ internal object CombinedStatusScenePolicy {
             lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
             homePresentationOwned &&
             nativeToLockScreenTarget == false
+
+    fun fullAodPendingTargetReachedStableState(
+        pendingTargetToLockScreen: Boolean?,
+        toAod: Boolean,
+        isAodAnimate: Boolean,
+    ): Boolean {
+        if (pendingTargetToLockScreen == null || isAodAnimate) return false
+        return if (pendingTargetToLockScreen) {
+            !toAod
+        } else {
+            SystemUiKeyguardAodStateSource.isStableAod(
+                toAod = toAod,
+                isAodAnimate = isAodAnimate,
+            )
+        }
+    }
 
     internal fun resolveAnimatingKeyguardAodProjection(
         keyguardEnabled: Boolean,
