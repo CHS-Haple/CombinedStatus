@@ -1,5 +1,6 @@
 package com.chaners.guiyuan.xposed
 
+import android.graphics.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -43,6 +44,52 @@ class SystemUiHomePresentationOwnerTest {
                 .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "home",
                     nativeLayoutAuthority = true,
+                ),
+        )
+    }
+
+    @Test
+    fun island2DGateRequiresRealRectangleOverlap() {
+        val island = Rect(522, 31, 918, 156)
+
+        assertTrue(
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 768,
+                    top = 89,
+                    right = 1246,
+                    bottom = 164,
+                    island = island,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 747,
+                    top = 204,
+                    right = 1225,
+                    bottom = 279,
+                    island = island,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 919,
+                    top = 89,
+                    right = 1200,
+                    bottom = 164,
+                    island = island,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.ControlCenterIslandOverlapPolicy
+                .intersects(
+                    left = 768,
+                    top = 156,
+                    right = 1246,
+                    bottom = 231,
+                    island = island,
                 ),
         )
     }

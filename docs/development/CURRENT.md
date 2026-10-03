@@ -37,44 +37,60 @@ Renderer ownership remains narrow:
 
 Branch: `feat/battery-fill-retract-follow` / PR #197.
 
-Build 663 device evidence refines the island failure again. The progress-synchronous compact-to-final reservation is working as designed, but the fake row still applies HyperOS island-hide as a one-dimensional status-layout constraint. At the first captured bucket (fraction about 0.115) the project padding is only 2 px, yet QS_FAKE `network_speed` is already `visibleState=2 / inIslandState=10` while VPN remains visible. As the semantic reservation grows, additional peers disappear one by one even after the moving fake row is visually below the island.
+Build 664 closes the remaining dimensionality question. On the pinned target, the native controller exposes the exact live island rectangle through:
 
-The exact-target reference explains the mismatch:
-- `IslandMonitor.RealContainerIslandMonitor.updateContainerSize(...)` derives Home `statusContainerSpace` from the live island rectangle plus the real Home container's screen location.
-- `FakeContainerIslandMonitor` consumes that already-reduced horizontal space and writes it into the fake `MiuiStatusIconContainer` as island width/layout state.
-- The fake carrier itself then moves in both X and Y under `ControlCenterHeaderExpandController`, but the inherited Home status-layout space is not a true 2D collision test for the translated fake row.
+`HomeStatusBarViewBinderInjector.islandController -> StatusBarIslandControllerImpl.islandStateHandler.islandRect`.
 
-Build 664 is observation-only and keeps Build 663 runtime behavior unchanged. It extends the existing bounded island owner snapshot to locate the native 2D geometry source:
-- record X/Y/width/height and translationX/translationY for the existing Home island-owner Views;
-- inspect the exact `HomeStatusBarViewBinderInjector.islandController` object graph only inside existing diagnostic buckets;
-- report bounded `Rect` / `RectF` / `View` geometry candidates plus relevant island/space/translation/monitor fields and safely-readable `StateFlow.getValue()` values;
-- maximum depth 2, maximum 12 objects / 32 entries, no polling or new listener.
+The returned device log shows `islandRect=Rect(522,31,918,156)`. Near fraction 0.50 the QS_FAKE peer row is already below that rectangle: fake `network_speed` / `vpn` are around screen Y 204 while the island bottom is 156, yet both still report native `inIslandState=10` and alpha 0. HyperOS' fake island constraint therefore remains a one-dimensional status-layout constraint after the translated fake peers are physically clear of the island.
+
+Build 665 applies the smallest functional correction:
+- retain Build-663 compact-to-final `statusIcons.paddingEnd` reservation; Guiyuan's split transition still consumes real horizontal volume;
+- retain native island behavior while the actual QS_FAKE peer band overlaps the live island rectangle;
+- once the fake peer band is 2D-separated from the live island rectangle, expose `getIslandShowing()=false` only to that exact current QS_FAKE `MiuiStatusIconContainer`;
+- Home, Keyguard, final QS and unrelated fake rows keep the native return unchanged;
+- if the live rectangle cannot be read, fail native and return the HyperOS value unchanged.
+
+Performance boundary:
+- Build-664 diagnostic object-graph traversal remains diagnostic-only and is not used by the functional path;
+- exact `islandStateHandler` / `islandRect` Fields are discovered once and cached;
+- the current fake peer vertical band is sampled read-only after the already-existing native `onLayout` Hook, not by a new listener;
+- the `getIslandShowing()` hot path reuses one `Rect` and one `IntArray` per Session and performs cached field reads, one `getLocationOnScreen`, and integer overlap comparisons;
+- no timer, poller, new animator, requestLayout, per-peer traversal, per-peer state write or per-frame diagnostic event is added.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003664` / Build `20261003-664`.
-- Runtime presentation must remain byte-for-byte equivalent in ownership to Build 663 outside diagnostics.
-- No `getIslandShowing()` override, no island-width mutation, no peer state/geometry writer, no carrier-width lease, no new animation/timer/layout request.
+- Candidate identity: `0.0.5` / versionCode `261003665` / Build `20261003-665`.
+- Required review: one fake-only getter seam; fail-native on unavailable rectangle; no `islandWidth`, peer state, alpha, visibility, translation or island-boundary geometry writes.
 - Exact-HEAD Runtime CI is required before one signed Canary.
+- Device evidence is mandatory because native QS_FAKE island semantics now release on real 2D separation.
 
 ## Device gate
 
-One active-island slow Home -> Control Center pull and return is sufficient. Detailed diagnostics must contain `homeMotion=...islandGeometry=...`.
+One active-island slow Home -> Control Center pull and reverse is the primary test:
 
-Decision:
-- if a live island `Rect/RectF` or equivalent View bounds is exposed, Build 665 will gate the fake island constraint by actual 2D overlap while retaining Build 663 semantic progress reservation;
-- if only scalar `statusContainerSpace` / translation values exist, do not invent a Y threshold: trace the `RealContainerIslandMonitor.updateContainerSize(...)` Rect input directly next.
+1. While the fake peer row still vertically overlaps the island, native island avoidance must remain active and no peer may collide with the island.
+2. Once the row is visually below the island, network speed / VPN / other peers must stop disappearing solely because of island projection.
+3. The remaining peer movement/hiding, if any, must correspond only to Guiyuan's real compact-to-final horizontal reservation.
+4. On reverse pull, island avoidance must re-engage when the fake peer band intersects the island again.
+5. Recheck charging island + dual SIM and one ordinary no-island pull.
+6. Export one detailed diagnostic.
 
-No AOD / Keyguard / no-island regression pass is required for Build 664 because it is diagnostic-only.
+Expected diagnostic transitions:
+- `island2DGate ... overlap=true ... exposedShowing=true` near the overlapping phase;
+- later `overlap=false ... exposedShowing=false` after vertical separation;
+- reverse should return to `overlap=true`;
+- no `fallback=native` on the pinned target.
+
+No AOD / Keyguard validation is required for this checkpoint.
 
 ## Immediate next step
 
-Review Build 664, run exact-HEAD Runtime CI, then one signed Canary and freeze runtime for the single 2D-geometry diagnostic pass.
+Review Build 665, run exact-head Runtime CI, then one signed Canary and freeze runtime for the focused 2D island gate.
 
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
 2. this file;
-3. Build 663 device video/diagnostic;
+3. Build-664 device diagnostic;
 4. exact-target `scene-host-motion.md` island-monitor contract;
-5. Build 652-663 island DEVLOG history.
+5. Build 652-664 island DEVLOG history.

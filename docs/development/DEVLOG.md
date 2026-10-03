@@ -3114,3 +3114,48 @@ No functional hook, new callback, pre-draw follower, timer, poller, requestLayou
 ### Decision gate
 
 One active-island slow pull with detailed diagnostics is enough. If the native controller graph exposes the live island rectangle or equivalent View bounds, the next build can perform true 2D overlap gating. If it does not, the next diagnostic must target the already-proven `RealContainerIslandMonitor.updateContainerSize(...)` Rect input directly rather than approximating island height.
+
+
+## 2026-10-03 — Build 665: gate QS_FAKE island avoidance by real 2D overlap
+
+**Type:** device-evidence root-cause correction / native semantic gate  
+**Display version:** 0.0.5  
+**Build:** 665 / `20261003-665`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-664 evidence
+
+The native 2D source is now proven on-device. Detailed diagnostics expose:
+- `StatusBarIslandControllerImpl.islandStateHandler.islandRect=Rect(522,31,918,156)`;
+- at roughly fraction 0.50, QS_FAKE has translated down so native peer icons are around screen Y 204;
+- despite being fully below island bottom 156, fake `network_speed` and `vpn` remain `visibleState=2 / inIslandState=10 / alpha=0`.
+
+This confirms the visual complaint: the fake row continues consuming a one-dimensional Home-derived island layout constraint after real 2D separation.
+
+### Build-665 correction
+
+Keep every accepted Build-663 occupancy rule and narrow only the fake island semantic input:
+
+- Add the exact `MiuiStatusIconContainer.getIslandShowing(): boolean` Hook previously validated by Build 659, but do **not** force false for the whole gesture.
+- Scope it to the exact active QS_FAKE status-icon group in island-native-layout mode.
+- Preserve native false unchanged.
+- For native true, read the pinned target's live `islandRect` through the Build-664-proven field path.
+- Cache the fake peer content band's local top/bottom after the already-hooked native `onLayout`.
+- Return true only while that peer band's screen rectangle actually intersects the live island rectangle.
+- If any required geometry is unavailable, return native true unchanged.
+
+### Performance contract
+
+The functional hot path does not use Build-664's diagnostic object graph traversal.
+
+- `islandController`, `islandStateHandler` and `islandRect` reflection Fields are discovered once and cached.
+- One reusable `Rect` and one reusable two-int screen-location buffer live on the QS_FAKE Session.
+- Native peer vertical-band discovery occurs after existing `onLayout`, not inside the getter.
+- Getter work is limited to cached field reads, `getLocationOnScreen`, integer additions and rectangle comparisons.
+- Diagnostics emit only when overlap state changes or once on fail-native geometry fallback.
+
+No new timer, poller, animator, callback, requestLayout, per-peer transition writer, alpha/visibility writer, island-width writer, translation writer or custom easing is introduced.
+
+### Validation
+
+Exact-head Runtime CI, then one signed Canary. Acceptance requires native collision while overlapping, release immediately after real 2D separation, re-engagement on reverse overlap, charging-island + dual-SIM sanity, ordinary no-island regression, and one detailed diagnostic.
