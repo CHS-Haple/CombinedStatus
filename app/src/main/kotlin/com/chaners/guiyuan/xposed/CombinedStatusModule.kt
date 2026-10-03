@@ -35,6 +35,8 @@ class CombinedStatusModule : XposedModule() {
     private var keyguardBoundaryCompactLayoutReady = false
     private var keyguardBoundaryVisualBoundaryReached = false
     private var homePresentationOwnedAtFullAodStart = false
+    private var homeNativeAodFallbackCandidate = false
+    private var homeNativeAodFallbackActive = false
     private var homeAodTransitionOriginPending = false
     private var homeAodTargetPrearmPending = false
     private var controlCenterExpansionFraction = 0f
@@ -280,6 +282,8 @@ class CombinedStatusModule : XposedModule() {
             keyguardAodFullTransitionActive = false
             resetKeyguardBoundaryHandoffState()
             homePresentationOwnedAtFullAodStart = false
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = false
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
             controlCenterExpansionFraction = 0f
@@ -1160,19 +1164,25 @@ class CombinedStatusModule : XposedModule() {
         val panelSourceScene =
             update.controlCenterSourceScene
                 ?: CombinedStatusSourceScene.UNKNOWN
+        val incomingBoundaryReady =
+            incomingKeyguardPresentationReadyForControlCenter()
         val effectiveSourceScene =
             CombinedStatusScenePolicy.resolveControlCenterSourceScene(
                 panelSourceScene = panelSourceScene,
                 steadySourceScene = steadyStatusSourceScene,
                 lastStableFamilyScene = lastStableKeyguardAodScene,
+                incomingKeyguardPresentationReady = incomingBoundaryReady,
             )
         updateControlCenterSourceSceneEligibility(
             sourceScene = effectiveSourceScene,
             authority =
-                if (effectiveSourceScene == panelSourceScene) {
-                    "hyperos-realSystemIcons"
-                } else {
-                    "steady-source-view-override"
+                when {
+                    effectiveSourceScene == panelSourceScene ->
+                        "hyperos-realSystemIcons"
+                    incomingBoundaryReady &&
+                        effectiveSourceScene == CombinedStatusSourceScene.KEYGUARD ->
+                        "incoming-keyguard-presentation"
+                    else -> "steady-source-view-override"
                 },
         )
         val carrier = update.controlCenterPresentationHost
@@ -1942,6 +1952,17 @@ class CombinedStatusModule : XposedModule() {
         keyguardAodFullTransitionActive = true
         keyguardAodPendingTargetToLockScreen = null
         homePresentationOwnedAtFullAodStart = homeOwnedAtStart
+        if (
+            CombinedStatusScenePolicy.shouldArmHomeNativeAodFallbackCandidate(
+                featureEnabled = settings.enabled,
+                keyguardEnabled = settings.keyguardEnabled,
+                aodEnabled = settings.aodEnabled,
+                steadySourceScene = steadyStatusSourceScene,
+                homePresentationOwned = homeOwnedAtStart,
+            )
+        ) {
+            homeNativeAodFallbackCandidate = true
+        }
         homeAodTransitionOriginPending =
             settings.enabled &&
                 steadyStatusSourceScene == CombinedStatusSourceScene.HOME &&
@@ -1968,6 +1989,8 @@ class CombinedStatusModule : XposedModule() {
                     "status-icons-alpha-fallback"
                 },
             "homeOriginLatched" to homeAodTransitionOriginPending,
+            "homeNativeAodFallbackCandidate" to homeNativeAodFallbackCandidate,
+            "homeNativeAodFallbackActive" to homeNativeAodFallbackActive,
             "homePresentationOwnedAtStart" to homeOwnedAtStart,
             "eventDriven" to true,
             "readOnly" to true,
@@ -1996,6 +2019,12 @@ class CombinedStatusModule : XposedModule() {
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
         }
+        if (target == true) {
+            homeNativeAodFallbackActive = false
+        } else if (target == null) {
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = false
+        }
 
         logDiagnostic(
             level = if (target != null) Log.INFO else Log.WARN,
@@ -2011,6 +2040,8 @@ class CombinedStatusModule : XposedModule() {
             "authority" to "native-mToLockScreen",
             "visualBoundaryPending" to keyguardAodFullTargetPending,
             "homeOriginLatched" to homeAodTransitionOriginPending,
+            "homeNativeAodFallbackCandidate" to homeNativeAodFallbackCandidate,
+            "homeNativeAodFallbackActive" to homeNativeAodFallbackActive,
             "eventDriven" to true,
             "readOnly" to true,
             "nativeGeometryWrites" to 0,
@@ -2021,14 +2052,18 @@ class CombinedStatusModule : XposedModule() {
                 featureEnabled = settings.enabled,
                 keyguardEnabled = settings.keyguardEnabled,
                 aodEnabled = settings.aodEnabled,
-                lastStableFamilyScene = lastStableKeyguardAodScene,
+                homeNativeAodFallbackCandidate =
+                    homeNativeAodFallbackCandidate,
                 homePresentationOwnedAtFullAodStart =
                     homePresentationOwnedAtFullAodStart,
                 nativeToLockScreenTarget = target,
             )
         if (releaseTransientHomeKeyguard) {
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = true
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
+            resetKeyguardBoundaryHandoffState()
             deactivateKeyguardRuntime("home-aod-disabled-target")
             logDiagnostic(
                 level = Log.INFO,
@@ -2037,7 +2072,8 @@ class CombinedStatusModule : XposedModule() {
                 state = "released",
                 "source" to "animateFullAod:after",
                 "target" to "native-aod",
-                "authority" to "home-owned-at-full-aod-start+native-mToLockScreen",
+                "authority" to
+                    "home-full-aod-candidate+home-owner+native-mToLockScreen",
                 "nativeGeometryWrites" to 0,
             )
         }
@@ -2079,6 +2115,8 @@ class CombinedStatusModule : XposedModule() {
                     keyguardAodFullTargetPending = false
                     keyguardAodPendingTargetToLockScreen = null
                     homePresentationOwnedAtFullAodStart = false
+                    homeNativeAodFallbackCandidate = false
+                    homeNativeAodFallbackActive = false
                     homeAodTransitionOriginPending = false
                     homeAodTargetPrearmPending = false
                     return
@@ -2503,12 +2541,42 @@ class CombinedStatusModule : XposedModule() {
             keyguardAodPendingTargetToLockScreen = null
         }
 
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val activateHomeNativeAodFallback =
+            CombinedStatusScenePolicy.shouldConsumeHomeNativeAodFallbackOnAodState(
+                candidateActive = homeNativeAodFallbackCandidate,
+                featureEnabled = settings.enabled,
+                keyguardEnabled = settings.keyguardEnabled,
+                aodEnabled = settings.aodEnabled,
+                toAod = update.toAod,
+                isAodAnimate = update.isAodAnimate,
+            )
+        if (activateHomeNativeAodFallback) {
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = true
+            resetKeyguardBoundaryHandoffState()
+            deactivateKeyguardRuntime("home-aod-disabled-native-transition")
+            logDiagnostic(
+                level = Log.INFO,
+                event = "aod.homeTransientKeyguard",
+                component = "keyguardPresentation",
+                state = "released",
+                "source" to "aod:" + update.source,
+                "target" to "native-aod",
+                "authority" to
+                    "home-full-aod-candidate+native-toAod-animation",
+                "nativeGeometryWrites" to 0,
+            )
+        }
+
         val stableAod =
             SystemUiKeyguardAodStateSource.isStableAod(
                 toAod = update.toAod,
                 isAodAnimate = update.isAodAnimate,
             )
         if (!keyguardAodFullTransitionActive && stableAod) {
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = false
             homeAodTransitionOriginPending = false
             homeAodTargetPrearmPending = false
             if (keyguardBoundaryVisualHandoffActive) {
@@ -2518,6 +2586,14 @@ class CombinedStatusModule : XposedModule() {
         }
 
         refreshStableKeyguardAodSceneFromAodState(update)
+        if (
+            !update.isAodAnimate &&
+            !update.toAod &&
+            steadyStatusSourceScene == CombinedStatusSourceScene.KEYGUARD
+        ) {
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = false
+        }
         if (update.blocksProjection) {
             releaseKeyguardControlCenterLease(
                 source = "aod:" + update.source,
@@ -2562,6 +2638,8 @@ class CombinedStatusModule : XposedModule() {
                         null -> "none"
                     },
                 "homeOriginLatched" to homeAodTransitionOriginPending,
+                "homeNativeAodFallbackCandidate" to homeNativeAodFallbackCandidate,
+                "homeNativeAodFallbackActive" to homeNativeAodFallbackActive,
                 "nativeGeometryWrites" to 0,
             )
         }
@@ -2763,6 +2841,7 @@ class CombinedStatusModule : XposedModule() {
             fullAodVisualBoundary = fullAodVisualBoundary,
             homeAodTransitionOrigin = homeAodTransitionOriginPending,
             homeAodTargetPrearm = homeAodTargetPrearmPending,
+            homeNativeAodFallbackActive = homeNativeAodFallbackActive,
         )
     }
 
@@ -4363,6 +4442,14 @@ class CombinedStatusModule : XposedModule() {
         }
 
         SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
+        if (
+            !settings.enabled ||
+            !settings.keyguardEnabled ||
+            settings.aodEnabled
+        ) {
+            homeNativeAodFallbackCandidate = false
+            homeNativeAodFallbackActive = false
+        }
         CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onFeatureSettingsChanged(settings)
@@ -4413,6 +4500,8 @@ class CombinedStatusModule : XposedModule() {
         keyguardAodFullTransitionActive = false
         resetKeyguardBoundaryHandoffState()
         homePresentationOwnedAtFullAodStart = false
+        homeNativeAodFallbackCandidate = false
+        homeNativeAodFallbackActive = false
         homeAodTransitionOriginPending = false
         homeAodTargetPrearmPending = false
         controlCenterSceneEligible = false
