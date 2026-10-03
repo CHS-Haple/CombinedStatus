@@ -157,8 +157,8 @@ class SystemUiPanelTransitionSourceTest {
             )
 
         assertEquals(
-            "{mBatteryContainer=FrameLayout(x=1242,w=105,tx=0.0,a=1.0,v=0)," +
-                "mBatteryView=MiuiBatteryMeterView(x=1242,w=105,tx=0.0,a=1.0,v=0)}",
+            "{mBatteryContainer=FrameLayout(x=1242,y=0,w=105,h=0,tx=0.0,ty=0.0,a=1.0,v=0)," +
+                "mBatteryView=MiuiBatteryMeterView(x=1242,y=0,w=105,h=0,tx=0.0,ty=0.0,a=1.0,v=0)}",
             snapshot.summary,
         )
     }
