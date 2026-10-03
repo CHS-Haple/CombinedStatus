@@ -466,6 +466,7 @@ internal object SystemUiHomePresentationOwner {
         onEvent: (String) -> Unit,
         onFailNative: (String) -> Unit,
         onReady: (ControlCenterStateResult.Active) -> Unit,
+        nativeLayoutAuthority: Boolean = false,
     ): ControlCenterStateResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return ControlCenterStateResult.Failure("main-thread-required")
@@ -516,7 +517,8 @@ internal object SystemUiHomePresentationOwner {
                 batteryContainer = batteryContainer,
                 battery = battery,
                 batteryCarrier = batteryCarrier,
-            ) == true
+            ) == true &&
+            existing.usesNativeLayoutAuthority() == nativeLayoutAuthority
         ) {
             val masked =
                 existing.start(
@@ -559,6 +561,7 @@ internal object SystemUiHomePresentationOwner {
                 surfaceName = "control-center-fake",
                 eventPrefix = "controlCenterPresentation",
                 retainReservationOnTransientLiveWidthLoss = true,
+                nativeLayoutAuthority = nativeLayoutAuthority,
                 onEvent = { event -> controlCenterEventSink?.invoke(event) },
                 onFailNative = ::onControlCenterSessionFailure,
             )
@@ -850,8 +853,18 @@ internal object SystemUiHomePresentationOwner {
             "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + maskedViews +
-                " slotExclusion=session-native-ignored-slots " +
-                "carrierReservation=qs-fake-capacity-lease+status-icons-end-padding " +
+                " slotExclusion=" +
+                if (session.usesNativeLayoutAuthority()) {
+                    "native-layout-visual-mask-only "
+                } else {
+                    "session-native-ignored-slots "
+                } +
+                "carrierReservation=" +
+                if (session.usesNativeLayoutAuthority()) {
+                    "native-layout-authority "
+                } else {
+                    "qs-fake-capacity-lease+status-icons-end-padding "
+                } +
                 "carrierAuthority=battery_icon_container visualMask=clipBounds " +
                 "cutover=compact-layout-ready nativeLayoutReservationOwner=single " +
                 "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
@@ -908,6 +921,7 @@ internal object SystemUiHomePresentationOwner {
         private val surfaceName: String,
         private val eventPrefix: String,
         private val retainReservationOnTransientLiveWidthLoss: Boolean,
+        private val nativeLayoutAuthority: Boolean = false,
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -987,6 +1001,8 @@ internal object SystemUiHomePresentationOwner {
 
         fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
             active && batteryContainer.get() === candidate
+
+        fun usesNativeLayoutAuthority(): Boolean = nativeLayoutAuthority
 
         fun ownedRepresentedSlots(): Set<String> {
             if (!active || !compactLayoutReady) return emptySet()
@@ -1144,6 +1160,10 @@ internal object SystemUiHomePresentationOwner {
 
         private fun applyPersistentIgnoredSlotsIfNeeded(group: ViewGroup): Boolean {
             if (
+                !ControlCenterLayoutPolicy.shouldApplyIgnoredSlots(
+                    surfaceName = surfaceName,
+                    nativeLayoutAuthority = nativeLayoutAuthority,
+                ) ||
                 ignoredSlotLifetime != IgnoredSlotLifetime.PRESENTATION_SESSION ||
                 persistentIgnoredSlotsApplied
             ) {
@@ -1310,6 +1330,14 @@ internal object SystemUiHomePresentationOwner {
 
         fun syncEndReservation(): Boolean {
             if (!active) return true
+            if (
+                !ControlCenterLayoutPolicy.shouldApplyEndReservation(
+                    surfaceName = surfaceName,
+                    nativeLayoutAuthority = nativeLayoutAuthority,
+                )
+            ) {
+                return true
+            }
             val group = statusIcons.get() ?: run { onFailNative("status-icon-group-released"); return false }
             val container = batteryContainer.get() ?: run { onFailNative("battery-container-released"); return false }
             val batteryView = battery.get() ?: run { onFailNative("battery-view-released"); return false }
@@ -1817,6 +1845,20 @@ internal object SystemUiHomePresentationOwner {
     private enum class IgnoredSlotLifetime {
         NATIVE_CALL,
         PRESENTATION_SESSION,
+    }
+
+    internal object ControlCenterLayoutPolicy {
+        fun shouldApplyIgnoredSlots(
+            surfaceName: String,
+            nativeLayoutAuthority: Boolean,
+        ): Boolean =
+            surfaceName != CONTROL_CENTER_FAKE_SURFACE || !nativeLayoutAuthority
+
+        fun shouldApplyEndReservation(
+            surfaceName: String,
+            nativeLayoutAuthority: Boolean,
+        ): Boolean =
+            surfaceName != CONTROL_CENTER_FAKE_SURFACE || !nativeLayoutAuthority
     }
 
     internal object PersistentIgnoredSlotPolicy {
