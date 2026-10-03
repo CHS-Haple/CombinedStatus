@@ -3142,3 +3142,50 @@ Reviewed before Build-667 freeze:
 ### Validation
 
 Exact-head Runtime CI and signed Canary are required. Device gate is in CURRENT.
+
+## 2026-10-03 — Build 668: preserve Home origin through transient Keyguard AOD entry
+
+**Type:** Home / Keyguard / AOD lifecycle ownership  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Build:** 668 / `20261003-668`
+
+### Build-667 device result
+
+Build 667 is accepted for the previously failing Keyguard/AOD paths:
+- no adjacent peer merge on AOD -> Keyguard;
+- no reproduced transient native status/QS row on fast or partial pull;
+- Keyguard -> AOD keeps Guiyuan until the native Keyguard status-icon visual lifetime ends.
+
+The only remaining issue is Home/Desktop -> AOD with AOD Guiyuan disabled: native takeover is visibly late.
+
+### Root cause
+
+The direct screen-off path is not a single Home -> AOD target. Device evidence shows:
+1. Home / `UNLOCKED_STATUS_BAR` is authoritative and Home still owns represented slots;
+2. the first Full-AOD target is Keyguard;
+3. before a stable Keyguard endpoint forms, native AOD state enters `toAod=true / isAodAnimate=true`.
+
+Build 667 therefore mistakes a transient Keyguard target for a genuine stable Keyguard -> AOD lifecycle and inherits the outgoing-alpha retention rule, delaying native takeover.
+
+### Build-668 correction
+
+- Arm a Home-native-AOD candidate only at Full-AOD entry from authoritative HOME with Home represented-slot ownership, Keyguard enabled and AOD disabled.
+- Do not consume the candidate on the intermediate Keyguard target.
+- If native AOD animation begins before stable Keyguard, promote the candidate to native-AOD fallback, reset any transient incoming-Keyguard boundary handoff, and release Keyguard presentation immediately.
+- Keep that fallback authoritative until stable AOD so subsequent animation callbacks cannot reattach Keyguard.
+- If stable Keyguard arrives first, clear the candidate; subsequent Keyguard -> AOD therefore remains on the accepted Build-667 alpha lifecycle.
+- Direct native target=AOD may consume the candidate immediately.
+- Reverse target, missing resolver, settings changes, stable endpoints, Hot Reload and teardown fail closed.
+
+### AOD -> Keyguard fast-pull risk audit
+
+A residual race was found even though Build 667 device testing passed: native expansion fraction may arrive before Control Center visible/source reconciliation. If the cached source is still HOME, lease acquisition can miss the already-valid incoming Keyguard presentation.
+
+Build 668 uses the existing incoming-boundary-ready fact only:
+- fraction > 0 promotes the CC source to KEYGUARD before lease acquisition when incoming Keyguard presentation is already valid;
+- HOME/KEYGUARD source disagreement resolves to KEYGUARD only while incoming-boundary-ready is true and at least one native witness explicitly reports KEYGUARD;
+- normal unlock is unaffected because that readiness fact is absent.
+
+### Boundaries
+
+No timer/delay, copied duration/interpolator, native alpha/visibility/translation writer, peer-motion writer, geometry compensation, or second presentation owner.
