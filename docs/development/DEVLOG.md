@@ -3247,3 +3247,31 @@ Reviewed before freeze:
 ### Validation
 
 Exact-head Runtime CI and one signed Canary are required. Device gate is recorded in CURRENT.
+
+## 2026-10-03 — Build 669 correction: Home provenance follows native `system_icons` lifetime
+
+**Type:** lifecycle authority correction after Build-668 device evidence  
+**Branch / PR:** `feat/aod-display-control` / #196  
+**Build:** 669 / `20261003-669`
+
+### Build-668 evidence
+
+Detailed Build-668 diagnostics show the failing Home -> AOD attempt immediately before `animateFullAod:before` still emits raw `UNLOCKED_STATUS_BAR` updates and still has Home represented-slot ownership, yet `homeNativeAodFallbackCandidate=false`. The candidate therefore never enters the state machine; transient Keyguard remains eligible and Guiyuan reappears before stable native AOD.
+
+The failure is not a missing consumer. It is an authority mismatch: candidate arming used cached `steadyStatusSourceScene`, whose structural ancestry requirement can remain non-Home while the actual Home end-side presentation is still visibly owned. Reusing raw Battery `mStatusBarState` as a second Home-visibility authority is explicitly forbidden by the existing architecture.
+
+### Correction
+
+- Expose a read-only Home presentation fact from the existing Home owner: the exact native `MiuiStatusBatteryContainer(system_icons)` carrier must be attached, visible, alpha > 0, and shown.
+- Candidate arming now requires both Home compact ownership and that exact native carrier presentation to be visible.
+- The candidate no longer depends on cached `steadyStatusSourceScene`.
+- Returning Home does not clear an inert candidate during the transient routing window; stable Keyguard, stable AOD, feature/settings teardown, resolver failure and Hot Reload still clear it.
+- No new Hook or visibility writer is added. Guiyuan only reads the carrier whose native alpha/visibility/translation it already inherits.
+
+### AOD -> Keyguard Control Center review
+
+The Build-667 incoming-boundary readiness fix remains. Build 669 retains the additional source-order guards: fraction-first acquisition and HOME/KEYGUARD witness disagreement prefer KEYGUARD only while the verified incoming Keyguard presentation-ready fact is true. No ordinary unlock path can use that guard.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required before device testing.
