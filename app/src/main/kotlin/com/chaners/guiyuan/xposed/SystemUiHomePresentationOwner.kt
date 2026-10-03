@@ -1577,7 +1577,6 @@ internal object SystemUiHomePresentationOwner {
             nativePadding = PaddingState.from(group)
             reportIslandContractOnce(group)
             captureControlCenterIslandMonitor(group)
-            captureNativePeerVerticalBand()
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
             if (!applyPersistentIgnoredSlotsIfNeeded(group)) return 0
