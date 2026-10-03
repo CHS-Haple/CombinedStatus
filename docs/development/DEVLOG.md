@@ -3019,3 +3019,57 @@ One active-island slow pull with detailed diagnostics is sufficient:
 - source/fake state equal but screen X diverges: carrier/root transform is the next boundary.
 
 Build 662 requires exact-head Runtime CI and one signed Canary.
+
+
+## 2026-10-03 — Build 663: restore progressive island occupancy without collision-boundary override
+
+**Type:** device-evidence root-cause correction / isolated historical contract test  
+**Display version:** 0.0.5  
+**Build:** 663 / `20261003-663`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Build-662 device evidence
+
+The maintainer reports that native status peers still calculate island avoidance as if the Control Center were already at its pull-down endpoint.
+
+The v3 source/fake/final diagnostic makes the timing explicit. In the first captured active-island bucket (about fraction 0.12), the Home source row already reports terminal island-hide state for affected peers while the fake root is still early in its native translation. QS_FAKE exposes a matching terminal arrangement immediately. The source state supports native animation; the QS_FAKE state does not.
+
+This rejects fake-root translation as the primary cause. The early horizontal settle is an occupancy/state cutover that precedes the visible carrier trajectory.
+
+### Root cause
+
+Build 655 recovered native island collision by reintroducing represented Wi-Fi/mobile/Battery participants into QS_FAKE measure/layout and disabling Guiyuan reservation/capacity. That gives HyperOS a complete final participant set, but it also means the fake row measures **full final represented occupancy from the first frame**. Non-represented peers therefore receive pull-down-end horizontal placement immediately.
+
+The failed later experiments isolate the two forbidden shortcuts:
+- Build 660 full-width capacity removes the native collision pressure and therefore removes knife-hide;
+- Build 661 positive end padding on top of already-full represented occupancy cannot undo an occupancy set that is terminal before the first sample.
+
+### Build-663 correction
+
+Restore the compact-to-final semantic occupancy path while keeping the island collision boundary native:
+
+- QS_FAKE represented slots return to the established session-scoped native `ignoredSlots` contract.
+- The existing compact end reservation is present before visible transition cutover.
+- During the gesture, the same reservation expands toward final semantic occupancy from raw HyperOS expansion progress.
+- The island-only fixed fake-carrier capacity lease remains disabled.
+- The removed Build-652 `getIslandTranslationX()` projection/compensation remains absent.
+- The rejected Build-659 `getIslandShowing()` semantic override remains absent.
+- No peer `NewStatusIconState`, alpha, visibility, translation, `islandWidth`, animator timing, timer or custom easing is written.
+- Build-662 v3 source/fake/final read-only diagnostics remain.
+
+### Historical isolation
+
+This exact combination has not previously received a device test:
+- Build 652 had progress occupancy **plus** the rejected island-boundary compensation;
+- Build 653 removed the boundary compensation **and** disabled island progress reservation;
+- Build 655 replaced ignored-slot compact occupancy with full native represented measurement.
+
+Build 663 therefore tests the missing middle state: compact represented-slot exclusion + native-progress reservation + untouched HyperOS collision boundary.
+
+### Risk / fail-native boundary
+
+The principal risk is the Build-653 concern that removing represented fake participants from native measure/layout may again reduce native semantic completeness for dual-SIM/island decisions. Device validation must therefore jointly require progressive peer motion **and** preserved knife-hide/dual-SIM behavior. A visually smoother row is not sufficient if native island collision regresses.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Focus on slow active-island outward/reverse pull, charging island + dual SIM, native knife-hide, absence of full-row left jump, ordinary no-island regression, and one detailed diagnostic.

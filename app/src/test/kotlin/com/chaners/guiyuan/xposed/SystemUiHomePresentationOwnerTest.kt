@@ -23,38 +23,24 @@ class SystemUiHomePresentationOwnerTest {
 
 
     @Test
-    fun islandControlCenterKeepsHyperOsNativeLayoutAuthority() {
+    fun islandControlCenterKeepsFixedCarrierLeaseDisabled() {
         assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyIgnoredSlots(
-                    surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = true,
-                ),
-        )
-        assertFalse(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyEndReservation(
+                .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = true,
                 ),
         )
         assertTrue(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyIgnoredSlots(
+                .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "control-center-fake",
                     nativeLayoutAuthority = false,
                 ),
         )
-        assertTrue(
+        assertFalse(
             SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyEndReservation(
-                    surfaceName = "control-center-fake",
-                    nativeLayoutAuthority = false,
-                ),
-        )
-        assertTrue(
-            SystemUiHomePresentationOwner.ControlCenterLayoutPolicy
-                .shouldApplyEndReservation(
+                .shouldApplyFakeCarrierCapacityLease(
                     surfaceName = "home",
                     nativeLayoutAuthority = true,
                 ),
