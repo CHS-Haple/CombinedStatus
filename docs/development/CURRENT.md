@@ -15,52 +15,63 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 Branch: `feat/aod-display-control` / PR #196.
 
-Build 667 follows Build-666 device validation and fixes two lifecycle-boundary defects without changing native motion ownership.
+Build 668 follows successful Build-667 device validation. Build 667 closed the known Keyguard/AOD lifecycle defects:
+- AOD -> Keyguard no longer collapses adjacent peers inward;
+- AOD -> Keyguard fast/partial Control Center pull no longer falls back to native in the reproduced path;
+- Keyguard -> AOD no longer returns to native at fade start and now keeps the outgoing Keyguard owner until the native status-icon lifetime ends.
 
-Build-666 device evidence:
-- AOD -> Keyguard peer icons no longer merge inward, validating native status-icon presentation alpha as the correct incoming-layout lifecycle authority.
-- Keyguard -> AOD returns to native too early: `animateIconContainer(false)` starts native status-icon fade, but the first `isAodAnimate=true` callback releases the Keyguard presentation only milliseconds later while the native transition is still active.
-- AOD -> Keyguard can briefly show native QS/status icons when pulled down quickly. The incoming Keyguard visual handoff is already revealed and compact layout is ready, but stable `keyguardRuntimeReady` is still false; Control Center therefore temporarily treats the source as native until stable Keyguard commits.
+The remaining device issue is only **Home/Desktop -> AOD when AOD projection is disabled**: Guiyuan hands back to native AOD later than desired.
 
-Build-667 lifecycle correction:
-- outgoing Keyguard visual ownership is retained while the exact native Keyguard status-icon layer still has visible presentation alpha (`alpha > 0`); release occurs only at `alpha == 0` or the stable AOD endpoint;
-- `animateIconContainer(false)` is treated as fade-start, not the outgoing owner cleanup boundary;
-- stable Keyguard readiness remains unchanged;
-- a derived incoming-boundary presentation-ready state is available only when visual handoff is active, compact prelayout is complete, the native visual boundary has been reached, the host is attached, Keyguard projection is enabled, and AOD projection is disabled;
-- Keyguard-originated Control Center may use that already-valid incoming presentation before stable-family commit, and a temporary AOD-blocked flag cannot revoke an active lease during that bounded incoming handoff;
-- fraction-zero cleanup and transient readiness loss do not tear down the incoming Keyguard owner while that derived presentation-ready state remains valid.
+Build-667 evidence for the remaining path:
+- Home is authoritative immediately before screen-off and Home still owns represented slots;
+- HyperOS does not go directly Home -> AOD. The first Full-AOD target is Keyguard, then roughly one native callback later `toAod=true / isAodAnimate=true` begins without a stable Keyguard endpoint;
+- therefore this is a direct Home -> native-AOD lifecycle routed through a transient Keyguard target, not an ordinary stable Keyguard -> AOD transition.
 
-No timer, delay, copied duration/interpolator, native alpha/visibility/translation writer, peer-motion writer, or second presentation owner is introduced.
+Build-668 lifecycle correction:
+- arm a Home-native-AOD fallback candidate only at Full-AOD entry while the authoritative steady source is HOME, Home still owns represented slots, Keyguard projection is enabled, and AOD projection is disabled;
+- a transient `target=keyguard` does not consume or clear that candidate;
+- if native AOD animation then begins before stable Keyguard, promote the candidate to an active native-AOD fallback, tear down the transient Keyguard presentation, and keep native authoritative until stable AOD;
+- if stable Keyguard is reached first, clear the candidate so later Keyguard -> AOD keeps the accepted Build-667 alpha-lifetime behavior;
+- direct native target=AOD may consume the same candidate immediately;
+- reverse Keyguard target, resolver failure, stable endpoints, feature-setting changes, Hot Reload and full feature teardown fail closed.
+
+AOD -> Keyguard Control Center risk review:
+- Build 667 fixed the observed fast-pull failure with incoming-boundary presentation readiness;
+- a residual callback-order race remained possible if panel expansion fraction arrived before visible/source reconciliation while the cached source was still HOME;
+- Build 668 bridges that exact case: once the existing incoming Keyguard presentation-ready fact is true, fraction > 0 promotes the Control Center source to KEYGUARD before lease acquisition;
+- visible/source conflict resolution also prefers KEYGUARD only when the same incoming-ready fact is true and at least one native source witness explicitly reports KEYGUARD;
+- normal unlock cannot use this guard because incoming-boundary readiness is absent.
+
+No timer, delay, copied duration/interpolator, native alpha/visibility/translation writer, peer-motion writer, geometry compensation, or second presentation owner is introduced.
 
 ## Validation state
 
-- Candidate identity: `0.0.5` / versionCode `261003667` / Build `20261003-667`.
+- Candidate identity: `0.0.5` / versionCode `261003668` / Build `20261003-668`.
 - PR #196 was 0 behind `dev` before authoring.
-- Pre-commit lifecycle review completed across Home / Keyguard / AOD / Keyguard Control Center ownership.
-- Unit coverage includes outgoing Keyguard alpha lifetime, native visual-boundary semantics, incoming boundary readiness, host detach failure, and AOD-blocked lease retention only during the verified incoming handoff.
+- Pre-commit lifecycle review completed for Home -> transient Keyguard -> native AOD and AOD -> incoming Keyguard -> Control Center.
+- Unit coverage includes Home fallback arming, AOD-animation consumption, direct native-AOD target, stale family override, incoming Keyguard source conflict, and non-Keyguard unlock rejection.
 - Exact-head Runtime CI and one signed Canary are required.
 
 ## Device gate
 
-1. Keyguard ON / AOD OFF — Keyguard -> AOD:
-   - Guiyuan must not switch to native immediately at fade start;
-   - it should remain the outgoing owner until the native Keyguard status-icon presentation actually reaches its hidden endpoint;
-   - stable AOD remains native.
+1. Keyguard ON / AOD OFF — Home/Desktop -> AOD:
+   - the native/system flash may remain;
+   - transient Keyguard Guiyuan must hand back as soon as native AOD animation begins, not hundreds of milliseconds later;
+   - no second Guiyuan interval after native AOD takeover.
 
-2. Keyguard ON / AOD OFF — AOD -> Keyguard, immediate/fast partial pull:
-   - no transient native status row / native QS fake;
-   - holding a partial pull must not wait for stable Keyguard to recover Guiyuan;
-   - aborting the pull must not tear down the incoming Keyguard handoff.
+2. Keyguard ON / AOD OFF — ordinary Keyguard -> AOD:
+   - preserve Build-667 behavior: Guiyuan stays until native Keyguard status-icons actually reach their hidden endpoint.
 
-3. AOD -> Keyguard normal path:
-   - preserve Build-666 fix: no peer icons merging inward.
+3. AOD -> Keyguard, immediate/fast/partial pull:
+   - no native status row / native QS fake even if expansion fraction arrives before visible/source callback;
+   - aborting or holding the partial pull remains combined.
 
-4. Home/Desktop -> AOD:
-   - still observe only; the separate Home-origin transient-owner defect is not part of Build 667.
+4. AOD -> Keyguard normal path:
+   - preserve no-peer-merge fix.
 
 ## Immediate next step
 
-Freeze runtime at Build 667, run exact-head Runtime CI, then issue one signed Canary for the lifecycle gate above.
+Freeze runtime at Build 668, complete exact-head Runtime CI and review, then issue one signed Canary for the focused lifecycle gate.
 
 ## Reference priority
 
