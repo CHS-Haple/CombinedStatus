@@ -3227,3 +3227,38 @@ No monitor field write, island-rectangle write, child state/alpha/visibility/tra
 ### Validation
 
 Run exact-head Runtime CI. If green, one signed Work Branch Canary is required because this changes active-island runtime semantics. Device acceptance requires collision protection while overlapping, immediate release after vertical separation, reverse re-engagement, charging-island + dual-SIM sanity, ordinary no-island regression, and a detailed `islandWidth2DGate` trace.
+
+
+## 2026-10-03 — Build 670: latch island-avoided peers and protect separated-phase capacity
+
+**Type:** device-feedback root-cause composition  
+**Display version:** 0.0.5  
+**Build:** 670 / `20261003-670`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+### Evidence
+
+Build 669 fixes the stale one-dimensional island-width constraint. The remaining near-terminal disappearance is a second mechanism already proven by Build 609.
+
+The returned reverse trace separates the two causes:
+- roughly fraction 0.87 / 0.75 / 0.62: fake `network_speed` is hidden with `inIslandState=20`;
+- roughly 0.50 / 0.37: it is visible again with the same non-island state;
+- roughly 0.25 / 0.12: it enters native island-hide state `inIslandState=10`.
+
+The video also shows sequential late loss: network speed disappears before VPN near the endpoint. This matches fake-row usable-width underflow, not island collision.
+
+### Design
+
+A full island-time capacity lease remains rejected because Build 660 removed native knife-hide. Build 670 enables the accepted Build-611/612 fixed lease only after Build 669 proves the fake row has actually separated in 2D.
+
+At the overlap -> separated boundary, Guiyuan reads existing native peer state once and snapshots only non-represented peers already island-hidden. Those peers receive reversible presentation-only empty clips so they cannot visibly reappear when island width is released. The fixed carrier-capacity lease is then activated, preventing reservation pressure from hiding additional peers such as VPN later in the same gesture.
+
+On reverse real-overlap, clips remain held while the lease restores the native carrier width. Clips are released only after a baseline-width native layout completes, preventing a one-frame reappearance before HyperOS island avoidance has regained layout authority.
+
+### Ownership
+
+No `NewStatusIconState` field, alpha, View visibility, translation, island rectangle or island-width field is written. The only new peer presentation write is identity-owned reversible `clipBounds`, reusing the already-accepted masking pattern. No timer, poller, custom easing or second motion system is added.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device acceptance requires one-hide-per-gesture behavior, no late VPN/headset underflow, preserved knife-hide during real overlap, correct reverse release ordering, no capacity-activation left jump, and ordinary no-island regression coverage.
