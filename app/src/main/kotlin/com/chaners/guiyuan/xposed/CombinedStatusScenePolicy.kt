@@ -301,8 +301,10 @@ internal object CombinedStatusScenePolicy {
         aodEnabled: Boolean,
         lastStableFamilyScene: StableKeyguardAodScene,
         nativeToLockScreenTarget: Boolean?,
+        homeNativeAodFallbackActive: Boolean = false,
     ): Boolean =
         featureEnabled &&
+            !homeNativeAodFallbackActive &&
             keyguardEnabled &&
             !aodEnabled &&
             lastStableFamilyScene == StableKeyguardAodScene.AOD &&
@@ -315,6 +317,7 @@ internal object CombinedStatusScenePolicy {
         lastStableFamilyScene: StableKeyguardAodScene,
         nativeToLockScreenTarget: Boolean?,
         statusIconsPresentationAlpha: Float?,
+        homeNativeAodFallbackActive: Boolean = false,
     ): Boolean =
         shouldUseKeyguardBoundaryVisualHandoff(
             featureEnabled = featureEnabled,
@@ -322,6 +325,7 @@ internal object CombinedStatusScenePolicy {
             aodEnabled = aodEnabled,
             lastStableFamilyScene = lastStableFamilyScene,
             nativeToLockScreenTarget = nativeToLockScreenTarget,
+            homeNativeAodFallbackActive = homeNativeAodFallbackActive,
         ) &&
             statusIconsPresentationAlpha != null &&
             statusIconsPresentationAlpha == 0f
