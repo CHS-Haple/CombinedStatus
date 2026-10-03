@@ -79,7 +79,19 @@ class CombinedStatusControlCenterRenderSessionTest {
     }
 
     @Test
-    fun islandNativeLayoutStillAllowsGuiyuanControlCenterProjection() {
+    fun islandGestureKeepsControlCenterPresentationNative() {
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                sceneEligible = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+                nativePresentationReady = true,
+                islandNativePresentationAuthority = true,
+            ),
+        )
         assertTrue(
             CombinedStatusControlCenterRenderSession.resolveProjectionReady(
                 featureEnabled = true,
@@ -89,6 +101,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 layoutReady = true,
                 hostAttached = true,
                 nativePresentationReady = true,
+                islandNativePresentationAuthority = false,
             ),
         )
     }
