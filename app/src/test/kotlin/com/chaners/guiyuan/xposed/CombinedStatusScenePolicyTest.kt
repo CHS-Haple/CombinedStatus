@@ -504,6 +504,26 @@ class CombinedStatusScenePolicyTest {
                 steadySourceScene = CombinedStatusSourceScene.UNKNOWN,
             ),
         )
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.HOME,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                incomingKeyguardPresentationReady = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            CombinedStatusScenePolicy.resolveControlCenterSourceScene(
+                panelSourceScene = CombinedStatusSourceScene.HOME,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                incomingKeyguardPresentationReady = true,
+            ),
+        )
     }
 
     @Test
@@ -1284,14 +1304,78 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun disabledAodTargetReleasesOnlyTransientHomeKeyguard() {
+    fun disabledAodHomeFallbackArmsOnlyFromAuthoritativeHomeOwnership() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldArmHomeNativeAodFallbackCandidate(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldArmHomeNativeAodFallbackCandidate(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                homePresentationOwned = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldArmHomeNativeAodFallbackCandidate(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = true,
+                steadySourceScene = CombinedStatusSourceScene.HOME,
+                homePresentationOwned = true,
+            ),
+        )
+    }
+
+    @Test
+    fun disabledAodHomeFallbackConsumesOnNativeAodAnimationNotTransientKeyguard() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldConsumeHomeNativeAodFallbackOnAodState(
+                candidateActive = true,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldConsumeHomeNativeAodFallbackOnAodState(
+                candidateActive = true,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = false,
+                isAodAnimate = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldConsumeHomeNativeAodFallbackOnAodState(
+                candidateActive = false,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+            ),
+        )
+    }
+
+    @Test
+    fun disabledAodDirectTargetReleasesOnlyArmedHomeFallback() {
         assertTrue(
             CombinedStatusScenePolicy.shouldReleaseTransientHomeKeyguardForDisabledAod(
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = false,
-                lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
+                homeNativeAodFallbackCandidate = true,
                 homePresentationOwnedAtFullAodStart = true,
                 nativeToLockScreenTarget = false,
             ),
@@ -1301,10 +1385,9 @@ class CombinedStatusScenePolicyTest {
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = false,
-                lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.KEYGUARD,
+                homeNativeAodFallbackCandidate = true,
                 homePresentationOwnedAtFullAodStart = true,
-                nativeToLockScreenTarget = false,
+                nativeToLockScreenTarget = true,
             ),
         )
         assertFalse(
@@ -1312,10 +1395,28 @@ class CombinedStatusScenePolicyTest {
                 featureEnabled = true,
                 keyguardEnabled = true,
                 aodEnabled = false,
-                lastStableFamilyScene =
-                    CombinedStatusScenePolicy.StableKeyguardAodScene.UNKNOWN,
-                homePresentationOwnedAtFullAodStart = false,
+                homeNativeAodFallbackCandidate = false,
+                homePresentationOwnedAtFullAodStart = true,
                 nativeToLockScreenTarget = false,
+            ),
+        )
+    }
+
+    @Test
+    fun activeHomeNativeAodFallbackOverridesStaleKeyguardFamilyEvidence() {
+        assertEquals(
+            CombinedStatusScenePolicy.KeyguardAodProjection.NATIVE,
+            CombinedStatusScenePolicy.resolveKeyguardAodProjection(
+                featureEnabled = true,
+                keyguardEnabled = true,
+                aodEnabled = false,
+                toAod = true,
+                isAodAnimate = true,
+                steadySourceScene = CombinedStatusSourceScene.KEYGUARD,
+                lastStableFamilyScene =
+                    CombinedStatusScenePolicy.StableKeyguardAodScene.AOD,
+                keyguardStatusIconsAlpha = 1f,
+                homeNativeAodFallbackActive = true,
             ),
         )
     }
