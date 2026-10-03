@@ -292,7 +292,7 @@ internal object CombinedStatusScenePolicy {
         aodEnabled: Boolean,
         lastStableFamilyScene: StableKeyguardAodScene,
         nativeToLockScreenTarget: Boolean?,
-        keyguardHostShown: Boolean,
+        statusIconsPresentationAlpha: Float?,
     ): Boolean =
         shouldUseKeyguardBoundaryVisualHandoff(
             featureEnabled = featureEnabled,
@@ -300,7 +300,9 @@ internal object CombinedStatusScenePolicy {
             aodEnabled = aodEnabled,
             lastStableFamilyScene = lastStableFamilyScene,
             nativeToLockScreenTarget = nativeToLockScreenTarget,
-        ) && !keyguardHostShown
+        ) &&
+            statusIconsPresentationAlpha != null &&
+            statusIconsPresentationAlpha == 0f
 
     fun shouldReleaseTransientHomeKeyguardForDisabledAod(
         featureEnabled: Boolean,
