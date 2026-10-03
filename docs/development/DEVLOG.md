@@ -3172,3 +3172,20 @@ Build 665 showed no visual change. Detailed device evidence contained no `island
 Build 667 restores the accepted Build-664/663 runtime path and adds one read-only, detailed-diagnostics-only contract probe. On the first Control Center fake Session it walks a bounded view/delegate object graph and records only fields/methods whose names or types are related to island / monitor / space / delegate / controller. This is session-time evidence only: no per-frame reflection, no animator, no timer, no child-state writes, no island-width writes, and no geometry writes.
 
 The target seam to verify is the exact-reference chain `FakeContainerIslandMonitor -> statusContainerSpace -> fake MiuiStatusIconContainer island-width/layout`. One detailed device log is required before any functional interception is added.
+
+
+## 2026-10-03 — Build 668: persist QS_FAKE island contract snapshot
+
+**Type:** diagnostic reliability / no runtime behavior change  
+**Build:** 668 / `20261003-668`  
+**Branch / PR:** `feat/battery-fill-retract-follow` / #197
+
+Build 667 correctly restored the accepted Build-663/664 runtime and added a bounded read-only probe for the real QS_FAKE island constraint path. Device feedback is visually unchanged, as expected. The returned detailed diagnostic contains the active-island transition but no `islandContractProbe` line because the probe is emitted only once at fake-session startup while dense `endReservation` logging later fills the 600-line export window.
+
+Build 668 keeps the exact Build-667 runtime and makes the evidence durable:
+- the existing one-shot probe result is cached as a compact string;
+- existing bucketed transition diagnostics append that cached value as `islandContract=...`;
+- no extra object-graph scan is added to the pull-down hot path;
+- no geometry/state writer, requestLayout, animation, timer, polling or additional Hook is introduced.
+
+One active-island pull with detailed diagnostics is sufficient. The resulting class/member signatures will determine the first monitor/statusContainerSpace-side functional correction.

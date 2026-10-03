@@ -54,6 +54,7 @@ internal object SystemUiHomePresentationOwner {
     private var keyguardFailNativeSink: ((String) -> Unit)? = null
     private var keyguardReadySink: ((StateResult.Active) -> Unit)? = null
     private var contractProbeEnabled: () -> Boolean = { false }
+    private var controlCenterIslandContractProbeSummary: String? = null
 
     val installedHookCount: Int
         @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
@@ -69,6 +70,15 @@ internal object SystemUiHomePresentationOwner {
     @Synchronized
     internal fun currentControlCenterNativeLayoutAuthority(): Boolean =
         controlCenterCurrent?.usesNativeLayoutAuthority() == true
+
+    @Synchronized
+    internal fun currentControlCenterIslandContractProbeSummary(): String =
+        controlCenterIslandContractProbeSummary ?: "unavailable"
+
+    @Synchronized
+    private fun publishControlCenterIslandContractProbeSummary(summary: String) {
+        controlCenterIslandContractProbeSummary = summary
+    }
 
     @Synchronized
     fun onVisualSettingsChanged() {
@@ -917,6 +927,7 @@ internal object SystemUiHomePresentationOwner {
         keyguardFailNativeSink = null
         keyguardReadySink = null
         contractProbeEnabled = { false }
+        controlCenterIslandContractProbeSummary = null
     }
 
     private class Session(
@@ -1066,6 +1077,7 @@ internal object SystemUiHomePresentationOwner {
             }
 
             var emitted = 0
+            val persistedTokens = mutableListOf<String>()
             while (queue.isNotEmpty() && emitted < 12 && seen.size < 16) {
                 val (path, target, depth) = queue.removeFirst()
                 if (!seen.add(target)) continue
@@ -1118,6 +1130,16 @@ internal object SystemUiHomePresentationOwner {
                         }
                     }
 
+                val contractToken =
+                    path + ":" + target.javaClass.name +
+                        "{f=" + fieldTokens.joinToString(";") +
+                        ",m=" + methodTokens.joinToString(";") + "}"
+                if (
+                    persistedTokens.size < 8 &&
+                    (fieldTokens.isNotEmpty() || methodTokens.isNotEmpty())
+                ) {
+                    persistedTokens += contractToken
+                }
                 onEvent(
                     eventPrefix +
                         " islandContractProbe path=" + path +
@@ -1128,6 +1150,12 @@ internal object SystemUiHomePresentationOwner {
                 )
                 emitted += 1
             }
+            SystemUiHomePresentationOwner
+                .publishControlCenterIslandContractProbeSummary(
+                    persistedTokens
+                        .joinToString("|")
+                        .ifEmpty { "empty" },
+                )
         }
 
         fun ownedRepresentedSlots(): Set<String> {

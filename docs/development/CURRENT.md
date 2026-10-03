@@ -1,5 +1,18 @@
 # Current Development State
 
+## 2026-10-03 — Build 668: persist QS_FAKE island monitor contract evidence
+
+Build 667 is visually unchanged as intended because it restored the accepted Build-663/664 runtime and only probed the production island-layout seam. The returned detailed diagnostic still proves fake peers can remain island-hidden after vertical separation, but the one-shot `islandContractProbe` event was pushed out of the 600-line runtime-log window by dense transition reservation logs.
+
+Build 668 changes diagnostics only:
+- cache the bounded Build-667 QS_FAKE island/monitor/space/delegate/controller contract probe result in the presentation owner;
+- append that cached snapshot to the existing bucketed `controlCenterTransitionGeometry` diagnostic as `islandContract=...`;
+- perform no additional per-frame reflection: transition buckets only read the cached string;
+- no Hook, layout, padding, island-width/state, translation, alpha/visibility, timer, animator or requestLayout behavior changes.
+
+Device gate: one active-island Home -> Control Center pull and one detailed diagnostic. The snapshot must expose whether the real fake-row contract is reachable as a setter/method/delegate around `MiuiStatusIconContainer` / its fake parent. The next functional build will target that exact seam; do not return to `getIslandShowing()`.
+
+
 ## 2026-10-03 — Build 667: trace the real QS_FAKE island-constraint seam
 
 Build 665 is rejected by device evidence. Its fake-only `getIslandShowing()` 2D gate produced no `island2DGate` event and the visual result was unchanged. The detailed log kept `network_speed` / `vpn` at native `inIslandState=10` after the fake row had already moved vertically below the island, while the transition diagnostic reported the gate geometry/state unavailable. This proves the getter seam is not the production input used by QS_FAKE island layout on this target.

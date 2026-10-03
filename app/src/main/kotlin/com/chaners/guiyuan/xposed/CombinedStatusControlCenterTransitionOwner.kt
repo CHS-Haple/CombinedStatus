@@ -1028,6 +1028,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",islandNativeLayout=" + islandNativeLayoutAuthority +
                 ",iconCapacity=" + statusIconCapacitySummary() +
                 ",nativeRows=" + nativeStatusRowSummary() +
+                ",islandContract=" +
+                SystemUiHomePresentationOwner.currentControlCenterIslandContractProbeSummary() +
                 ",fakeCarrier=" + fakeCarrierHierarchySummary() +
                 ",reservationMode=" +
                 when {
