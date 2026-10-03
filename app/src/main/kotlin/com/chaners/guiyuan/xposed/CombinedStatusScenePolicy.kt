@@ -318,18 +318,37 @@ internal object CombinedStatusScenePolicy {
             statusIconsPresentationAlpha != null &&
             statusIconsPresentationAlpha == 0f
 
+    fun shouldLatchHomeDepartureForNativeAodFallback(
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        aodEnabled: Boolean,
+        previousSourceScene: CombinedStatusSourceScene,
+        nextSourceScene: CombinedStatusSourceScene,
+        homePresentationOwned: Boolean,
+        nativeToAod: Boolean?,
+        nativeAodAnimating: Boolean?,
+    ): Boolean =
+        featureEnabled &&
+            keyguardEnabled &&
+            !aodEnabled &&
+            previousSourceScene == CombinedStatusSourceScene.HOME &&
+            nextSourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            homePresentationOwned &&
+            nativeToAod == false &&
+            nativeAodAnimating == false
+
     fun shouldReleaseTransientHomeKeyguardForDisabledAod(
         featureEnabled: Boolean,
         keyguardEnabled: Boolean,
         aodEnabled: Boolean,
-        lastStableFamilyScene: StableKeyguardAodScene,
+        homeDeparturePending: Boolean,
         homePresentationOwnedAtFullAodStart: Boolean,
         nativeToLockScreenTarget: Boolean?,
     ): Boolean =
         featureEnabled &&
             keyguardEnabled &&
             !aodEnabled &&
-            lastStableFamilyScene == StableKeyguardAodScene.UNKNOWN &&
+            homeDeparturePending &&
             homePresentationOwnedAtFullAodStart &&
             nativeToLockScreenTarget == false
 
